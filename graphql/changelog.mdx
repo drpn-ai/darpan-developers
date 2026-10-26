@@ -1,0 +1,13 @@
+---
+title: "Changelog"
+description: "Changes to the GraphQL API."
+---
+
+## Unreleased
+
+- `auditReport` and `auditFinding` queries: audit runs over GraphQL, in the `darpan.audit.report/v1` and `darpan.audit.finding/v1` shapes.
+- `category(id:)` on the audit report and `statement(id:)` on a category: one element by id, `null` when there is none.
+- `findings` query: every finding of the key's tenant, paged, with `query:` keys `audit`, `statement`, `category`, `state`, `period` and `firstFound`, sorted by `FIRST_FOUND` or `STATEMENT`.
+- API keys can be rotated with a grace period, disabled, and listed by an administrator.
+- Every type, field and argument in the schema has a description.
+- An audit query explains an expected refusal in plain words; other failures no longer show internal detail.

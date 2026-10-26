@@ -1,0 +1,50 @@
+{
+  "data": {
+    "auditFinding": {
+      "finding": {
+        "id": "F-20790",
+        "headline": "Invoice INV-552310 has no Etail id",
+        "statement": {
+          "id": "R2",
+          "text": "Every invoice and credit memo carries the Shopify order id (the Etail id)."
+        },
+        "status": {
+          "state": "pending",
+          "firstFound": "2026-10-08",
+          "lastSeen": "2026-10-08",
+          "timesSeen": 1,
+          "pendingUntil": "2026-10-09"
+        },
+        "records": [
+          {
+            "system": "NetSuite",
+            "recordType": "invoice",
+            "id": "INV-552310",
+            "internalId": "51000940",
+            "status": "Paid In Full"
+          }
+        ],
+        "fix": {
+          "owner": "Accounting",
+          "where": "NetSuite",
+          "action": "Enter the Shopify order id in the Etail Order Id field of invoice INV-552310.",
+          "verify": {
+            "by": "Darpan's next scheduled check",
+            "passesWhen": "Invoice INV-552310 carries an Etail id."
+          },
+          "darpanChanges": "Nothing. Darpan reads NetSuite and the OMS; it never writes to them."
+        },
+        "history": [
+          {
+            "at": "2026-10-08T06:05:00-07:00",
+            "event": "found"
+          }
+        ]
+      },
+      "access": {
+        "mode": "read-only",
+        "note": "This API has no mutations. Fix the record in its own system; Darpan closes the finding at its next scheduled check."
+      }
+    }
+  }
+}

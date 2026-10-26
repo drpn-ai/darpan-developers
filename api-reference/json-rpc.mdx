@@ -1,0 +1,105 @@
+---
+title: "JSON-RPC"
+description: "Request and response shape for Darpan JSON-RPC calls."
+---
+
+All Darpan backend calls use `POST /rpc/json` with a JSON-RPC 2.0 envelope.
+
+## Request shape
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "service.Name#Verb",
+  "params": {}
+}
+```
+
+`params` must be a JSON object of named parameters. Send one call per request. Batch requests (a JSON array of calls) are not supported: the response has no body, so the outcome of each call in the array is lost.
+
+The following calls `get#SessionInfo` from the Auth facade:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "facade.AuthFacadeServices.get#SessionInfo",
+  "params": {}
+}
+```
+
+## Allowed methods
+
+`/rpc/json` dispatches only methods whose name starts with `facade.`, `admin.` or `gql.`. Any other method, including stock Moqui services marked `allow-remote`, is refused with HTTP 403 before dispatch, with or without a session. The check covers the top-level method and every entry of a batch. The published method list is the [Service catalog](/api-reference/service-catalog).
+
+The framework's `/rest/login` endpoint is closed and answers HTTP 403. Sign in with `facade.AuthFacadeServices.login#Session`.
+
+## Required headers
+
+Every call sends:
+
+```http
+Content-Type: application/json
+```
+
+Which auth headers accompany it depends on the channel (see below): the browser-cookie
+channel adds `X-CSRF-Token` plus the `darpan_login_key` session cookie; the header-token
+channel adds `login_key` instead, with no CSRF token and no cookie.
+
+## Authentication channels
+
+Two channels exist. Which one applies is not ambiguous:
+
+- **Browser app (canonical): HttpOnly cookie.** With cookie auth enabled, the app
+  authenticates through the `darpan_login_key` HttpOnly cookie plus a CSRF token. No token is
+  stored where page scripts can read it. `login#Session` sets the cookie on a successful
+  sign-in. To get the CSRF token, call `GET /apps/darpan/csrfToken`; it restores the session
+  from the cookie when one is present and returns `{"moquiSessionToken": "<token>",
+  "authenticated": true|false}`. Send that value in the `X-CSRF-Token` header on every
+  `POST /rpc/json`. A missing or mismatched token is refused with HTTP 401.
+- **Integration callers and fallback: `login_key` header.** Non-browser clients — and
+  browser deployments where credentialed CORS is unavailable — send the token returned by
+  `login#Session` in the `login_key` request header. Keep the token in memory; never put it
+  in query parameters. Calls that send `login_key` are not CSRF-checked.
+
+For token lifetime, sign-out, and password changes, see
+[Auth and access](https://docs.drpn.ai/reference/auth-and-access#session-lifecycle).
+
+The backend CORS end-state is an exact-origin allowlist with
+`Access-Control-Allow-Credentials` for the app origins. A wildcard allowlist is an incident
+posture, not a configuration.
+
+## Success shape
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "ok": true
+  }
+}
+```
+
+## Error shape
+
+Errors return an `error` object instead of `result`. A service that fails or ends with errors returns `error.code: 500` with HTTP 500, so read the body on non-200 responses. For the HTTP refusals, the code table, and the validation shape, see [Errors](/api-reference/errors).
+
+## Contract versioning
+
+The generated contract carries `info.x-darpan-contract-version`, decoupled from the
+product release version. The policy is additive-only:
+
+- **Non-breaking, no version bump:** new methods, new optional request parameters, new
+  response fields.
+- **Breaking, requires a conscious version bump:** removing a method, removing or renaming
+  a parameter or response field, changing a field's type, or making a parameter newly
+  required.
+
+CI compares every pull request's contract against its base and fails on breaking changes
+that arrive without a version bump.
+
+Service-specific fields vary by method. They are documented from backend facade definitions and verified runtime responses.
+
+For a catalog of available methods, see [Service catalog](/api-reference/service-catalog).

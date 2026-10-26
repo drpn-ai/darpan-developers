@@ -1,0 +1,32 @@
+---
+title: "Engineering overview"
+description: "How Darpan engineering work is organized and verified."
+---
+
+The Backend engine section explains how Darpan works at runtime. The Frontend app pages explain how the Vue application is shaped as a browser control surface. This section explains how to change either side safely: choose the right repository, preserve contracts, and verify the affected surface.
+
+## Engineering model
+
+Darpan engineering starts from the user workflow, keeps UI and backend ownership separate, uses Moqui XML for service contracts, and verifies the changed surface before broad claims.
+
+## How to read this section
+
+These pages cover implementation context rather than product workflow guides.
+
+<CardGroup cols={2}>
+  <Card title="Engineering process" icon="sparkles" href="/engineering/process">
+    How changes are discovered, implemented, verified, and documented.
+  </Card>
+  <Card title="Repo map" icon="folder-tree" href="/engineering/repo-map">
+    Frontend and backend repositories, component paths, and ownership boundaries.
+  </Card>
+  <Card title="Release discipline" icon="tag" href="/engineering/release-discipline">
+    Versioning, the release cut checklist, review questions, and verification scope.
+  </Card>
+  <Card title="Frontend PWA philosophy" icon="monitor-smartphone" href="/engineering/frontend-pwa-philosophy">
+    App shell, route surface model, command-first navigation, and current PWA boundary.
+  </Card>
+  <Card title="Frontend design system" icon="palette" href="/engineering/frontend-design-system">
+    Shared CSS, component, workflow, and page-surface contracts for frontend pages.
+  </Card>
+</CardGroup>

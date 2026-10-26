@@ -1,0 +1,67 @@
+{
+  "data": {
+    "auditReport": {
+      "schema": "darpan.audit.report/v1",
+      "report": {
+        "date": "2026-10-08",
+        "period": "2026-10",
+        "window": {
+          "from": "2026-10-01",
+          "thru": "2026-10-08"
+        }
+      },
+      "health": {
+        "complete": true,
+        "summary": "Every source read was complete and every configured check ran.",
+        "sources": [
+          {
+            "system": "NetSuite",
+            "read": "complete",
+            "records": 3311,
+            "reason": null,
+            "affects": []
+          }
+        ]
+      },
+      "summary": {
+        "open": 0,
+        "pending": 1,
+        "newToday": 1,
+        "fixedToday": 0
+      },
+      "categories": [
+        {
+          "id": "orders",
+          "label": "Orders",
+          "statements": [
+            {
+              "id": "R2",
+              "text": "Every invoice and credit memo carries the Shopify order id (the Etail id).",
+              "status": "ran",
+              "counts": {
+                "open": 0,
+                "pending": 1
+              },
+              "findings": [
+                {
+                  "id": "F-20790",
+                  "headline": "Invoice INV-552310 has no Etail id",
+                  "state": "pending",
+                  "firstFound": "2026-10-08",
+                  "ageDays": 0,
+                  "records": [
+                    {
+                      "system": "NetSuite",
+                      "recordType": "invoice",
+                      "id": "INV-552310"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

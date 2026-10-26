@@ -1,0 +1,30 @@
+---
+title: "Search syntax"
+description: "The query: argument on a connection: keys, comparators and values."
+---
+
+A connection's `query:` argument filters it with `key:value` terms. Terms are separated by spaces, and every term must match.
+
+| Term | Matches |
+|---|---|
+| `statusEnumId:AUT_STAT_SUCCESS` | equal to the value |
+| `statusEnumId:AUT_STAT_SUCCESS,AUT_STAT_FAILED` | any of the values |
+| `key:>value` | greater than; `>=`, `<` and `<=` work the same way, on keys that allow them |
+
+```graphql
+reconciliationResults(first: 20, query: "savedRunId:ORDERS_OMS_NS statusEnumId:AUT_STAT_SUCCESS")
+```
+
+```graphql
+findings(first: 50, query: "statement:R2,R8 state:open firstFound:>=2026-10-01")
+```
+
+- Each query's page lists the keys it accepts, and which comparators each key takes.
+- A value can be wrapped in double quotes; the quotes are removed. A value cannot contain a space.
+- The key ends at the first `:`, so a value may contain `:` itself.
+
+| Error code | Cause |
+|---|---|
+| `MALFORMED_QUERY` | A term is not `key:value` |
+| `FIELD_NOT_FILTERABLE` | The key is not one the query accepts |
+| `OPERATOR_NOT_ALLOWED` | The comparator is not allowed on that key |

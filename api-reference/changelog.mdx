@@ -1,0 +1,202 @@
+---
+title: "API changelog"
+description: "Contract-version history for the Darpan Facade API."
+---
+
+The generated contract carries `info.x-darpan-contract-version`, decoupled from the product release version. The policy is additive-only: new methods, new optional parameters, and new response fields ship without a bump; breaking changes require a conscious one. See [Contract versioning](/api-reference/json-rpc#contract-versioning).
+
+| Contract version | Darpan releases | Public `facade.*` methods |
+| --- | --- | --- |
+| 3 (current) | 1.5.0, 1.5.1, 2.0.0, 2.1.0 | 141 |
+| 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
+| 1 | 1.0.0 to 1.1.0 | 66 |
+
+Releases 1.3.0, 1.4.0, and 1.5.1 added or removed no methods.
+
+<Note>
+Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
+</Note>
+
+## Contract version 3
+
+Darpan 1.5.0. Current.
+
+### Added in 2.1.0
+
+The facade contract stays at version 3: every 2.0.0 method, parameter and response field is unchanged, and 26 public methods are added (115 to 141).
+
+Audits:
+
+- `facade.AuditFacadeServices.get#Audits`
+- `facade.AuditFacadeServices.get#AuditReport`
+- `facade.AuditFacadeServices.get#AuditFinding`
+- `facade.AuditFacadeServices.get#AuditFindingsByOrder`
+- `facade.AuditFacadeServices.get#AuditCheckExtracts`
+- `facade.AuditFacadeServices.verify#AuditFinding`
+- `facade.AuditFacadeServices.create#Audit`
+- `facade.AuditFacadeServices.add#AuditStatement`
+- `facade.AuditFacadeServices.get#AuditSettings`
+- `facade.AuditFacadeServices.save#AuditSettings`
+- `facade.AuditFacadeServices.run#Audit`
+- `facade.AuditFacadeServices.get#AuditCheckOptions`
+- `facade.AuditFacadeServices.save#AuditCheck`
+
+Password reset and recovery email:
+
+- `facade.AuthFacadeServices.request#PasswordReset`
+- `facade.AuthFacadeServices.verify#PasswordResetCode`
+- `facade.AuthFacadeServices.complete#PasswordReset`
+- `facade.AuthFacadeServices.get#PasswordResetStatus`
+- `facade.AuthFacadeServices.save#RecoveryEmail`
+
+Conclusions and lifecycles:
+
+- `facade.RunConclusionFacadeServices.get#RunConclusions`
+- `facade.RunConclusionFacadeServices.save#RunConclusions`
+- `facade.RunConclusionFacadeServices.create#RunConclusionCode`
+- `facade.ReconciliationFacadeServices.get#LifecyclePlan`
+- `facade.ReconciliationFacadeServices.save#LifecycleConclusions`
+
+NetSuite:
+
+- `facade.NetSuiteQueryFacadeServices.get#NsSuiteQlQueryOptions`
+- `facade.NetSuiteQueryFacadeServices.preview#NsSuiteQlSourceQuery`
+- `facade.SettingsFacadeServices.delete#NsAuthConfig`
+
+### Added in 2.0.0
+
+The facade contract stays at version 3: every 1.5.1 method, parameter and response field is unchanged, and 29 public methods are added (86 to 115). The breaking change in 2.0.0 is at the transport, not in the contract: `/rpc/json` now refuses any method outside `facade.*`, `admin.*` and `gql.*` with HTTP 403 before dispatch, and the framework's `/rest/login` is closed. An integration that only calls the methods on this page needs no change. See [Errors](/api-reference/errors).
+
+Runs as flowcharts:
+
+- `facade.ReconciliationFacadeServices.list#Reconciliations`
+- `facade.ReconciliationFacadeServices.get#Reconciliation`
+- `facade.ReconciliationFacadeServices.save#Reconciliation`
+- `facade.ReconciliationFacadeServices.save#ReconciliationQuestion`
+- `facade.ReconciliationFacadeServices.delete#ReconciliationQuestion`
+- `facade.ReconciliationFacadeServices.run#Reconciliation`
+- `facade.ReconciliationFacadeServices.get#ReconciliationExecution`
+- `facade.ReconciliationFacadeServices.list#ReconciliationExecutions`
+- `facade.ReconciliationFacadeServices.import#NetSuiteChecksAsRuns`
+
+Lifecycles:
+
+- `facade.ReconciliationFacadeServices.save#Lifecycle`
+- `facade.ReconciliationFacadeServices.save#LifecycleStages`
+- `facade.ReconciliationFacadeServices.save#LifecycleRule`
+- `facade.ReconciliationFacadeServices.delete#LifecycleRule`
+- `facade.ReconciliationFacadeServices.save#LifecycleStageException`
+- `facade.ReconciliationFacadeServices.delete#LifecycleStageException`
+- `facade.ReconciliationFacadeServices.save#LifecycleFinding`
+- `facade.ReconciliationFacadeServices.delete#LifecycleFinding`
+- `facade.ReconciliationFacadeServices.save#LifecycleDetails`
+- `facade.NetSuiteLifecycleFacadeServices.get#LifecycleOptions`
+- `facade.NetSuiteLifecycleFacadeServices.get#LifecycleRuleOptions`
+
+NetSuite check definitions:
+
+- `facade.NetSuiteQueryFacadeServices.list#NsSuiteQlSourceQueries`
+- `facade.NetSuiteQueryFacadeServices.get#NsSuiteQlSourceQuery`
+- `facade.NetSuiteQueryFacadeServices.save#NsSuiteQlSourceQuery`
+
+Retiring runs and automations without deleting them:
+
+- `facade.ReconciliationFacadeServices.disable#SavedRun`
+- `facade.ReconciliationFacadeServices.enable#SavedRun`
+- `facade.ReconciliationFacadeServices.archive#SavedRun`
+- `facade.ReconciliationFacadeServices.restore#SavedRun`
+- `facade.ReconciliationFacadeServices.archive#Automation`
+- `facade.ReconciliationFacadeServices.restore#Automation`
+
+The release also adds one operator-only method, `admin.ScheduleAdminServices.get#ScheduleBoard`.
+
+### Breaking change
+
+- `facade.SettingsFacadeServices.list#TenantChatSpaces` no longer returns `chatSpaces[].googleChatWebhookUrlMasked`. Webhook URLs are now stored in clear text and returned in `webhookUrl` (and in `googleChatWebhookUrl`, the pre-Slack name).
+
+### Added
+
+Expired-password recovery:
+
+- `facade.AuthFacadeServices.change#ExpiredPassword`
+
+Anonymous by necessity, because the account cannot hold a session until the password changes. It requires the account's current password.
+
+Slack notifications:
+
+- `facade.SlackFacadeServices.begin#SlackInstall`
+- `facade.SlackFacadeServices.save#SlackBotToken`
+- `facade.SlackFacadeServices.get#SlackInstall`
+- `facade.SlackFacadeServices.list#SlackChannels`
+- `facade.SlackFacadeServices.disconnect#SlackWorkspace`
+
+A chat space now names a chat product. Existing Google Chat spaces are unaffected.
+
+Config sharing across tenants:
+
+- `facade.ConfigSharingFacadeServices.grant#ConfigTenantAccess`
+- `facade.ConfigSharingFacadeServices.revoke#ConfigTenantAccess`
+- `facade.ConfigSharingFacadeServices.list#ConfigTenantAccess`
+
+Source endpoint access:
+
+- `facade.SourceEndpointFacadeServices.list#SourceConfigEndpoints`
+- `facade.SourceEndpointFacadeServices.store#SourceConfigEndpointAccess`
+
+CSV schema inference:
+
+- `facade.JsonSchemaFacadeServices.infer#JsonSchemaFromCsvText`
+
+Automation sync:
+
+- `facade.ReconciliationFacadeServices.sync#Automation`
+
+Re-derives an automation's snapshot from its saved run. `get#Automation` gains a `syncStatus` map reporting snapshot drift; this is an additive response field.
+
+That is 13 public methods. The release also added 7 operator-only `admin.*` methods.
+
+## Contract version 2
+
+Darpan 1.2.0. Unchanged through 1.3.0 and 1.4.0.
+
+### Removed
+
+Replaced by the chat-space registry:
+
+- `facade.SettingsFacadeServices.get#TenantNotificationSettings`
+- `facade.SettingsFacadeServices.save#TenantNotificationSettings`
+
+Callers reading or writing the single tenant webhook should move to `list#TenantChatSpaces` and `save#TenantChatSpace`. Existing webhooks are carried over automatically on upgrade. See [Run-completion alerts](https://docs.drpn.ai/guides/run-completion-alerts#upgrading-from-the-single-tenant-webhook).
+
+### Added
+
+Chat-space notifications:
+
+- `facade.SettingsFacadeServices.list#TenantChatSpaces`
+- `facade.SettingsFacadeServices.save#TenantChatSpace`
+- `facade.SettingsFacadeServices.delete#TenantChatSpace`
+- `facade.SettingsFacadeServices.get#UserNotificationDefault`
+- `facade.SettingsFacadeServices.save#UserNotificationDefault`
+
+Run control and notification:
+
+- `facade.ReconciliationFacadeServices.cancel#ReconciliationRun`
+- `facade.ReconciliationFacadeServices.subscribe#RunNotification`
+- `facade.ReconciliationFacadeServices.unsubscribe#RunNotification`
+
+Connections:
+
+- `facade.SettingsFacadeServices.test#SourceConnection`
+
+That is 9 public methods added and 2 removed. The release also added 17 operator-only `admin.*` methods.
+
+## Contract version 1
+
+Baseline contract, Darpan 1.0.0 (65 methods, all `facade.*`).
+
+- JSON-RPC 2.0 transport over `POST /rpc/json`.
+- Auth channels: HttpOnly `darpan_login_key` cookie plus CSRF token (browser, canonical) and `login_key` header (integration callers and fallback).
+
+### Added in 1.1.0
+
+- `facade.ReconciliationFacadeServices.get#ReconciliationRunStatus`

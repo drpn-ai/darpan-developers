@@ -1,0 +1,12 @@
+---
+title: "Versioning"
+description: "How the GraphQL API and the audit documents change."
+---
+
+The audit documents carry their version in `schema`: `darpan.audit.report/v1` and `darpan.audit.finding/v1`.
+
+Within v1, changes are additive only: a new field, a new type, a new enum value or a new system name. A field is never removed or renamed, its type never changes, and what it means never changes. Those would be v2. Ignore fields you do not recognise.
+
+The schema Darpan serves is always at `GET /rest/s1/graphql/sdl`, with a description on every type, field and argument. This reference is generated from it.
+
+See the [changelog](/graphql/changelog) for what changed and when.

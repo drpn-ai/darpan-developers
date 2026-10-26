@@ -1,0 +1,18 @@
+query OpenReturnsFindings {
+  findings(first: 2, query: "category:returns state:open period:2026-10", sortKey: FIRST_FOUND) {
+    edges {
+      cursor
+      node {
+        id
+        statement
+        headline
+        state
+        firstFound
+        ageDays
+        records { system recordType id internalId status }
+        next
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}

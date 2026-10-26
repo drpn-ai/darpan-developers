@@ -1,0 +1,24 @@
+---
+title: "Local development setup"
+description: "Recover from common local Darpan setup, JDK 21, and Spark startup failures."
+---
+
+Local setup breaks in predictable ways — almost always a JDK version mismatch, missing JVM flags, a missing runtime clone, or a port that didn't release cleanly. The table below covers the problems that come up most often.
+
+## Common fixes
+
+| Problem | Fix |
+| --- | --- |
+| Backend fails to start with a `JVM version 21` or class-version error | Make JDK 21 the active Java: `export JAVA_HOME=$(/usr/libexec/java_home -v 21)`. The backend does not run on Java 17. |
+| `java -version` still reports 17 after installing JDK 21 | A version-manager shim such as jenv or asdf is ahead of JDK 21 on your `PATH`. Point `JAVA_HOME` at the JDK 21 home, put `$JAVA_HOME/bin` first on `PATH`, and confirm with `java -version` before running Gradle. |
+| Backend boots but reconciliation fails at the compare step, for example on `sun.nio.ch.DirectBuffer` or an `IllegalAccessError` | The Spark JVM flags were not set. Export `JAVA_TOOL_OPTIONS` with the full flag set from [Set the JDK 21 runtime flags](/self-host/set-up-darpan-independently#set-the-jdk-21-runtime-flags) in the same shell, then restart the backend. `./gradlew run` and `npm run dev:stack` do not set these flags themselves. |
+| `Repository not found` while cloning a `drpn-ai` repo | Check the repository name and URL. If your organization uses SSH, switch to the SSH clone URL. |
+| `runtime directory not found` | Run `./gradlew getRuntime` from `darpan-backend` before loading data. |
+| Gradle cannot find `:runtime:component:moqui-sftp` | Clone `moqui-sftp` into `runtime/component`. |
+| The backend fails at startup loading the `moqui-gql` component | Build its jar before loading or running: `./gradlew :runtime:component:moqui-gql:jar`. |
+| `Task 'loadDarpanSetup' not found` | Use `./gradlew load` for a fresh setup. `loadDarpanSetup` was removed. |
+| `npm install` or Vite fails on Node version | Use Node.js 20 or newer. |
+| Backend starts but UI API calls fail | Wait for Moqui boot to finish, then refresh the UI. |
+| Login shows no active session | Create the initial admin user from `http://localhost:8080/Login`, then sign in through the UI. |
+| Data load fails with a database lock | The local database is H2, which allows one process at a time. Stop `npm run dev:stack` or any running backend process before rerunning the load. |
+| Ports keep changing or Vite starts on a different port | Use `npm run dev:stack`; it targets `8080` and `5173` and clears old listeners. Export `JAVA_TOOL_OPTIONS` in the same shell first. |

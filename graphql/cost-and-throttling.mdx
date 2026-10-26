@@ -1,0 +1,47 @@
+---
+title: "Cost and throttling"
+description: "How Darpan costs a GraphQL query before running it, and the per-key throttle."
+---
+
+Darpan works out a query's cost before reading anything. A query over a limit is rejected without touching the database, with an error code that says which limit.
+
+## Limits
+
+| Limit | Default | Error code |
+|---|---|---|
+| Cost of one query | 1000 | `COST_EXCEEDED` |
+| Depth (nesting of objects) | 6 | `DEPTH_EXCEEDED` |
+| `first` or `last` on a connection | 100 | `FIRST_TOO_LARGE` |
+| A connection without `first` or `last` | not allowed | `FIRST_REQUIRED` |
+| Time for one request | 30 seconds | `DEADLINE_EXCEEDED` |
+
+## How a query is costed
+
+| Selection | Cost |
+|---|---|
+| A scalar field | 1 |
+| An object field | 1 + the cost of its selection |
+| A connection | `first` × (1 + the cost of one node) |
+| A service-backed query (`auditReport`, `auditFinding`) | 25 + the cost of its selection |
+| A nested list inside an audit document (`categories`, `statements`, `findings`, `records`) | 1 + the cost of one element: the document is already built, so its lists are not multiplied |
+| A `query:` search key without a database index | +50 |
+
+A full `auditReport` query, every field, costs well under 1000.
+
+## Throttle
+
+Each API key has a bucket of 1000 points that refills at 50 points a second. A query's cost is taken from the bucket when it runs. A query that costs more than the bucket holds is rejected with `THROTTLED`; wait for the bucket to refill.
+
+Every response reports the cost and the bucket:
+
+```json
+"extensions": {
+  "cost": {
+    "requestedQueryCost": 34,
+    "actualQueryCost": 34,
+    "throttleStatus": { "maximumAvailable": 1000, "currentlyAvailable": 966, "restoreRate": 50 }
+  }
+}
+```
+
+Your administrator may set different limits for a key.

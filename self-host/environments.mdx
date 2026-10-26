@@ -1,0 +1,35 @@
+---
+title: "Environments"
+description: "Known Darpan runtime targets, their addresses, and how each keeps you signed in."
+---
+
+Darpan runs in three kinds of place: your own machine for development, a hosted test environment, and the hosted production app. Each has its own app and API addresses, and they do not share accounts or data. Knowing which one you are in saves a lot of "why is my run missing" confusion.
+
+## Local development
+
+Local development supports behavior changes and validation. See [Set up Darpan independently](/self-host/set-up-darpan-independently).
+
+| Service | Default URL |
+| --- | --- |
+| Frontend | `http://localhost:5173` |
+| Backend | `http://localhost:8080` |
+| JSON-RPC | `http://localhost:8080/rpc/json` |
+
+## Hosted environments
+
+| Environment | App | API | Session mode |
+| --- | --- | --- | --- |
+| Production | `https://app.drpn.ai` | `https://api.drpn.ai` | Secure cookie. New tabs share the session. |
+| Test (UAT) | `https://app-uat.drpn.ai` | `https://api-uat.drpn.ai` | Per-tab session. Each new tab needs its own sign-in. |
+
+The test environment is for release smoke testing and workflows that need stable external access before a change reaches production. A dedicated instance runs on its own hosts, which the team running it provides.
+
+For what each session mode means in practice, see [Login and session](https://docs.drpn.ai/troubleshooting/login-and-session#how-the-app-keeps-you-signed-in).
+
+<Warning>
+Published docs use placeholders for credentials, session cookies, CSRF tokens, and organization-specific endpoint values.
+</Warning>
+
+## Running your own
+
+To run Darpan on your own infrastructure, see [Self-host in production](/self-host/production).

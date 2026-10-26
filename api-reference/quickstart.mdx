@@ -1,0 +1,142 @@
+---
+title: "API quickstart"
+description: "Make your first authenticated JSON-RPC call."
+---
+
+Every Darpan API call is `POST /rpc/json` with a JSON-RPC 2.0 envelope. This page goes from credentials to a first authenticated response.
+
+Production base URL: `https://api.drpn.ai/rpc/json`. A dedicated Darpan instance has its own base URL; use that instead. Against a local backend ([run it yourself](/self-host/set-up-darpan-independently)), use `http://localhost:8080/rpc/json`.
+
+<Note>
+The **Send** button in the generated reference's request playground does not work yet. Send calls with `curl` or another HTTP client to `https://api.drpn.ai/rpc/json`, or to your instance's URL, as shown below.
+</Note>
+
+## 1. Get a token
+
+`login#Session` is anonymous: no cookie or CSRF bootstrap is needed. It returns a Moqui login-key token. It is the only sign-in path: the framework's `/rest/login` is closed, and `/rpc/json` refuses any method outside `facade.*`, `admin.*` and `gql.*` with HTTP 403.
+
+```bash
+curl -sS https://api.drpn.ai/rpc/json \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "facade.AuthFacadeServices.login#Session",
+    "params": {"username": "<username>", "password": "<password>"}
+  }'
+```
+
+A successful sign-in carries the token in `result.authToken`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "ok": true,
+    "messages": [],
+    "errors": [],
+    "authenticated": true,
+    "passwordChangeRequired": false,
+    "authToken": "<token>",
+    "authTokenType": "LOGIN_KEY",
+    "authTokenHeaderName": "login_key",
+    "authTokenExpiresInSeconds": 518400,
+    "sessionInfo": {
+      "userId": "<userId>",
+      "username": "<username>",
+      "activeTenantUserGroupId": "<tenantId>",
+      "availableTenants": [{"userGroupId": "<tenantId>", "label": "<tenant name>"}]
+    }
+  }
+}
+```
+
+`sessionInfo` is shortened here; the full field list is in the generated reference. `authTokenExpiresInSeconds` follows the server's login-key expiry, which defaults to 144 hours (6 days).
+
+Read `authenticated` to decide whether you have a session. Do not use `ok` for this.
+
+Keep the token in memory. Never put it in query parameters.
+
+### If sign-in is refused
+
+Wrong credentials come back as a JSON-RPC error with HTTP 500. The message is the same for every refusal reason:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 500,
+    "message": "Invalid username or password"
+  }
+}
+```
+
+### If the password must change first
+
+A first sign-in with a temporary password, or a sign-in after the password has aged out, returns `ok: true` with `authenticated: false`, `passwordChangeRequired: true`, and a `passwordChangeReason` (`PWDCHG` for a forced change, `PWDTIM` for an expired password). No token is issued. Call `change#ExpiredPassword` without a token, then sign in again with the new password:
+
+```bash
+curl -sS https://api.drpn.ai/rpc/json \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "facade.AuthFacadeServices.change#ExpiredPassword",
+    "params": {
+      "username": "<username>",
+      "currentPassword": "<current password>",
+      "newPassword": "<new password>",
+      "newPasswordVerify": "<new password>"
+    }
+  }'
+```
+
+`result.passwordUpdated: true` means the account can now sign in.
+
+## 2. Call a method
+
+Send the token in the `login_key` header on every later call. `get#SessionInfo` returns the session, user, and active-tenant context:
+
+```bash
+export AUTH_TOKEN="<token from step 1>"
+
+curl -sS https://api.drpn.ai/rpc/json \
+  -H 'Content-Type: application/json' \
+  -H "login_key: $AUTH_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "facade.AuthFacadeServices.get#SessionInfo",
+    "params": {}
+  }'
+```
+
+## 3. Read the result
+
+A `result` object is success. An `error` object is a failure, and it usually arrives with HTTP 500, so read the body on non-200 responses too. See [Errors](/api-reference/errors).
+
+## 4. Sign out
+
+`logout#Session` revokes the token you send and ends only that session:
+
+```bash
+curl -sS https://api.drpn.ai/rpc/json \
+  -H 'Content-Type: application/json' \
+  -H "login_key: $AUTH_TOKEN" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "facade.AuthFacadeServices.logout#Session",
+    "params": {}
+  }'
+```
+
+`result.authTokenRevoked: true` confirms the token was removed. To end every session for the user, call `logout#AllSessions` instead.
+
+## Next steps
+
+- [Service catalog](/api-reference/service-catalog): every available method.
+- [JSON-RPC transport](/api-reference/json-rpc): envelope, headers, and auth channels.
+- [Auth and access](https://docs.drpn.ai/reference/auth-and-access): sessions, tenants, and permissions.

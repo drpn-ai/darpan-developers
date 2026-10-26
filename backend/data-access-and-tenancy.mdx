@@ -1,0 +1,119 @@
+---
+title: "Data access and tenancy"
+description: "How backend services scope users, tenants, shared configs, and generated files."
+---
+
+Access and scope failures are the most common source of unexpected data gaps, so this is where to look first when records appear missing or return empty.
+
+Darpan services resolve who is acting and which tenant is active before returning or mutating data.
+
+## Tenant model
+
+Moqui 4 has no native multitenancy. Darpan implements tenancy itself: a tenant is a Moqui `UserGroup` of type `UgtDarpanCompany`, and tenant-owned rows carry that group's ID in `companyUserGroupId`. Every Darpan installation shares one database across its tenants.
+
+Common scoped fields include:
+
+- `companyUserGroupId` (the tenant key)
+- `ownerUserId`
+- `createdByUserId`
+
+## Active tenant
+
+The active tenant is a server-side user preference, `darpan.auth.activeTenantUserGroupId`. It is not stored per session or per browser tab.
+
+- `facade.AuthFacadeServices.save#ActiveTenant` sets it, after checking the user is a member of the requested tenant.
+- On every request and after login, the webroot hook in `MoquiConf.xml` calls `TenantAccessSupport.syncUserContext`. That puts `activeTenantUserGroupId` and the caller's permissions for it into the user context, where services and entity filters read them.
+
+Because the preference belongs to the user, switching tenant in one tab or client re-points every other session of the same user on its next request. Integration users must not share a login with browser users.
+
+## Permission membership
+
+Tenant permission membership is separate from tenant identity. A user can have one active tenant while their permission level for that tenant comes from membership records.
+
+The backend entity model includes:
+
+```text
+darpan.auth.TenantUserPermissionGroupMember
+```
+
+This joins:
+
+- `tenantUserGroupId`
+- `userId`
+- `permissionUserGroupId`
+- effective date fields
+
+The assignable tenant roles are:
+
+| Role | Permission group | View | Run | Edit |
+| --- | --- | --- | --- | --- |
+| Tenant admin | `DARPAN_TENANT_ADMIN` | Yes | Yes | Yes |
+| Company editor | `DARPAN_COMPANY_EDITOR` | Yes | Yes | Yes |
+| Tenant user | `DARPAN_TENANT_USER` | Yes | Yes | No |
+| Company view-only | `DARPAN_COMPANY_VIEW_ONLY` | Yes | No | No |
+
+Super admin is not a tenant role. It is granted through the `DARPAN_SUPER_ADMIN` or `ADMIN` group and applies across tenants.
+
+That split lets the backend decide whether the current user can view, run, or edit the active tenant's data without applying one global role everywhere.
+
+## Service checks
+
+Facade services check access before listing, opening, saving, running, or deleting scoped records. Client-side filtering is not the security boundary.
+
+Backend access helpers are responsible for:
+
+- Resolving the active tenant
+- Checking view, run, or edit access
+- Applying scope filters to entity queries
+- Resolving tenant-scoped temp and output locations
+
+## Reading and writing tenant data safely
+
+Two mechanisms keep a read inside the active tenant. Use both the way the existing code does.
+
+Entity filters: the `DARPAN_ACTIVE_COMPANY_SCOPE` entity filter set, in `data/SecuritySeedData.xml`, adds `companyUserGroupId = activeTenantUserGroupId` to finds on tenant-owned entities. The set is attached to the facade artifact authorizations, so it applies to entity finds made inside facade service calls while authorization is enabled. A find that disables authorization skips it.
+
+`TenantScopedFinder`: code that has to read with authorization disabled goes through `darpan.facade.common.TenantScopedFinder` instead of calling `disableAuthz()` directly:
+
+| Method | Use it for |
+| --- | --- |
+| `findTenantScoped(ec, entityName)` | A find with the active-tenant condition already applied. With no active tenant it returns no rows. |
+| `findTenantScopedById(ec, entityName, pkField, pkValue)` | One record by primary key, returned only when the active tenant owns it. A foreign or missing record returns `null` and adds an error. |
+| `findTenantScopedByIdQuiet(...)` | The same check without adding an error, for callers that handle the denial themselves. |
+| `findTenantScopedChildren(...)` | Child rows of a parent the active tenant owns. |
+| `findOneOwnedByTenant(ec, entityName, pkField, pkValue, tenantId)` | One row by complete primary key, returned only when it belongs to the named tenant. |
+| `findGlobalUnscoped(ec, entityName, reason)` | A deliberate tenant-neutral read, such as enums or system sweeps. The reason string is required and logged. |
+
+One Moqui behaviour to know: when a find specifies the complete primary key, `one()` takes the primary-key lookup path, and other conditions on the same find are not applied. A tenant condition next to a full primary key does not restrict the result. Use `findOneOwnedByTenant`, or compare `companyUserGroupId` on the returned row.
+
+Tests guard these rules:
+
+- `DisableAuthzRatchetTest` counts bare `disableAuthz()` calls in production Groovy outside the allowlisted helpers, and fails the build when the count rises above its baseline.
+- `EntityOwnershipGuardTest` fails when the same entity is defined in two components, or when core code starts depending on a connector-owned entity.
+
+## Shared source configs
+
+An API source config (HotWax OMS, Shopify, or NetSuite) can be shared with other tenants. Sharing links the tenants to one config row; it never copies it.
+
+- `darpan.auth.ConfigTenantAccess` holds one grant per peer tenant, keyed by config type, config ID, tenant, and start date.
+- The owning tenant (the row's `companyUserGroupId`) and every peer tenant use the same row, so an edit made under any member applies to all of them.
+- Granting and revoking (`facade.ConfigSharingFacadeServices.grant#ConfigTenantAccess` / `revoke#ConfigTenantAccess`) require the caller to be a tenant admin of the target tenant and of a tenant that already uses the config.
+- Revoking sets `thruDate` on the grant. It never deletes the row, so the history of who could reach a credential is kept.
+- `list#ConfigTenantAccess` returns the owner, the peers, the member count, and whether the caller may manage the group.
+
+Shared SFTP servers use a separate assignment entity, `darpan.reconciliation.SftpServerTenantAccess`.
+
+## Generated file isolation
+
+Generated outputs have database metadata and file-system or object-location data. The backend resolves output paths from active scope so generated files follow the same access model as saved runs and output descriptors.
+
+Generated output behavior includes both sides:
+
+- The descriptor record users can list, open, or delete
+- The scoped file location where the generated data is stored
+
+## Backend contract
+
+Data visibility, mutation access, and output isolation are backend contracts. The UI can guide a workflow, but backend services enforce the access model before returning or changing scoped data.
+
+For the product-facing auth and access model, see [Auth and access](https://docs.drpn.ai/reference/auth-and-access).

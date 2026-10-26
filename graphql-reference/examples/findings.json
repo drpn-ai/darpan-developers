@@ -1,0 +1,39 @@
+{
+  "data": {
+    "findings": {
+      "edges": [
+        {
+          "cursor": "WyJGSVJTVF9GT1VORCIsZmFsc2UsIkdPUkpBTkFfUjgiLCIyMDI2LTEwLTA5IiwiRi0yMDc2MSJd",
+          "node": {
+            "id": "F-20761",
+            "statement": "R8",
+            "headline": "Return M258615 has no credit memo",
+            "state": "open",
+            "firstFound": "2026-10-09",
+            "ageDays": 12,
+            "records": [
+              { "system": "OMS", "recordType": "return", "id": "M258615", "internalId": null, "status": "Completed" }
+            ],
+            "next": "darpan findings show F-20761"
+          }
+        },
+        {
+          "cursor": "WyJGSVJTVF9GT1VORCIsZmFsc2UsIkdPUkpBTkFfUjgiLCIyMDI2LTEwLTA5IiwiRi0yMDc2MiJd",
+          "node": {
+            "id": "F-20762",
+            "statement": "R8",
+            "headline": "Return M258616 has no credit memo",
+            "state": "open",
+            "firstFound": "2026-10-09",
+            "ageDays": 12,
+            "records": [
+              { "system": "OMS", "recordType": "return", "id": "M258616", "internalId": null, "status": "Completed" }
+            ],
+            "next": "darpan findings show F-20762"
+          }
+        }
+      ],
+      "pageInfo": { "hasNextPage": true, "endCursor": "WyJGSVJTVF9GT1VORCIsZmFsc2UsIkdPUkpBTkFfUjgiLCIyMDI2LTEwLTA5IiwiRi0yMDc2MiJd" }
+    }
+  }
+}

@@ -1,0 +1,106 @@
+---
+title: "Frontend design system"
+description: "The shared UI structure used to build Darpan frontend surfaces."
+---
+
+Darpan's design system is a set of frontend contracts, not a separate component library; when a pattern is missing here, extend one of the sources below rather than adding page-local structure.
+
+It lives in the Vue app through CSS variables, shared components, route metadata, and page-surface rules. The system keeps setup, reconciliation, and review screens consistent while letting backend contracts remain the source of truth for data, permissions, and generated output.
+
+## Sources of truth
+
+| Source | Owns |
+| --- | --- |
+| `src/style.css` | Global tokens, static-surface classes, workflow classes, form utilities, responsive behavior, safe-area offsets, theme variables, and reduced-motion rules. |
+| `src/App.vue` | Global shell, offline banner, error boundary, the mascot dock, Tara (the one floating control), command palette wiring, and workflow escape handling. |
+| `src/router/index.ts` | Route ownership, auth metadata, static versus workflow surface mode, and public route handling. |
+| `src/components/ui/**` | Shared UI primitives for static pages, validation, empty and error states, badges, tables, selects, toggles, list paging, JSON viewing, save actions, cancel actions, and editable titles. |
+| `src/components/workflow/**` | Shared workflow frame, progress, step form, workflow select, chip text input, time select, and shortcut choice cards. |
+| `src/components/shell/**` | `CommandPalette.vue` for global command navigation, `OfflineBanner.vue`, and `AppErrorBoundary.vue`. |
+| `.stylelintrc.cjs` | The CSS gate that keeps design-system values on tokens. |
+
+When a screen needs a reusable pattern, the default move is to extend one of these contracts before adding page-local styling.
+
+## Foundations
+
+| Foundation | Current rule |
+| --- | --- |
+| Typography | One self-hosted family, IBM Plex Mono, so setup records, IDs, and reconciliation data read consistently. Sizes and tracking come from the `--type-*` scale in `src/style.css`. One weight: 400 everywhere. Emphasis comes from size, never bold. |
+| Color | Light and dark themes are expressed through CSS variables. Components consume semantic variables instead of hard-coded palettes. |
+| Spacing | Shared `--space-*` tokens define page rhythm, grid gaps, controls, and floating-action offsets. |
+| Radius | Radius tokens keep controls and surfaces restrained and consistent. |
+| Surfaces | Static and workflow surfaces have separate width, padding, and typography tokens. |
+| Interaction | Focus states, selection colors, disabled states, and reduced-motion behavior live in shared CSS. |
+| Responsiveness | Shared breakpoints and safe-area-aware offsets keep workflows and floating actions usable on smaller screens. |
+
+The CSS gate enforces part of this. `npm run lint:css` runs Stylelint over `src/**/*.{css,vue}` and is part of `npm run check`:
+
+- Color, fill, stroke, radius, font size, letter spacing, margin, gap, and padding must use a token (a `var(...)` or a derived function), not a literal. The few literals left carry an inline disable with a reason.
+- `font-weight` may only be `400`, `normal`, or `inherit`.
+
+The design system favors quiet, dense, scan-friendly screens because Darpan is an operational tool. Visual polish supports repeated work without turning setup and review pages into marketing layouts.
+
+## Surface primitives
+
+Static pages use the static-surface system:
+
+- `StaticPageFrame` frames saved-record dashboards, lists, and editors.
+- `StaticPageSection` groups related saved records or actions.
+- `static-page-record-grid` and `static-page-record-tile` present saved records.
+- `static-page-module-grid` and `static-page-module-tile` present in-surface navigation.
+- `static-page-list-toolbar` and `static-page-pager` own saved-list chrome.
+- `StaticEditableTitle` handles inline names without turning headings into heavy form controls.
+
+Workflow pages use the workflow system:
+
+- `WorkflowPage` frames create, edit, and run flows.
+- `WorkflowStepForm` owns the shared question, answer, action, and validation structure.
+- `WorkflowSelect` and `AppSelect` provide controlled selection patterns.
+- `WorkflowShortcutChoiceCards` handles keyed multiple-choice prompts.
+- `workflow-form-grid`, `workflow-form-grid--two`, and `workflow-form-grid--compact` provide form layout before page-local CSS is considered.
+- `workflow-form--edit-single-page` marks compact edit surfaces inside the workflow visual system.
+
+Shared feedback and control primitives include `InlineValidation`, `EmptyState`, `ErrorState`, `StatusBadge`, `AppTableFrame`, `AppListPager`, `AppToggleSwitch`, `JsonCollapseViewer`, `AppSaveAction`, and `AppCancelAction`. Workflow inputs add `WorkflowChipTextInput` and `WorkflowTimeSelect`.
+
+## Page composition
+
+Each page starts from the surface that matches the user job.
+
+| User job | Preferred page shape |
+| --- | --- |
+| Browse saved records | Static page with saved-record tiles, toolbar, and pagination when needed. |
+| Inspect one durable record | Static detail page with inline title editing and action tiles. |
+| Create a new record | Workflow page with one focused decision per step. |
+| Edit a compact setup record | Workflow page with compact single-page form styling. |
+| Run a reconciliation | Workflow page that collects source, schema, field, and run intent before handing execution to the backend. |
+| Review run output | Static page that reads generated output metadata and opens durable result views. |
+
+This composition keeps saved state and user decisions separate. Static pages answer "what exists?" Workflow pages answer "what changes next?"
+
+## Extension rules
+
+- Reuse shared UI and workflow components before creating a new component.
+- Add recurring layout classes to `src/style.css` instead of repeating scoped page CSS.
+- Keep route metadata current when adding or moving pages.
+- Use the surface primitives above for common save, cancel, select, validation, and empty-state interactions.
+- Keep custom Darpan UI in `darpan-ui`, not in backend `screen/**`, `template/**`, or `theme-library/**`.
+- Let backend services own tenant filtering, validation, reconciliation rules, and generated-output paths.
+
+When a pattern appears on more than one page, it belongs in a shared contract. When a pattern is unique to one page, local CSS stays small and the code shape explains the reason.
+
+## Migration rules
+
+- Settings pages split into static saved-record surfaces and workflow create/edit surfaces when one page is doing both jobs.
+- Static pages preserve route behavior and workflow-origin state when they launch workflows.
+
+Page tests cover shared contract classes. Focused UI tests run before broader UI checks.
+
+## Verification
+
+Design-system changes are checked at the contract level.
+
+- Add or update focused component and page tests for new shared classes or route metadata.
+- Verify static pages still render as saved-record surfaces.
+- Verify workflow pages still use workflow shell classes and expected cancel or escape behavior.
+- Run focused UI tests before broad UI checks.
+- Use the Darpan frontend quality gate before handoff when the change touches shared shell, workflow, or static-surface behavior.

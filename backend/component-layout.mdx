@@ -1,0 +1,71 @@
+---
+title: "Component layout"
+description: "Backend component structure, runtime dependencies, and implementation boundaries."
+---
+
+The Darpan backend is the [`drpn-ai/darpan`](https://github.com/drpn-ai/darpan) Moqui runtime component. The layout below is where backend investigations and service changes start. In a Moqui framework checkout it is mounted at:
+
+```text
+<moqui-framework>/runtime/component/darpan
+```
+
+`component.xml` declares the component's version and registers its entities, services, and screens:
+
+```text
+entity/
+service/
+screen/
+```
+
+`MoquiConf.xml` mounts the component's screens at `/apps/darpan` and adds three webroot hooks. Before each request and after login, `TenantAccessSupport.syncUserContext` loads the caller's active tenant and permissions into the user context. After each request, the logging correlation keys are cleared.
+
+## Key directories
+
+| Path | Purpose |
+| --- | --- |
+| `entity/` | Moqui entity definitions: `AuthEntities.xml` (tenant membership, config sharing, tenant settings), `JsonSchemaEntities.xml`, `MappingEntities.xml`, `RuleEntities.xml`, `ReconciliationEntities.xml` (runs, steps, automations, sources, chat spaces, connector registry), `MigrationEntities.xml`, and `AdminEntities.xml` (admin audit log). |
+| `service/facade/` | JSON-RPC facade services used by the app (`facade.*`). |
+| `service/admin/` | Operator-only services used by the admin app (`admin.*`). |
+| `service/reconciliation/` | Internal reconciliation, rule engine, automation, and notification services. |
+| `service/jsonschema/`, `service/migration/` | Internal schema and data-migration services. |
+| `screen/` | Moqui screens: the `darpan.xml` entrypoint (including the CSRF token and Slack OAuth callback endpoints), legacy backend screens, and the `Migrations` operator screen. |
+| `template/` | FreeMarker templates for the legacy backend screens. |
+| `theme-library/` | CSS and assets for the legacy backend screens only. The app's UI lives in `darpan-ui`. |
+| `src/main/groovy/darpan/` | Processing helpers: facade support, reconciliation core, rules, automation, notification, migration, admin, and the API contract generator. |
+| `src/test/` | Unit and Moqui-booting tests. |
+| `data/` | Seed data, the current `upgrade-data.xml`, and per-release packs under `data/releases/<version>/`. |
+| `docs/` | Component engineering notes, code maps, and the generated API contract under `docs/api-contract/`. |
+| `scripts/` | Test selection (`focused-test.sh`, `select_tests.py`) and the contract compatibility check. |
+
+Docker and deployment configuration is not in the component.
+
+## Sibling components
+
+Other components install beside `darpan` in the same Moqui runtime:
+
+| Component | Adds |
+| --- | --- |
+| `darpan-hotwax` | HotWax OMS connector: config entities, extract services, and `facade.HotWaxOmsFacadeServices`. |
+| `shopify-darpan` | Shopify connector: config entities, extract services, and `facade.ShopifyFacadeServices`. |
+| `netsuite-darpan` | NetSuite connector services: SuiteQL extraction (`extract#NetSuiteOrders`), NetSuite check save/get/list (`facade.NetSuiteQueryFacadeServices`), and lifecycle options. Its entities (`NsAuthConfig`, `NsRestletConfig`, `NsSuiteQlSourceQuery`, `NsSuiteQlSourceQueryField`) are defined in `darpan`; its own entity file is intentionally empty so no entity is defined twice. |
+| `database-darpan` | Database sources over JDBC: config entities, extract services, and `facade.DatabaseFacadeServices`. |
+| `moqui-gql` | A GraphQL component included in the images. It is not a supported public API yet. |
+| `moqui-sftp` | SFTP transport for file sources. |
+
+## Runtime stack
+
+The component uses these runtime pieces:
+
+- Moqui services, entities, screens, security, and JSON-RPC transport
+- XML service definitions and XML actions for contracts and orchestration
+- Groovy helpers for dense processing
+- Apache Spark SQL for file and dataset comparison
+- Drools for RuleSet compilation and execution
+- JSON Schema, JSONPath, and schema inference libraries
+- MySQL Connector/J and the PostgreSQL JDBC driver
+
+Versions are listed in [Operations and validation](/backend/operations-and-validation#runtime-baseline).
+
+## Implementation boundary
+
+Service contracts are visible in XML, and service bodies are XML actions by default. Groovy helpers handle processing-heavy code such as Spark dataset preparation, rule execution, JSON normalization, and schema inference. See [Service layer](/backend/service-layer#xml-actions-first).

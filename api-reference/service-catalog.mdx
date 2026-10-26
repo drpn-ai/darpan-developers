@@ -1,0 +1,283 @@
+---
+title: "Service catalog"
+description: "Verified backend facade services exposed through Darpan JSON-RPC."
+---
+
+Every method below is called as the JSON-RPC `method` value. The generated contract builds this list from the services marked for remote calls in `service/facade/` and `service/admin/` of the Darpan backend component, plus `service/facade/` of the integration components. `facade.*` methods are the public API. `admin.*` methods are operator-only and listed under [Administration](#administration); they are not part of the public API.
+
+This catalog matches Darpan 2.1.0 (contract version 3).
+
+All methods require an authenticated session unless noted. Eight methods accept anonymous calls, so a caller can establish or end a session or reset a forgotten password: `login#Session`, `logout#Session`, `get#SessionInfo`, `change#ExpiredPassword`, `request#PasswordReset`, `verify#PasswordResetCode`, `complete#PasswordReset`, and `get#PasswordResetStatus`.
+
+## Auth (`facade.AuthFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `login#Session` | Create an authenticated session from username/password and return the login-key token. Anonymous. |
+| `logout#Session` | Revoke the token on the current request and end that session only. Anonymous-safe. |
+| `logout#AllSessions` | Revoke every login key for the current user, signing them out on every device. |
+| `get#SessionInfo` | Return current session, user, and active-tenant context. Anonymous-safe. |
+| `save#ActiveTenant` | Switch the caller's active tenant. The choice is stored on the user, not the session, so it applies to every session and tab of that user. The tenant key is the tenant's user group id (`companyUserGroupId` on tenant-owned records). |
+| `save#UserSettings` | Save per-user settings, including display name and preferred display timezone (IANA id; empty string clears the preference). Returns refreshed session metadata. |
+| `verify#OwnPassword` | Re-verify the current user's password. |
+| `change#OwnPassword` | Change the current user's password. |
+| `change#ExpiredPassword` | Change the password of an account that cannot sign in until it is changed, without a session. Requires the account's current password. Anonymous. Issues no token: sign in again afterwards. |
+| `request#PasswordReset` | Email a 6-digit reset code to the email on file for a username or email address. The reply is the same in content and timing whether or not a code was sent (no such account, disabled, no email on file, over the hourly limit), so it does not reveal which accounts exist. The code expires in 15 minutes; a new request replaces it. Anonymous. |
+| `verify#PasswordResetCode` | Check a reset code without using it up. Five wrong guesses end the code; wrong guesses do not count as failed logins. Every failure returns the same error. Anonymous. |
+| `complete#PasswordReset` | Set a new password with a reset code, then sign the account out on every device and email it that the password changed. Password-policy failures are reported in full. A disabled account is refused and stays disabled. Anonymous. Issues no token: sign in again afterwards. |
+| `get#PasswordResetStatus` | Whether this deployment can send reset email: true when the `SYSTEM` email server has an SMTP host and the reset-code email template is loaded. Anonymous. |
+| `save#RecoveryEmail` | Set the signed-in user's recovery email, where reset codes go. Requires the current password; a wrong one counts as a failed login. Refused when another account already uses the address. The new address, and the previous one when it changes, get a notice. Returns the address masked. |
+
+The password reset methods need the password reset email templates loaded and an email server configured on the deployment. Without both, no code is sent and `get#PasswordResetStatus` returns false.
+
+## Settings (`facade.SettingsFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `list#EnumOptions` | List enumeration options for settings surfaces. |
+| `get#LlmSettings` / `save#LlmSettings` | Read and save AI provider settings. The settings are stored; no product feature reads them yet. |
+| `get#TenantSettings` / `save#TenantSettings` | Read and save tenant-level settings such as timezone. |
+| `list#TenantChatSpaces` / `save#TenantChatSpace` / `delete#TenantChatSpace` | Manage the tenant's registry of named chat spaces (Google Chat or Slack). Webhook URLs are stored in clear text, and `list#TenantChatSpaces` returns them to any tenant member with view access. `delete` succeeds only for unreferenced spaces. |
+| `get#UserNotificationDefault` / `save#UserNotificationDefault` | Read and set the caller's own default chat space for the active tenant. Personal preference — no tenant write access required. |
+| `test#SourceConnection` | Run a connectivity probe against a configured source. |
+| `list#SftpServers` / `save#SftpServer` | List and save SFTP server records. |
+| `list#NsAuthConfigs` / `save#NsAuthConfig` / `delete#NsAuthConfig` | List, save and delete NetSuite auth configurations. `delete` is owner-only, refused while the configuration is shared with another tenant, and refused while RESTlet endpoints, NetSuite checks or saved runs still use it, naming them. |
+| `list#NsRestletConfigs` / `save#NsRestletConfig` | List and save NetSuite RESTlet endpoint configurations. |
+
+## Schemas (`facade.JsonSchemaFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `list#JsonSchemas` | List schemas visible in the active tenant. |
+| `get#JsonSchema` | Open one schema record. |
+| `save#JsonSchemaText` | Create or update a schema from schema text. |
+| `save#RefinedSchema` | Save a schema refined through the verification flow. |
+| `infer#JsonSchemaFromText` | Infer a schema from a sample payload. |
+| `infer#JsonSchemaFromCsvText` | Infer a flat schema from a CSV header row. Takes the sample text and whether that sample is the complete file. |
+| `validate#JsonTextAgainstSchema` | Validate a JSON payload against a schema. |
+| `flatten#JsonSchema` | Flatten a schema for field selection. |
+| `delete#JsonSchema` | Delete a schema record. |
+
+## Reconciliation (`facade.ReconciliationFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `create#RuleSetRun` / `save#RuleSetRun` | Create and update RuleSet-backed saved runs. |
+| `create#CsvRun` | Create a CSV-based saved run. |
+| `list#SavedRuns` / `save#SavedRunName` / `delete#SavedRun` | Manage saved runs. |
+| `run#SavedRunDiff` | Execute a saved run. |
+| `run#GenericDiff` | Execute an ad hoc compare from uploaded or text payloads. |
+| `list#Mappings` / `get#Mapping` / `create#Mapping` / `save#Mapping` | Manage legacy reconciliation mappings. |
+| `save#DashboardPinnedMappings` / `save#DashboardPinnedSavedRuns` | Save dashboard pin preferences. |
+| `list#Automations` / `get#Automation` / `save#Automation` / `delete#Automation` | Manage automations. |
+| `pause#Automation` / `resume#Automation` / `run#AutomationNow` | Control automation execution. |
+| `list#AutomationExecutions` | List automation execution history. |
+| `reprocess#AutomationExecution` | Re-run a failed or dead-lettered automation execution. |
+| `list#AutomationSourceOptions` | List configured source options for automation setup. |
+| `list#GeneratedOutputs` / `get#GeneratedOutput` / `delete#GeneratedOutput` | Manage generated reconciliation outputs. |
+| `get#GeneratedOutputDifferences` | Page through the difference rows of one generated output. |
+| `get#ReconciliationRunStatus` | Live status and per-stage timeline for one run. Tenant-gated. |
+| `cancel#ReconciliationRun` | Request that a running reconciliation stop. Cooperative — the run ends at its next checkpoint, so it may still report as running briefly. |
+| `subscribe#RunNotification` / `unsubscribe#RunNotification` | Subscribe the caller to completion notification for one active run, snapshotting their default chat space, or remove that subscription. |
+| `sync#Automation` | Re-derive an automation's snapshot from its saved run. Overwrites compare scope, input mode, source definitions and exclusion filters; preserves name, schedule, window, chat space, active status and SFTP details. Never re-points the automation at a different run. |
+| `disable#SavedRun` / `enable#SavedRun` | Turn a saved run off or back on. A disabled run stays readable and editable but cannot run, by hand or on a schedule. |
+| `archive#SavedRun` / `restore#SavedRun` | Take a saved run off Home and the runs list, or bring it back. Nothing is deleted; its results and history stay. The app archives lifecycles; restore is API only. |
+| `archive#Automation` / `restore#Automation` | Take an automation off the list and stop it firing, or bring it back with its execution history. Separate from `pause#Automation`, which leaves it on the list. |
+
+### Runs as flowcharts (`facade.ReconciliationFacadeServices`)
+
+A run is a flowchart of questions: each question is one reconciliation, and the questions under it run on its yes or no.
+
+| Method | Purpose |
+| --- | --- |
+| `list#Reconciliations` / `get#Reconciliation` | The active tenant's runs, archived ones left out, or one run with its questions. |
+| `save#Reconciliation` | Create or update a run. |
+| `save#ReconciliationQuestion` / `delete#ReconciliationQuestion` | Create, update or remove one question. Tree rules are enforced on the server. A question with questions under it cannot be removed. |
+| `run#Reconciliation` | Start a run. Returns the execution id at once; the walk continues in the background. |
+| `get#ReconciliationExecution` | Every question's result from one execution. |
+| `list#ReconciliationExecutions` | A run's past executions, newest first, each with a rolled-up status. |
+| `import#NetSuiteChecksAsRuns` | Turn the tenant's NetSuite checks that are not yet in a run into runs, one per population. Safe to repeat; a check that cannot be placed is skipped with a message saying why. |
+
+### Lifecycles (`facade.ReconciliationFacadeServices`)
+
+A lifecycle follows records from a start record type through their stages, and reports where each one stopped.
+
+| Method | Purpose |
+| --- | --- |
+| `save#Lifecycle` | Create a lifecycle from a NetSuite account, a start record type and its stages in order. The server writes the queries, rules and question tree. |
+| `save#LifecycleStages` | Reorder or change a lifecycle's stages. Past results stay readable. |
+| `save#LifecycleRule` / `delete#LifecycleRule` | Leave out start records whose field has a given value, or remove that rule. |
+| `save#LifecycleStageException` / `delete#LifecycleStageException` | Mark a stage as not expected for records whose field has a given value, or remove that exception. |
+| `save#LifecycleFinding` / `delete#LifecycleFinding` | Add or remove a finding: the records that reached a stage and match a field condition, reported in a place of their own. |
+| `save#LifecycleDetails` | Choose the extra fields a lifecycle's records show beside the standard columns. Replaces the list. |
+| `get#LifecyclePlan` | The places a start record type and an ordered list of stages would make, named as `save#LifecycleStages` names them. Saves nothing and does not call NetSuite. |
+| `save#LifecycleConclusions` | Replace a lifecycle's ordered list of conclusion rules. Each rule names a conclusion, the places it applies to (none means every place), and field conditions (`IN`, `NOT_IN`, `BLANK`, `NOT_BLANK`) that must all hold. At each place the first rule that holds names the record; a record no rule names stays Unexplained. An empty list clears the rules. Lifecycles built from stages only. |
+
+## Run conclusions (`facade.RunConclusionFacadeServices`)
+
+A saved run's conclusion tree names the differences the run finds, by conditions on either side's record. Another tenant's run reads as not found.
+
+| Method | Purpose |
+| --- | --- |
+| `get#RunConclusions` | A saved run's conclusion tree in order, the conclusion catalog the active tenant can use, and the condition vocabulary: buckets, operators, presence, key scopes and quantifiers. |
+| `save#RunConclusions` | Replace a saved run's conclusion tree. All or nothing; an empty list clears it. Refused, with the reason, for an unknown conclusion, a parent not above its child, a tree deeper than three levels, a bucket on a nested conclusion, or a condition that does not say what it checks. Needs edit access on the active tenant. |
+| `create#RunConclusionCode` | Add a conclusion code owned by the active tenant, named by its label (at most 100 characters). Only that tenant's catalog lists it. Refused when the catalog already has the label. |
+
+## Audits (`facade.AuditFacadeServices`)
+
+An audit is a set of statements about the active tenant's data, each tested by checks that run on a daily schedule and record findings. Reports and findings are returned as `darpan.audit.report/v1` and `darpan.audit.finding/v1` documents. Another tenant's audit or finding reads as not found. Writes need edit access on the active tenant.
+
+| Method | Purpose |
+| --- | --- |
+| `get#Audits` | The active tenant's audits: id (the audit's code), name, and the period one report covers. |
+| `create#Audit` | Create an audit from a name and a period (`day`, `month` or `quarter`). Its id is the name in lower case with dashes, unique within the tenant; `new` is refused. Statements and checks are added afterwards. |
+| `add#AuditStatement` | Add a statement to an audit: the text that must be true, a category (`orders`, `refundsAndCredits`, `returns` or `exchangesAndWarranty`), and a weight (`firm`, or `derived` while awaiting the tenant's confirmation; default `derived`). It gets the next statement code, is placed last, and is active. |
+| `get#AuditSettings` / `save#AuditSettings` | Read or change an audit's name, its statements' text and on/off state, and the daily schedule (time and time zone) its checks run on. A save sends only the statements that changed, creates a paused automation for any check whose run has none, and returns the settings as saved. The read also returns each statement's checks and the earliest day `run#Audit` can record. |
+| `get#AuditCheckOptions` | What the add-a-check editor offers for one audit: its statements, the tenant's saved runs with their rules and conclusions, the row types and fix systems a check may name, and the audit's existing checks. |
+| `save#AuditCheck` | Create or update a check and replace its links to the audit's statements; at least one link is required. All or nothing. Refused, with the reason, for a statement outside the audit, a run the tenant does not own, a rule not in that run, or a row type the check cannot record. A new check, or one whose run changed, has no automation until `run#Audit` or `save#AuditSettings` creates one. |
+| `run#Audit` | Run every check of the audit now over a range of days, first to last inclusive, in the tenant's time zone, recording findings as the scheduled run does. Submitted in the background, one automation per run; returns each submission. Refused before anything runs for days in the future, a backwards range, or a period that ended and was not extended. With `fullRead`, every system is read for the whole range; without it, each check reads the days since its last complete read and re-checks its older open findings by key. |
+| `get#AuditReport` | An audit's report for one day (default today in the tenant's time zone), optionally for one period's run, as a `darpan.audit.report/v1` document. |
+| `get#AuditFindingsByOrder` | Every open and pending finding of one audit, one entry per order with its lines and the line holding it up, each with its statement and category. Filters by statement, period, and state (`open` or `pending`). State is as of today. |
+| `get#AuditFinding` | One finding as a `darpan.audit.finding/v1` document: records, evidence, fix and history. |
+| `verify#AuditFinding` | Re-check one finding's record now: its check runs for that record only, reading each system by key, and the finding is closed if the problem is gone or refreshed with today's cause. Submitted in the background; `get#AuditFinding` shows the result once `lastChecked` changes. Records no check run, so the check's health and next read are unchanged. Refused when the check has no automation yet. |
+| `get#AuditCheckExtracts` | The files each system's read wrote for one check, day and period: one row per side with the system, the record count, and the file's data-manager path. Empty when the check has no recorded run for that day and period. |
+
+## Slack (`facade.SlackFacadeServices`)
+
+Connecting a Slack workspace to the active tenant. The bot token is never an output of any method here.
+
+| Method | Purpose |
+| --- | --- |
+| `begin#SlackInstall` | Mint a single-use state token and return the Slack authorize URL to send the browser to. Does not contact Slack. Requires Slack app credentials on the deployment. |
+| `save#SlackBotToken` | Connect a workspace from a pasted bot user OAuth token (`xoxb-`). The token is verified with Slack before storage, and workspace identity is taken from Slack's answer. |
+| `get#SlackInstall` | The active tenant's connected workspaces, with granted scopes. Reports `oauthAvailable` separately from whether Slack is usable at all. |
+| `list#SlackChannels` | One page of channels from a connected workspace, for the channel picker. Reports when a workspace holds more channels than are listed. |
+| `disconnect#SlackWorkspace` | Deactivate a connected workspace. Refused while chat spaces still post through it, naming them. |
+
+## Config sharing (`facade.ConfigSharingFacadeServices`)
+
+Sharing one API source configuration across tenants.
+
+| Method | Purpose |
+| --- | --- |
+| `grant#ConfigTenantAccess` | Add a tenant to a shared config's peer group. Requires tenant-admin rights on the target tenant and on a tenant already in the group. |
+| `revoke#ConfigTenantAccess` | Remove a tenant from the peer group by end-dating its grant. Never deletes the row, so the record of who could reach a credential survives. |
+| `list#ConfigTenantAccess` | Sharing state for one config: owning tenant, peer tenants, affected-tenant count, and whether the caller may manage the group. |
+
+## Source endpoints (`facade.SourceEndpointFacadeServices`)
+
+Which endpoints of a connected system a given source configuration may read.
+
+| Method | Purpose |
+| --- | --- |
+| `list#SourceConfigEndpoints` | Endpoints registered for a config type with their current enablement. The catalog comes from the connector registry; access rows supply only whether each is enabled. |
+| `store#SourceConfigEndpointAccess` | Replace a config's endpoint enablement. Endpoints omitted from the list are explicitly disabled. |
+
+## Search (`facade.SearchFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `search#NavigationTargets` | Power Ask Darpan search over schemas, saved runs, run results, SFTP servers, and NetSuite auth/endpoint configurations. |
+
+## Integration components
+
+Source-system facades ship in sibling Moqui components and follow the same JSON-RPC envelope:
+
+| Component | Facade | Methods |
+| --- | --- | --- |
+| `shopify-darpan` | `facade.ShopifyFacadeServices` | `list#ShopifyAuthConfigs`, `get#ShopifyAuthConfig`, `save#ShopifyAuthConfig`, `delete#ShopifyAuthConfig` |
+| `darpan-hotwax` | `facade.HotWaxOmsFacadeServices` | `list#HotWaxOmsRestSourceConfigs`, `save#HotWaxOmsRestSourceConfig`, `delete#HotWaxOmsRestSourceConfig` |
+| `netsuite-darpan` | `facade.NetSuiteQueryFacadeServices` | `list#NsSuiteQlSourceQueries`, `get#NsSuiteQlSourceQuery`, `save#NsSuiteQlSourceQuery`, `get#NsSuiteQlQueryOptions`, `preview#NsSuiteQlSourceQuery`: NetSuite check definitions. See NetSuite queries below. |
+| `netsuite-darpan` | `facade.NetSuiteLifecycleFacadeServices` | `get#LifecycleOptions`, `get#LifecycleRuleOptions`: what the lifecycle builder may offer for one NetSuite account, read from the account itself. |
+
+### NetSuite queries (`facade.NetSuiteQueryFacadeServices`)
+
+A NetSuite check is a SuiteQL query definition that a run reads one NetSuite account through.
+
+| Method | Purpose |
+| --- | --- |
+| `list#NsSuiteQlSourceQueries` / `get#NsSuiteQlSourceQuery` | List the NetSuite checks the active tenant can see (paged), or open one. |
+| `save#NsSuiteQlSourceQuery` | Create or update a NetSuite check. A save is validated by the extractor's own rules before it is written. |
+| `get#NsSuiteQlQueryOptions` | What the query editor offers: query templates, date columns, common record types, the fields and operators a match rule may use, and the active NetSuite accounts the tenant may read. |
+| `preview#NsSuiteQlSourceQuery` | Run a query as submitted against NetSuite for one day (default yesterday in the tenant's time zone) and return its first five rows as records, with the SuiteQL sent. Saves nothing. Validated as `save#NsSuiteQlSourceQuery` is; needs run access on the active tenant and an account the tenant may read. |
+
+## Administration
+
+<Warning>
+Operator-only. The `admin.*` methods below are not part of the public API, and integrations should not depend on them. They serve the operator admin application and are reachable only by a super-admin: a caller must pass the `DARPAN_ADMIN_API` artifact fence and a super-admin content gate. A non-super-admin caller is denied before the service body runs.
+</Warning>
+
+### Tenants (`admin.TenantAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `create#Tenant` | Create a tenant: the user group and its tenant settings in one transaction. |
+| `update#Tenant` | Rename a tenant, change its timezone, or both. |
+| `deactivate#Tenant` | Hide a tenant from the tenant app and from active-tenant selection. A flag, not a delete. |
+| `reactivate#Tenant` | Re-enable a deactivated tenant. |
+| `get#TenantList` | All tenants, including deactivated ones, with member counts. |
+| `get#TenantDetail` | One tenant with its settings and active members. |
+
+### Users (`admin.UserAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `create#UserAccount` | Create a user with a temporary password, forced to change at first login. Credentials are shared out of band. |
+| `update#UserAccount` | Update a user's display name, email, or both. |
+| `disable#UserAccount` | Disable a user and revoke their live login keys. Disabling yourself is refused. |
+| `enable#UserAccount` | Re-enable a disabled user. |
+| `reset#Password` | Set a temporary password, forced to change at next login, and revoke live login keys. |
+| `get#UserList` | Paged search over username, email and display name. |
+| `get#UserDetail` | One user with account state and active tenant memberships. |
+
+### Membership (`admin.MembershipAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `add#TenantMember` | Add a user to a tenant with a tenant-scoped role. Both membership records are written together or not at all. |
+| `update#TenantMemberRole` | Change a member's tenant role by end-dating the old permission row and creating the new one. |
+| `remove#TenantMember` | Remove a user from a tenant by end-dating both membership records, and clear their active-tenant preference if it pointed there. |
+
+### Migrations (`admin.MigrationAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#MigrationStatus` | Registry and ledger state for every registered migration on the installation, in sequence order, with the most recent attempt's detail. |
+| `get#MigrationHistory` | Every recorded attempt at one migration, newest first, each with its own sanitized failure detail. |
+| `run#PendingMigrations` | Run every registered migration with no success recorded, in sequence order. Idempotent — a second call applies nothing. |
+| `dryRun#PendingMigrations` | Preview what running the pending migrations would do. Writes dry-run ledger rows only, which never satisfy the already-applied check. |
+| `run#Migration` | Run one named migration for targeted remediation. Parked migrations are refused, prerequisites enforced, already-applied migrations skipped. |
+| `dryRun#Migration` | Preview one named migration. |
+| `set#MigrationEnabled` | Park or unpark a migration. Parking lets the rest of a sweep proceed when one migration is broken, rather than stranding all of them. |
+
+### Schedule (`admin.ScheduleAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#ScheduleBoard` | Every tenant's scheduled automations on one instance-wide timeline, in the order the scheduler will submit them. Only each automation's next fire is authoritative; later entries are projected. |
+
+### Admin session (`admin.ObserveAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#AdminSessionInfo` | Fence probe and admin route guard: returns the operator identity when the caller clears both the artifact fence and the super-admin gate. |
+
+## Per-method reference
+
+The machine-readable contract for the public methods lives in the
+[generated OpenAPI reference](/api-reference/openapi.json), regenerated from the backend
+facade XML (`./gradlew :runtime:component:darpan:generateApiContract`). Backend CI runs
+`scripts/check_service_catalog.py` from this docs repo against the generated method list
+(`docs/api-contract/methods.txt`): it fails when this catalog names a method the contract
+does not define, and only reports, without failing, contract methods the catalog does not
+list. How to read the reference:
+
+- Each method has four schemas in `components.schemas`, named from its verb#noun:
+  `<VerbNoun>Params` (request parameters, with `required` markers), `<VerbNoun>Result`
+  (the response payload the hand-written UI types model), and the `...Request`/`...Response`
+  JSON-RPC envelopes around them.
+- Parameter and field descriptions come straight from the service definitions.
+- Error behavior is uniform. A failed call returns the `JsonRpcError` object; a service
+  that ends with errors returns code `500` with HTTP 500. See [Errors](/api-reference/errors).
+
+For the transport contract used by all methods above, see [JSON-RPC transport](/api-reference/json-rpc).

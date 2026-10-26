@@ -1,0 +1,72 @@
+---
+title: "Backend engine overview"
+description: "The runtime architecture behind Darpan reconciliation."
+---
+
+Darpan's UI is the control surface. The backend is the engine that makes each run durable, scoped, repeatable, and reviewable.
+
+The backend implementation is the [`drpn-ai/darpan`](https://github.com/drpn-ai/darpan) Moqui component. It is mounted inside a Moqui framework checkout at `<moqui-framework>/runtime/component/darpan`.
+
+## Engine model
+
+| Layer | Responsibility |
+| --- | --- |
+| Moqui | JSON-RPC transport, service contracts, entity persistence, security, session context, and XML-first orchestration. |
+| Spark | Dataset normalization and comparison for files or records that exceed browser-memory workflows. |
+| Drools/KIE | RuleSet compilation and execution for configurable matching, classification, and exception logic. |
+| Generated outputs | Persistent result metadata and files that let users reopen, audit, and delete run evidence. |
+
+This split keeps browser workflows thin. The UI asks for a run; the backend validates access, prepares data, compares records, applies rules, and writes output.
+
+## Current shape
+
+- Moqui component descriptor: `component.xml`
+- Public service surface: `facade.*` Moqui JSON-RPC services through `/rpc/json`
+- Operator surface: `admin.*` services, restricted to super admins and called by the Darpan admin app. They are not part of the public API.
+- GraphQL: the images include a GraphQL component (`moqui-gql`). It is not a supported public API yet.
+- Service contracts: XML service definitions under `service/**`
+- Data model: Moqui entity definitions under `entity/**`
+- Processing helpers: Groovy code under `src/main/groovy/**`
+- Reconciliation engine: Spark-backed compare services with RuleSet and legacy mapping paths
+- Rule engine: Drools/KIE services for compiling and executing reconciliation rules
+- Output handling: generated-output descriptors plus tenant-scoped files
+- One-time upgrade work: a migration registry and supervisor (see [Data migrations](/backend/migrations))
+
+## What the backend owns
+
+- User, company, tenant, and permission checks before reads or writes.
+- Durable records for schemas, saved runs, RuleSets, compare scopes, connections, and output descriptors.
+- Source staging from uploads, text payloads, or configured systems.
+- Spark-backed base diff computation.
+- Drools-backed RuleSet execution.
+- JSON-RPC responses shaped for the UI.
+
+## UI contract
+
+The UI treats facade services as the contract. Browser code does not recreate reconciliation rules, tenant filtering, output paths, or service-side validation.
+
+This section traces product workflows into backend services, entities, processing helpers, and validation commands.
+
+<CardGroup cols={2}>
+  <Card title="Component layout" icon="folder-tree" href="/backend/component-layout">
+    Moqui component structure, dependencies, and implementation directories.
+  </Card>
+  <Card title="Service layer" icon="server" href="/backend/service-layer">
+    Facade services, core services, and backend service orchestration.
+  </Card>
+  <Card title="Reconciliation engine" icon="shuffle" href="/backend/reconciliation-engine">
+    A run from source staging through Spark, RuleSets, and generated output.
+  </Card>
+  <Card title="Rules and schemas" icon="file-code" href="/backend/rules-and-schemas">
+    RuleSet, Rule, compare-scope entities, and JSON schema model.
+  </Card>
+  <Card title="Data access and tenancy" icon="shield" href="/backend/data-access-and-tenancy">
+    Active tenant scope, permission membership, and generated-output isolation.
+  </Card>
+  <Card title="Data migrations" icon="database" href="/backend/migrations">
+    Registry, prerequisites, ledger, and supervisor for one-time data migrations.
+  </Card>
+  <Card title="Operations and validation" icon="terminal" href="/backend/operations-and-validation">
+    Test pools, Gradle commands, runtime baseline, and backend review checklist.
+  </Card>
+</CardGroup>

@@ -1,0 +1,14 @@
+---
+title: "API overview"
+description: "Current JSON-RPC integration surface for Darpan backend calls."
+---
+
+Darpan backend calls use Moqui JSON-RPC services through `/rpc/json`.
+
+All calls use `POST /rpc/json` with a JSON-RPC 2.0 envelope, authenticated by session cookie for the browser app or the `login_key` header for integration callers — see [JSON-RPC transport](/api-reference/json-rpc) for the authentication channels, plus the full request, response, and error shapes.
+
+JSON-RPC is the API of Darpan's own app: the `facade.*` services listed in the [service catalog](/api-reference/service-catalog) are what the browser app calls, and `admin.*` methods serve the operator admin application. For an agent or integration, use the read-only [GraphQL API](/graphql/overview): an API key per tenant, a published schema, and stable, versioned documents.
+
+The OpenAPI file in this repo captures the shared transport shape and each method's parameters and result. For the per-operation specification, see the **Generated reference** group in the API reference navigation, which is generated from that file. Its request playground cannot send calls yet: use `curl` or another HTTP client against `https://api.drpn.ai/rpc/json`, or your instance's base URL, as in the [API quickstart](/api-reference/quickstart).
+
+For the current backend organization, see [Service layer](/backend/service-layer).

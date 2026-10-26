@@ -1,0 +1,94 @@
+---
+title: "Rules and schemas"
+description: "Backend contracts for RuleSets, compare scopes, and JSON schemas."
+---
+
+Rules and schemas are backend-owned contracts. Changes to either propagate through every run that references them. The UI creates and edits them through facade services; the backend validates, stores, compiles, and executes them.
+
+## RuleSet model
+
+RuleSet reconciliation is centered on these entities:
+
+| Entity | Purpose |
+| --- | --- |
+| `RuleSet` | The named rule collection for a reconciliation workflow. |
+| `Rule` | One executable rule belonging to a RuleSet. |
+| `RuleSetCompareScope` | The compare context for a run, including source and matching configuration. |
+| `RuleSetCompareSource` | A source participating in the compare scope. |
+| `RuleSetCompareSourceKeyField` | One ordered field of a composite primary key for a compare source. When rows exist for a source, its fields are combined in `sequenceNum` order into one `compare_id`, replacing the single primary ID expression. |
+| `RuleSetCompareSourceFilter` | One exclusion filter for a compare source. Records whose field value matches one of the filter values are dropped by the source getter at extraction time, before rules run. |
+
+All six live in `entity/RuleEntities.xml` under the `darpan.rule` package.
+
+Facade services create saved runs and RuleSet structures together when the workflow needs a runnable compare.
+
+## Rule execution
+
+Rule execution is owned by:
+
+```text
+service/reconciliation/ReconciliationRuleEngineServices.xml
+src/main/groovy/darpan/reconciliation/rule/RuleEngineSupport.groovy
+src/main/groovy/darpan/reconciliation/rule/RuleConditionParser.groovy
+src/main/groovy/darpan/reconciliation/rule/RuleDiffSupport.groovy
+```
+
+Key service responsibilities:
+
+- Save and delete RuleSets and Rules
+- Compile active rules into a Drools/KIE container
+- Execute rules against compare-ready data
+- Execute rules against matched pairs from the Spark base diff
+- Clear the RuleSet cache after rule changes
+
+The rule engine service file defines:
+
+```text
+reconciliation.ReconciliationRuleEngineServices.compile#RuleSet
+reconciliation.ReconciliationRuleEngineServices.execute#RuleSet
+reconciliation.ReconciliationRuleEngineServices.execute#RuleSetMatchedPairs
+reconciliation.ReconciliationRuleEngineServices.save#RuleSet
+reconciliation.ReconciliationRuleEngineServices.save#Rule
+reconciliation.ReconciliationRuleEngineServices.delete#Rule
+reconciliation.ReconciliationRuleEngineServices.delete#RuleSet
+reconciliation.ReconciliationRuleEngineServices.clear#RuleSetCache
+reconciliation.ReconciliationRuleEngineServices.sweep#RuleChildTenantStamps
+```
+
+`sweep#RuleChildTenantStamps` backfills the tenant stamp on rule-set child rows and runs as a registered [data migration](/backend/migrations).
+
+`save#Rule` accepts either structured `ruleLogic` or plain-text `ruleText`; plain text is parsed by `RuleConditionParser` and rejected when it cannot be parsed into an explicit operator expression. Saving or deleting a Rule or RuleSet invalidates the compiled Drools cache for that RuleSet.
+
+Rule logic is validated twice: when `save#Rule` stores it, and again at compile time, so a rule row that reached the database by another path is checked before Drools sees it. Raw DRL `rule … end` blocks authored by a tenant are rejected at compile time. Platform rules loaded from seed data and field-comparison rules, whose DRL the server regenerates, still compile. An environment can allow tenant raw DRL only by setting the `darpan.rules.allowRawDrl` system property to `true`; it is off by default.
+
+Execution services are file type agnostic. Callers parse CSV, JSON, or other source payloads into compare-ready data facts before invoking the RuleSet engine.
+
+## JSON schema model
+
+Schemas describe source data shape and parsing expectations. The backend stores schema definitions as records, not UI-only configuration.
+
+The main schema entity is:
+
+```text
+darpan.reconciliation.JsonSchema
+```
+
+It is defined in `entity/JsonSchemaEntities.xml` with a tenant-scoped unique name index on `(companyUserGroupId, schemaName)`, so each tenant has its own schema namespace.
+
+Schema records include fields such as:
+
+- `jsonSchemaId`
+- `schemaName`
+- `description`
+- `systemEnumId`
+- `ownerUserId`
+- `companyUserGroupId`
+- `createdByUserId`
+- `schemaText`
+- `statusId`
+
+The service layer under `service/jsonschema/**` owns schema validation, inference, persistence, and lookup behavior.
+
+## Backend ownership
+
+Workflows that depend on rules or schemas use Darpan component service contracts. Rules and schemas are persisted backend configuration, not browser-local state.

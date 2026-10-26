@@ -1,0 +1,31 @@
+---
+title: "Pagination"
+description: "Connections, cursors and page info in the GraphQL API."
+---
+
+A query that can return many records returns a connection: `edges` (each a `node` and its `cursor`) and `pageInfo`. You must ask for a page size with `first` or `last` (at most 100).
+
+```graphql
+{
+  reconciliationResults(first: 50, sortKey: CREATED_DATE, reverse: true) {
+    edges { cursor node { reconciliationRunResultId differenceCount } }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+```
+
+To read the next page, pass the last page's `endCursor` as `after`:
+
+```graphql
+reconciliationResults(first: 50, after: "eyJpZCI6IjEwMDQ1In0", sortKey: CREATED_DATE, reverse: true)
+```
+
+| Argument | Meaning |
+|---|---|
+| `first`, `after` | The first n records after a cursor (forward) |
+| `last`, `before` | The last n records before a cursor (backward) |
+| `sortKey`, `reverse` | The order; keep both the same on every page |
+
+A cursor is opaque: pass it back as you received it. A cursor that cannot be read is rejected with `INVALID_CURSOR`.
+
+The lists inside an audit document (`categories`, `statements`, `findings`, `records`) are not connections: they come back whole. A statement lists at most 50 findings, and `findingsOmitted` says how many more it has.

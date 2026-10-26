@@ -1,0 +1,14 @@
+query OneFinding {
+  auditFinding(id: "F-20790") {
+    finding {
+      id
+      headline
+      statement { id text }
+      status { state firstFound lastSeen timesSeen pendingUntil }
+      records { system recordType id internalId status }
+      fix { owner where action verify { by passesWhen } darpanChanges }
+      history { at event }
+    }
+    access { mode note }
+  }
+}

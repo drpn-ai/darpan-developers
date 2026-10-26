@@ -1,0 +1,107 @@
+---
+title: "Data migrations"
+description: "The registry, prerequisite, ledger and supervisor model that applies one-time data migrations to a Darpan installation."
+---
+
+Some upgrades need more than schema and seed data: a one-time pass over existing rows to translate them into a new shape. Darpan applies those through a registry rather than through scripts run by hand, so that what has been applied to an installation is a queryable fact rather than institutional memory.
+
+## Model
+
+Four pieces, each with one job.
+
+| Piece | Entity / service | Responsibility |
+| --- | --- | --- |
+| Registry | `DarpanMigration` | Declares a migration: owning component (`componentName`), service to call (`serviceName`), `description`, `sequenceNum`, whether it supports a dry run (`supportsDryRun`), and whether it is enabled (`enabled`; `N` parks it). |
+| Prerequisites | `DarpanMigrationPrereq` | Declares migrations that must have succeeded first. Verified, never assumed. |
+| Ledger | `DarpanMigrationRun` | One row per attempt. `migrationId` plus `runId` form the key, so a failed attempt survives the retry that follows it. |
+| Supervisor | `migration.MigrationServices.run#PendingMigrations` | Walks the registry in sequence order and applies what has no success recorded. |
+
+Registering a migration is a **seed data row**, not an application change. `componentName` exists so sibling components can register into the same registry rather than each growing a private one.
+
+## Status values
+
+The ledger records four statuses, and only one of them means "done".
+
+| Status | Meaning |
+| --- | --- |
+| `SUCCESS` | Applied. The only status that satisfies the already-applied check. |
+| `FAILED` | Attempted and failed. Retained; the next attempt writes its own row. |
+| `BLOCKED` | Refused because a prerequisite had not succeeded. |
+| `DRY_RUN` | Previewed only. Never satisfies the already-applied check. |
+
+That `DRY_RUN` never counts as applied is the property that makes previewing safe: an operator can preview a migration as often as they like without ever convincing the supervisor the work is done.
+
+## Why the ledger commits separately
+
+`record#MigrationRun` runs in a **forced-new transaction**. A migration that fails rolls its own work back; if the ledger row were written in that same transaction it would roll back with it, and the installation would have no record that the attempt happened.
+
+Committing the ledger independently means a failure leaves evidence behind. This is the difference between diagnosing a broken migration and rediscovering it.
+
+## Running migrations
+
+`run#PendingMigrations` applies everything with no success recorded, in sequence order. It is **idempotent** — a second call applies nothing — which is what makes it safe to run on every deployment rather than only when someone remembers.
+
+Three gates apply, to the sweep and to a targeted run alike:
+
+- A **parked** migration (`enabled` = `N`) is skipped. Parking exists so one broken migration does not strand every migration behind it — the rest of the sweep proceeds, and the parked one is dealt with on its own.
+- A migration whose **prerequisites** have not succeeded is refused and recorded as blocked, rather than run against the state it was not written for.
+- An **already-applied** migration is skipped.
+
+`run#Migration` runs one named migration for targeted remediation, under the same gates, except that `admin.MigrationAdminServices.run#Migration` with `force=true` re-runs one that is already applied. Upgrading to 2.0.0 needs this once for `RETIRED_FIELDS`, because 1.5.0's run already marked it applied. `dryRun#Migration` previews one, and `run#PendingMigrations` with `dryRun` set previews the whole sweep. `set#MigrationEnabled` parks or unparks a migration.
+
+## Operator surface
+
+The internal services live in `service/migration/MigrationServices.xml` and are not callable remotely (`allow-remote="false"`). `list#MigrationStatus` returns registry and ledger state for every migration in sequence order, including the most recent attempt's detail. `get#MigrationHistory` returns every attempt at one migration, newest first, each with its own sanitized failure detail — which is how a failed migration is diagnosed without shell access to the installation.
+
+The admin application reaches them through `admin.MigrationAdminServices`, behind the `DARPAN_ADMIN_API` artifact group, which only super admins hold:
+
+| Admin service | Delegates to |
+| --- | --- |
+| `get#MigrationStatus` | `list#MigrationStatus` |
+| `get#MigrationHistory` | `get#MigrationHistory` |
+| `run#PendingMigrations` | The sweep |
+| `dryRun#PendingMigrations` | The sweep, as a preview |
+| `run#Migration` | One named migration |
+| `dryRun#Migration` | One named migration, as a preview |
+| `set#MigrationEnabled` | Park or unpark |
+
+Preview and apply are separate method names on purpose: a dropped `dryRun` flag cannot turn a preview into a write. The component also ships a `Migrations` screen with the status table and **Dry Run All** and **Run Pending** actions.
+
+Failure detail is sanitized before it is stored, because it is read by an operator through a remote surface.
+
+## Registered migrations
+
+The seed registry currently declares six, in sequence:
+
+| Migration | What it translates |
+| --- | --- |
+| `TENANT_NOTIF_SETTINGS` | The single tenant webhook into the chat-space registry. |
+| `UNDECRYPTABLE_HOOKS` | Webhook values that cannot be decrypted under the current key. |
+| `AUTOMATION_FILTERS` | Automation exclusion filters into their current shape. |
+| `RULE_TENANT_STAMPS` | Tenant stamps onto rule rows that predate tenant scoping. |
+| `ENDPOINT_ACCESS` | The legacy read flag into explicit per-endpoint decisions. |
+| `RETIRED_FIELDS` | Removal of connector fields withdrawn from seed data. |
+
+## Adding a migration
+
+1. Write the service that performs the work. Accept a `dryRun` parameter if the work can be meaningfully previewed.
+2. Add a `DarpanMigration` seed row naming the component, the service, a description an operator can decide from, and a sequence number.
+3. Add `DarpanMigrationPrereq` rows for anything that must have succeeded first.
+4. Set `supportsDryRun` to `Y` only once the service genuinely honours it.
+
+The description is operator-facing. It appears on the admin screen and is what someone reads when deciding whether to run the migration now or park it.
+
+## Upgrade data
+
+Migrations translate existing rows. Seed and reference data, such as enumerations, security groups, connector rows, and the migration registry itself, ships separately as upgrade data.
+
+- Seed files under `data/*.xml` are the source of truth. Files that every installation needs declare `type="darpan-seed"`.
+- `data/upgrade-data.xml` is the load target for the current release. Each release's pack, with its notes and review, is archived under `data/releases/<version>/`.
+- `./gradlew :runtime:component:darpan:loadDarpanUpgradeData` loads every `darpan-seed` file idempotently (`types=darpan-seed`). Set `DARPAN_UPGRADE_DATA_LOCATION` to load one file instead.
+
+Two hazards apply to every load:
+
+- The `type` attribute is a gate. A load only reads rows whose file `type` matches the requested types. A file with the wrong type is skipped, and the load still reports success. Check the type before relying on a load.
+- Foreign-key order matters. Moqui loads rows in file order. A parent row, such as a `DarpanMigration`, must come before any row that references it, such as its `DarpanMigrationPrereq`. Check parent-before-child order by hand when assembling a release pack from several seed files.
+
+After upgrade data loads, run the migration sweep.

@@ -1,0 +1,292 @@
+---
+title: "Set up Darpan independently"
+description: "Clone the Darpan repositories and start a local development stack."
+---
+
+Setting up a local Darpan stack is more involved than a typical frontend project. JDK 21 is a hard requirement, Spark needs specific JVM flags before the backend will start, and the backend is a Moqui framework with Darpan components nested inside. This tutorial walks through each step.
+
+The local stack runs:
+
+| Service | Default URL | Purpose |
+| --- | --- | --- |
+| Darpan UI | `http://localhost:5173` | Vue app used in the browser. |
+| Darpan backend | `http://localhost:8080` | Moqui backend and JSON-RPC services. |
+| JSON-RPC | `http://localhost:8080/rpc/json` | API endpoint used by the UI. |
+
+## Before you start
+
+Install these first:
+
+| Tool | Version | Check |
+| --- | --- | --- |
+| Git | Current stable | `git --version` |
+| Java (JDK) | **21** | `java -version` |
+| Node.js | 20 or newer | `node -v` |
+| npm | Comes with Node.js | `npm -v` |
+
+<Warning>
+Darpan runs on **Moqui 4 + Spark 3.5 + Drools 8**, which require **JDK 21**. The backend will not start on Java 17. Install Temurin 21 and make it the active JDK before running any Gradle command:
+
+```bash
+# macOS (Homebrew)
+brew install --cask temurin@21
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+java -version   # must report 21.x
+```
+</Warning>
+
+The Darpan repositories are public, and the clone commands below use HTTPS URLs that need no sign-in. If a clone returns `Repository not found`, check the repository name before changing anything else.
+
+<Tip>
+Keep the backend and UI as sibling folders. The UI dev-stack helper expects that layout by default.
+</Tip>
+
+## Folder layout
+
+This guide creates this layout:
+
+```text
+darpan-local/
+  darpan-backend/
+    runtime/component/darpan/
+    runtime/component/darpan-hotwax/
+    runtime/component/database-darpan/
+    runtime/component/moqui-gql/        (optional)
+    runtime/component/moqui-sftp/
+    runtime/component/netsuite-darpan/
+    runtime/component/shopify-darpan/
+  darpan-ui/
+```
+
+`darpan-backend` is a checkout of Darpan's Moqui framework fork. The Darpan backend code lives inside `darpan-backend/runtime/component/**`.
+
+<Note>
+Moqui 4 uses the **embedded Bitronix** transaction manager. The old `moqui-atomikos` component is retired and is no longer cloned or built.
+</Note>
+
+## Set the JDK 21 runtime flags
+
+The backend JVM needs a set of `--add-opens` flags (the canonical Spark 3.5 / JDK 21 list) plus a couple of agent and native-access flags. Spark fails without them. Export them in the shell you will use for every backend command (`load`, `run`, and `npm run dev:stack`). Neither `./gradlew run` nor `npm run dev:stack` sets them for you:
+
+```bash
+export JAVA_TOOL_OPTIONS="\
+--add-opens=java.base/java.lang=ALL-UNNAMED \
+--add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+--add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+--add-opens=java.base/java.io=ALL-UNNAMED \
+--add-opens=java.base/java.net=ALL-UNNAMED \
+--add-opens=java.base/java.nio=ALL-UNNAMED \
+--add-opens=java.base/java.util=ALL-UNNAMED \
+--add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+--add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+--add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
+--add-opens=java.base/sun.security.action=ALL-UNNAMED \
+--add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+-XX:+EnableDynamicAgentLoading \
+--enable-native-access=ALL-UNNAMED"
+```
+
+Add the export to your shell profile, or rerun it in every new terminal. If it is missing, the backend still boots, and reconciliation then fails at the compare step.
+
+## Clone the backend
+
+Create a parent folder and clone Darpan's fork of the Moqui framework as `darpan-backend`:
+
+```bash
+mkdir -p darpan-local
+cd darpan-local
+git clone --branch master https://github.com/drpn-ai/moqui-framework.git darpan-backend
+cd darpan-backend
+```
+
+Use the `drpn-ai/moqui-framework` fork, not upstream `moqui/moqui-framework`. The fork is upstream Moqui 4 plus the embedded Bitronix transaction manager and a sign-in fix: without that fix, a sign-in can wait on itself for a database lock until the lock times out.
+
+<Note>
+The production images also apply a small `build.gradle` patch, `docker/buildGradle.patch` in [darpan-docker-config](https://github.com/drpn-ai/darpan-docker-config), which adds a Spark export flag to every Gradle-forked JVM. Local development does not need it as long as `JAVA_TOOL_OPTIONS` is exported.
+</Note>
+
+Download the Moqui runtime folder:
+
+```bash
+./gradlew getRuntime
+```
+
+The first Gradle command downloads the Gradle wrapper distribution and Moqui runtime. Let it finish before cloning the Darpan components.
+
+## Clone the backend components
+
+Clone the required runtime components into `runtime/component`:
+
+```bash
+cd runtime/component
+git clone --branch master https://github.com/moqui/moqui-sftp.git moqui-sftp
+git clone --branch main https://github.com/drpn-ai/darpan.git darpan
+git clone --branch main https://github.com/drpn-ai/shopify-darpan.git shopify-darpan
+git clone --branch main https://github.com/drpn-ai/netsuite-darpan.git netsuite-darpan
+git clone --branch main https://github.com/drpn-ai/darpan-hotwax.git darpan-hotwax
+git clone --branch main https://github.com/drpn-ai/database-darpan.git database-darpan
+cd ../..
+```
+
+`moqui-sftp` is needed by the Darpan component build and test classpath. The five Darpan components provide the core backend, Shopify integration, NetSuite integration, HotWax integration, and database sources. Without `database-darpan`, the database source that the seed data registers fails at extraction.
+
+The hosted images also carry `moqui-gql`, a GraphQL component that is not a supported public API yet. It is optional locally. If you clone it, build its jar before the first load, because nothing else in the build triggers it and the backend fails at startup without it:
+
+```bash
+git clone --branch main https://github.com/drpn-ai/moqui-gql.git runtime/component/moqui-gql
+./gradlew :runtime:component:moqui-gql:jar
+```
+
+<Tip>
+`main` is current development. To run the released version instead, check out the release tags: `darpan` `v2.0.0`, `darpan-hotwax` `v0.9.0`, `shopify-darpan` `v0.7.0`, `netsuite-darpan` `v0.3.0`, `database-darpan` `v0.2.1`, and `darpan-ui` `v3.0.0`. Check them out together: 2.0.0 components do not run against 1.5.x ones.
+</Tip>
+
+## Load local setup data
+
+From `darpan-backend`, load the framework and Darpan setup data:
+
+```bash
+./gradlew load
+```
+
+`load` runs with `types=all`, so it loads every data file in dependency-safe order, including the framework seed data and Darpan's custom `darpan-seed-initial` (type definitions) and `darpan-seed` (setup records) files. The first load can take several minutes because Gradle also resolves backend dependencies and builds the components. Local development uses Moqui's embedded H2 database, which allows one process at a time.
+
+<Warning>
+Run data-load commands only when the backend server is stopped. If a load fails with a Bitronix or H2 lock error, stop the running backend process and rerun the load.
+</Warning>
+
+<Note>
+`./gradlew :runtime:component:darpan:loadDarpanUpgradeData` is a different command. It is the upgrade step for existing environments: it reloads every Darpan seed file of type `darpan-seed` (an idempotent upsert), and it reads the production configuration and the built runtime WAR by default. It is **not** a substitute for `./gradlew load` on a fresh setup.
+</Note>
+
+## Clone the UI
+
+Go back to the parent folder and clone the Darpan UI:
+
+```bash
+cd ..
+git clone --branch main https://github.com/drpn-ai/darpan-ui.git darpan-ui
+cd darpan-ui
+npm install
+```
+
+Local development does not require a `.env` file. When no API URL is configured, Vite proxies `/rpc/json` to `http://localhost:8080`.
+
+## Start the stack
+
+Start backend and frontend together from `darpan-ui`:
+
+```bash
+npm run dev:stack
+```
+
+Keep this terminal open. The dev-stack helper starts both processes and stops them when the command exits.
+
+<Warning>
+The UI's `npm run dev:stack` helper starts the backend with `./gradlew run` but does **not** set `JAVA_TOOL_OPTIONS` for you. Export the JDK 21 runtime flags (see [Set the JDK 21 runtime flags](#set-the-jdk-21-runtime-flags)) in the same shell first, or Spark reconciliation will fail even though the backend appears to boot.
+</Warning>
+
+The helper uses:
+
+| Setting | Default |
+| --- | --- |
+| Backend folder | `../darpan-backend` |
+| Backend command | `./gradlew --no-daemon run` |
+| Backend port | `8080` |
+| Frontend port | `5173` |
+
+If your backend folder is somewhere else, pass the path explicitly:
+
+```bash
+DARPAN_BACKEND_DIR=/absolute/path/to/darpan-backend npm run dev:stack
+```
+
+If port `8080` or `5173` is already in use, the helper tries to stop the existing listener before starting the new stack.
+
+## Sign in locally
+
+Open the UI:
+
+```text
+http://localhost:5173/login
+```
+
+If no local admin user exists yet, open the backend login page:
+
+```text
+http://localhost:8080/Login
+```
+
+Moqui shows an initial administrator setup form when the database has no user accounts. Create the local admin user there, then return to `http://localhost:5173/login` and sign in with the same username and password.
+
+Do not use local development credentials in hosted or shared environments.
+
+## Confirm the setup
+
+After sign-in, confirm these checks:
+
+- The Darpan UI opens at `http://localhost:5173`.
+- The backend login page opens at `http://localhost:8080/Login`.
+- The app can sign in without a `No active authenticated session` loop.
+- **Ask Darpan** opens with `Cmd/Ctrl+K` or by clicking Tara (the red panda in the corner).
+- **Open User Settings** loads from the local backend.
+- **Open Runs Settings** or **Create Reconciliation Flow** loads without API errors.
+
+If the UI opens before the backend finishes booting, wait a minute and refresh. Moqui startup takes longer on the first run.
+
+## Daily startup
+
+After the first setup, the normal development startup is:
+
+```bash
+cd darpan-local/darpan-ui
+npm run dev:stack
+```
+
+You do not need to rerun `./gradlew load` every day. Rerun it when seed data changes, the local database is missing, or a backend change explicitly requires a reload. Keep `JAVA_TOOL_OPTIONS` exported in the shell each session.
+
+## Development checks
+
+Run checks from the repository that owns the change.
+
+Frontend:
+
+```bash
+cd darpan-local/darpan-ui
+npm run check
+```
+
+Backend:
+
+```bash
+cd darpan-local/darpan-backend
+./gradlew :runtime:component:darpan:compileGroovy
+./gradlew :runtime:component:darpan:test
+```
+
+Use focused tests while working, then run broader checks before handing off or opening a pull request.
+
+## Common fixes
+
+If setup fails — for example a Spark startup error, a JDK version error, a clone failure, or a database lock — see [Local development setup](/self-host/troubleshooting) for recovery steps.
+
+To run Darpan for real users rather than for development, see [Self-host in production](/self-host/production).
+
+## Clean rebuild for a throwaway local database
+
+Only use this when you are comfortable deleting the local development database:
+
+```bash
+cd darpan-local/darpan-backend
+./gradlew cleanDb
+./gradlew load
+```
+
+Then restart:
+
+```bash
+cd ../darpan-ui
+npm run dev:stack
+```

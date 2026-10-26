@@ -1,0 +1,152 @@
+---
+title: "Self-host in production"
+description: "Build the Darpan backend image, configure it, load its data, and upgrade it on your own infrastructure."
+---
+
+Running Darpan for real users is mostly configuration, and the image enforces the parts that matter: it refuses to start without its secrets, exports the JVM flags Spark needs, and loads its own reference data. What is left is choosing the right image, setting a handful of environment variables, and running the first data load once. This page covers each in order.
+
+<Note>
+This page describes the released backend, `v2.0.0`, with the app `darpan-ui` `v3.0.0`. For a development stack on your own machine, see [Set up Darpan independently](/self-host/set-up-darpan-independently).
+</Note>
+
+## Before you start
+
+| Need | Detail |
+| --- | --- |
+| Container build | Docker with BuildKit. |
+| Database | MySQL 8.x, including 8.4, reachable over TLS. |
+| Secrets | A database user and password, a deployment-unique encryption key, and a deployment-unique signing key. |
+| App origin | The address your users will open the Darpan app from. |
+
+## Choose the image
+
+Build images only from the [darpan-docker-config](https://github.com/drpn-ai/darpan-docker-config) repository. It is the single home of Darpan's Docker files; the backend repositories no longer carry any.
+
+| Dockerfile | Track | Components |
+| --- | --- | --- |
+| `docker/prod/Dockerfile` | Production | Pinned to release tags: `darpan` `v2.0.0`, `darpan-hotwax` `v0.9.0`, `shopify-darpan` `v0.7.0`, `netsuite-darpan` `v0.3.0`, `database-darpan` `v0.2.1`. |
+| `docker/Dockerfile` | Test and CI | Every component at `main`. Use it to try unreleased work, not to serve users. |
+
+The components ship as a set. The pins in the production Dockerfile move together; changing one tag on its own can seed configuration that points at a service or field the other component does not have. For 2.0.0 no mixed pairing works in either direction: darpan `v2.0.0` with an older connector fails at extraction, and the new connectors do not run on darpan `v1.5.1`. The app moves with the backend too: `darpan-ui` `v3.0.0` calls methods `v1.5.1` lacks, so keep the app on `v2.6.1` if the backend stays on `v1.5.1`.
+
+Build from the repository root, so the Dockerfile's `COPY docker/...` paths resolve:
+
+```bash
+docker build -f docker/prod/Dockerfile \
+  --build-arg BASE_IMAGE=<ubuntu-22.04-image>@sha256:<digest> \
+  --build-arg REQUIRE_PINNED_BASE=1 \
+  -t darpan-backend:2.0.0 .
+```
+
+| Build argument | Why |
+| --- | --- |
+| `BASE_IMAGE` | The default base names a registry you may not be able to pull from. Supply an Ubuntu 22.04 image that includes `git`, as a full reference with a digest. The JDK 21 runtime is copied in from Temurin, so the base needs none. |
+| `REQUIRE_PINNED_BASE=1` | Fails the build unless `BASE_IMAGE` is digest-pinned. |
+| `MOQUI_FRAMEWORK_REF` | Defaults to the `master` branch of the `drpn-ai/moqui-framework` fork, which moves. For a byte-identical rebuild, pass an immutable commit. |
+
+The cloned repositories are public, so the build needs no credentials. If you build from private forks, pass a netrc file as a BuildKit secret (`--secret id=netrc,src=<file>`). Never pass credentials as build arguments; they would remain in the image history.
+
+During the build the image applies `docker/buildGradle.patch` to the framework build, builds the `moqui-gql` component's jar, and fails if the active Java is not 21. `moqui-gql` is not a supported public API yet.
+
+## Configure the container
+
+The entrypoint stops with an error naming the variable if any required value is missing.
+
+**Required**
+
+| Variable | Purpose |
+| --- | --- |
+| `Moqui_DB_HOST` | Database host. |
+| `Moqui_DB_USER` | Database user. |
+| `Moqui_DB_PASSWORD` | Database password. |
+| `Moqui_DB_NAME` | Database name. |
+| `entity_ds_crypt_pass` | Encryption key for stored secrets such as connection passwords and tokens. Unique per deployment; keep it safe, because data encrypted under it cannot be read without it. |
+| `JWT_KEY` | Signing key. Unique per deployment and strong. |
+
+**Optional**
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `Moqui_WEBAPP_ALLOW_ORIGINS` (or `WEBAPP_ALLOW_ORIGINS`) | The hosted Darpan app origins | Comma-separated list of app origins the API accepts browser calls from. Replace it with your own app's origin. |
+| `DARPAN_APP_BASE_URL` | The first allowed origin | Base URL used in alert links to run results. Set it, or links can point at the wrong host. |
+| `Moqui_HOST` | Empty | Public host name of the backend. |
+| `TIME_ZONE` | Empty | Server and database time zone. |
+| `entity_ds_crypt_pass_old` | Same as `entity_ds_crypt_pass` | Set only while rotating the encryption key: the outgoing key goes here and the new key in `entity_ds_crypt_pass`, so values written under either can be read. |
+| `entity_ds_use_ssl` | `true` | TLS to MySQL. Set `false` only for a database that cannot terminate TLS. |
+| `entity_ds_allow_pubkey` | `false` | Public-key retrieval. Needed only for `caching_sha2_password` over a non-TLS connection. |
+| `DARPAN_LOAD_UPGRADE_DATA` | `Y` | Whether the container loads Darpan's reference data on start. See [Upgrade](#upgrade). |
+| `JAVA_OPTS` | Heap from 25% to 75% of the container memory limit, capped at 6 GB, plus JSON log output | JVM options. Setting it replaces the defaults, so carry over the heap and logging options you want to keep. |
+
+The database configuration is MySQL (`mysql8`). Database sources that point at private, loopback or metadata addresses are refused by default; to allow a private database host, add `-Ddatabase_source_allow_private_hosts=true` to `JAVA_OPTS`.
+
+The entrypoint exports the JDK 21 flags Spark needs through `JAVA_TOOL_OPTIONS`. A value you set in that variable is kept, and the flags are added after it. The server listens on port `8080`, and the image health check calls `/status` from inside the container.
+
+<Warning>
+The images currently run the server as root. Do not set `runAsNonRoot: true` in a pod security context, or the container will not start.
+</Warning>
+
+## Load the database the first time
+
+A new database needs one full data load before the first start. The image holds the command in the `DB_LOAD` environment variable; the entrypoint never runs it. Run it once from `/moqui-framework` inside a container that has the same environment:
+
+```bash
+cd /moqui-framework
+./gradlew loadProduction -Ptypes=seed,seed-initial,install,ext-seed,ext,darpan-seed-initial,darpan-seed
+```
+
+Keep every type in the list. A data file whose type is not listed is skipped, and the load still reports success, so a missing type shows up later as missing configuration rather than as a load error.
+
+## Upgrade
+
+An upgrade runs in this order: load the reference data with the new image, start the new backend, run the pending migrations, then deploy the matching app version. Both data steps are safe to repeat.
+
+1. **Reference data.** `loadDarpanUpgradeData` reloads every Darpan seed file of type `darpan-seed`. A data load is an upsert, so records already present are left as they are and new ones are added. By default the container runs this on every start. For routine restarts, set `DARPAN_LOAD_UPGRADE_DATA=N` and run the load once per release instead, before new containers start:
+
+   ```bash
+   /moqui-framework/gradlew --no-daemon :runtime:component:darpan:loadDarpanUpgradeData \
+     -PmoquiConf=$CONF_FILE \
+     -PmoquiRuntime=/moqui-framework/runtime \
+     -PmoquiWar=/moqui-framework/moqui-plus-runtime.war \
+     -Ptypes=darpan-seed
+   ```
+
+2. **One-time data migrations.** Once the new backend is running, run the pending migrations from the backend's **Migrations** screen at `/apps/darpan/Migrations`, signed in as a super-admin. A preview shows what would run. Migrations already applied are skipped, so a second run applies nothing.
+
+Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists anything else that release needs before you deploy.
+
+### Upgrading to 2.0.0
+
+2.0.0 changes what the backend, every connector and the app expect of each other, so the whole set moves at once. The upgrade data is a delta on 1.5.1: an installation must already have 1.5.1's upgrade data loaded.
+
+1. **Count before loading.** The `data/upgrade-data.xml` header lists 15 tables to count for rows with no tenant stamp; expect 0. 2.0.0 puts 13 more tables under the tenant filter, and an unstamped row disappears from tenant reads. If a filter, key-field or scope count is not 0, run `reconciliation.ReconciliationRuleEngineServices.sweep#RuleChildTenantStamps` and count again. Also list the source filters saved against a Shopify-orders source: until now they were stored and ignored, and after the load they apply.
+2. **Build and deploy the set.** Build from `darpan-docker-config` `v2.0.0`, which pins all five backend components, and deploy it with `darpan-ui` `v3.0.0`.
+3. **Load the upgrade data** with `loadDarpanUpgradeData`, as above.
+4. **Force the retired-fields migration once.** A seed load never deletes, so the withdrawn Shopify **Return workflow status** field stays on the rules board until this runs. It is already marked applied wherever 1.5.0's migrations ran, so it must be forced. It is idempotent. Signed in as a super-admin, call:
+
+   ```text
+   admin.MigrationAdminServices.run#Migration  migrationId=RETIRED_FIELDS  force=true
+   ```
+
+   A rule saved on the old field matches nothing afterwards. Re-add it on **Return status** with `IN_PROGRESS`; see [Reconcile returns and exchanges](https://docs.drpn.ai/guides/returns-and-exchanges#leave-in-progress-returns-out).
+5. **Run the pending migrations**, as on every deploy.
+6. **Probe the method fence.** An anonymous call to `org.moqui.impl.UserServices.update#Password` over `/rpc/json` must answer HTTP 403.
+
+Run step codes change in 2.0.0: anything that reads `stageCode` or `stageSequence` must expect the new values. See [Reconciliation runs](https://docs.drpn.ai/reference/reconciliation-runs#stage-sequence).
+
+To roll back, roll back the whole set and keep the app on `v2.6.1`. The upgrade data is additive, except the 13 tenant-filter rows (`EntityFilter`, listed last in the file): delete them before running a `1.5.1` backend on that database. Lifecycle snapshot reads can be switched off without a redeploy with `-Ddarpan.reconciliation.runSnapshot=off`.
+
+## Point the app at your backend
+
+The app (`darpan-ui`) is a static site built against one API. Set these at build time:
+
+| Variable | Value |
+| --- | --- |
+| `VITE_DARPAN_API_BASE_URL` | Your backend's base URL. |
+| `VITE_DARPAN_RPC_URL` | Your backend's `/rpc/json` URL. |
+| `VITE_DARPAN_COOKIE_AUTH` | `true` to keep the session in an HttpOnly cookie, sent with an `X-CSRF-Token` header. `false` keeps a per-tab session in the browser instead. |
+
+Cookie mode needs the backend to list the app's origin in `Moqui_WEBAPP_ALLOW_ORIGINS`, and needs whatever sits in front of the backend to pass the backend's CORS headers through unchanged. A proxy that rewrites `Access-Control-Allow-Origin` to `*` breaks cookie sign-in, because browsers refuse credentialed calls answered with `*`.
+
+## Next step
+
+With the backend running and the app pointed at it, follow [Tenant admin quickstart](https://docs.drpn.ai/getting-started/tenant-admin-quickstart) to set up the first tenant.

@@ -1,0 +1,677 @@
+"This directive allows results to be deferred during execution"
+directive @defer(
+    "Deferred behaviour is controlled by this argument"
+    if: Boolean! = true,
+    "A unique label that represents the fragment being deferred"
+    label: String
+  ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Marks the field, argument, input field or enum value as deprecated"
+directive @deprecated(
+    "The reason for the deprecation"
+    reason: String! = "No longer supported"
+  ) on FIELD_DEFINITION | ARGUMENT_DEFINITION | ENUM_VALUE | INPUT_FIELD_DEFINITION
+
+"This directive disables error propagation when a non nullable field returns null for the given operation."
+directive @experimental_disableErrorPropagation on QUERY | MUTATION | SUBSCRIPTION
+
+"Directs the executor to include this field or fragment only when the `if` argument is true"
+directive @include(
+    "Included when true."
+    if: Boolean!
+  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Indicates an Input Object is a OneOf Input Object."
+directive @oneOf on INPUT_OBJECT
+
+"Directs the executor to skip this field or fragment when the `if` argument is true."
+directive @skip(
+    "Skipped when true."
+    if: Boolean!
+  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Exposes a URL that specifies the behaviour of this scalar."
+directive @specifiedBy(
+    "The URL that specifies the behaviour of this scalar."
+    url: String!
+  ) on SCALAR
+
+"What callers may do with this finding through the API."
+type Access {
+  "Always `read-only` in v1."
+  mode: String
+  "That the API has no mutations, and that Darpan closes the finding at its next scheduled check."
+  note: String
+}
+
+"Everything about one finding (darpan.audit.finding/v1), including how to fix and verify it."
+type AuditFindingDocument {
+  "What callers may do with it: read only, in v1."
+  access: Access
+  "One record that breaks one statement."
+  finding: Finding
+  "The document type and major version, always `darpan.audit.report/v1`."
+  schema: String
+}
+
+"Whether this morning's reads and checks can be trusted."
+type AuditHealth {
+  "How many configured checks ran, ran partially, or did not run."
+  checks: CheckCounts
+  "True only when every source read was complete and every configured check ran. Statements with no configured check do not make it false; they are listed in `notCovered`."
+  complete: Boolean
+  "Statements in the catalog with no configured check, for example deferred ones."
+  notCovered: [String!]!
+  "One entry for each system that any check read this morning."
+  sources: [SourceHealth!]!
+  "One or two sentences naming any source or check that was not complete, or saying that all were."
+  summary: String
+}
+
+"An audit: its id within the tenant, name, and the period it reports by."
+type AuditRef {
+  "The audit's id within the tenant, e.g. `month-close` (`Audit.auditCode`)."
+  id: String
+  "The audit's display name, e.g. \"Month close\"."
+  name: String
+  "How the audit reports its period: `day`, `month` or `quarter`."
+  period: String
+}
+
+"One audit's report for one morning (darpan.audit.report/v1): whether the checks can be trusted, what is open, and every statement by category. The JSON's keyed objects are lists here, each element carrying its key."
+type AuditReportDocument {
+  "One sentence saying what this report covers for this tenant."
+  about: String
+  "The four categories, each holding its statements and their findings."
+  categories: [Category!]!
+  "One of the four categories by its id; null for an id that is not one of them."
+  category(
+    "The category id: orders, refundsAndCredits, returns or exchangesAndWarranty."
+    id: String!
+  ): Category
+  "Whether this morning's reads and checks can be trusted."
+  health: AuditHealth
+  "Which tenant and audit, which morning, which days were read, and which period."
+  report: AuditReportInfo
+  "The document type and major version, always `darpan.audit.report/v1`."
+  schema: String
+  "Counts across the whole tenant, and the oldest open finding."
+  summary: AuditSummary
+}
+
+"Which tenant and audit, which morning, which days were read, and which period."
+type AuditReportInfo {
+  "Which audit this report is for."
+  audit: AuditRef
+  "The morning this report describes: the day the scheduled checks ran."
+  date: String
+  "When the assembler built this document."
+  generatedAt: String
+  "Which period's run this report describes. Each period of an audit is its own run and report; by default the period `date` falls in."
+  period: String
+  "Whether `date` falls inside this period, so its audit still runs that morning."
+  running: Boolean
+  "Which tenant this report is for."
+  tenant: AuditTenant
+  "The days the checks read."
+  window: AuditWindow
+}
+
+"Counts across the whole tenant, and the oldest open finding."
+type AuditSummary {
+  "The same four counts (`open`, `pending`, `newToday`, `fixedToday`) for each category; all four categories are present."
+  byCategory: [CategoryCounts!]!
+  "Findings that became `fixed` on `report.date`."
+  fixedToday: Int
+  "Findings first found on `report.date`, whether open or pending."
+  newToday: Int
+  "The open finding with the earliest `firstFound`."
+  oldestOpen: OldestOpen
+  "Findings in state `open`."
+  open: Int
+  "Findings in state `pending`, still inside their check's grace age."
+  pending: Int
+}
+
+"The tenant the report belongs to."
+type AuditTenant {
+  "The tenant's id, e.g. `GORJANA`."
+  id: String
+  "The tenant's display name."
+  name: String
+  "The IANA zone that every `Date`, `DateTime` and day window in this document uses."
+  timeZone: String
+}
+
+"The days the checks read, both ends inclusive, in the tenant's time zone."
+type AuditWindow {
+  "The first day the checks read: the period's first day, so every open finding of the period is examined again each morning (DAR-BE-091)."
+  from: String
+  "The last day the checks read, inclusive: `date` itself while the period is current (\"on the 14th it reconciles 1-14\"), the period's last day once it has ended. Records from that morning are usually inside their check's grace age, so they show as `pending`."
+  thru: String
+}
+
+"One of the four categories (orders, refundsAndCredits, returns, exchangesAndWarranty), with its statements."
+type Category {
+  "`open`, `pending`, `newToday` and `fixedToday` for this category."
+  counts: FindingCounts
+  "The category: orders, refundsAndCredits, returns or exchangesAndWarranty."
+  id: String
+  "The category's display name, e.g. \"Refunds and credits\"."
+  label: String
+  "One statement of this category by its id; null when the category has no statement with that id."
+  statement(
+    "The statement id in the tenant's catalog, e.g. R8."
+    id: String!
+  ): Statement
+  "Every catalog statement in this category; [] only when the tenant has none in it."
+  statements: [Statement!]!
+}
+
+"The four finding counts for one category."
+type CategoryCounts {
+  "The category: orders, refundsAndCredits, returns or exchangesAndWarranty."
+  category: String
+  "Findings that became `fixed` on `report.date`."
+  fixedToday: Int
+  "Findings first found on `report.date`, whether open or pending."
+  newToday: Int
+  "Findings in state `open`."
+  open: Int
+  "Findings in state `pending`, still inside their check's grace age."
+  pending: Int
+}
+
+"The category of the statement a finding breaks."
+type CategoryRef {
+  "The category of the statement it breaks."
+  id: String
+  "The category's display name."
+  label: String
+}
+
+"How the configured checks ran this morning."
+type CheckCounts {
+  "Configured checks that did not run this morning."
+  notRun: Int
+  "Configured checks that ran over at least one partial or failed read."
+  partial: Int
+  "Configured checks that ran over complete reads."
+  ran: Int
+}
+
+"The check that found a finding."
+type CheckRef {
+  "The check that found it."
+  id: String
+  "What that check compares."
+  label: String
+  "The shared id the check joins on."
+  matchedBy: String
+}
+
+"A conclusion from the tenant's conclusion catalog."
+type Conclusion {
+  "The conclusion's code, e.g. CONC_NO_ETAIL_ID."
+  code: String
+  "The conclusion's name in plain words."
+  label: String
+}
+
+"The named class of the finding and what it means for this record."
+type Diagnosis {
+  "The named class of the finding, from the tenant's conclusion catalog."
+  conclusion: Conclusion
+  "One sentence on what the conclusion means for this record."
+  explanation: String
+}
+
+"Who or what caused a finding event; in v1, always the scheduled check."
+type EventActor {
+  "The check's id, or the user's."
+  id: String
+  "A readable name for the actor."
+  label: String
+  "check (a scheduled check) or user."
+  type: String
+}
+
+"Why the record fails the statement: the rule, the amounts, and each sub-condition."
+type Evidence {
+  "The amount found and where it came from."
+  actual: MoneySource
+  "Each sub-condition, in order; this is where non-money detail sits."
+  checks: [EvidenceCheck!]!
+  "`actual - expected`."
+  difference: Money
+  "The amount the rule expected and where it came from."
+  expected: MoneySource
+  "The exact condition the record failed, in plain words."
+  rule: String
+}
+
+"One sub-condition the record was tested against."
+type EvidenceCheck {
+  "The sub-condition in plain words."
+  label: String
+  "Whether the record met it."
+  passed: Boolean
+  "What was seen, e.g. \"160.22 vs 160.23\"."
+  value: String
+}
+
+"One record that breaks one statement."
+type Finding {
+  "The audit the broken statement belongs to."
+  audit: AuditRef
+  "The category of the statement it breaks."
+  category: CategoryRef
+  "The check that found it."
+  check: CheckRef
+  "The named class of the finding."
+  diagnosis: Diagnosis
+  "Why the record fails the statement."
+  evidence: Evidence
+  "How to fix it and how Darpan confirms the fix."
+  fix: Fix
+  "One line naming the record and what is wrong."
+  headline: String
+  "Every state change and sighting, oldest first."
+  history: [FindingEvent!]!
+  "The finding's id."
+  id: String
+  "The period whose run found it; it appears in that period's reports only."
+  period: String
+  "The record ids in each system."
+  records: [FindingRecord!]!
+  "The statement it breaks."
+  statement: StatementRef
+  "Where the finding stands now."
+  status: FindingStatus
+}
+
+"Findings by state for a category or statement: open, pending, new today and fixed today."
+type FindingCounts {
+  "Findings that became `fixed` on `report.date`."
+  fixedToday: Int
+  "Findings first found on `report.date`, whether open or pending."
+  newToday: Int
+  "Findings in state `open`."
+  open: Int
+  "Findings in state `pending`, still inside their check's grace age."
+  pending: Int
+}
+
+"One state change or sighting of a finding."
+type FindingEvent {
+  "When it happened."
+  at: String
+  "Who or what caused it."
+  by: EventActor
+  "What happened: found, stillOpen, fixed or reopened."
+  event: String
+}
+
+"A finding as findings(query:) lists it: the report's finding summary, plus where it sits."
+type FindingListItem {
+  "Days since `firstFound`, as of today in the tenant's time zone."
+  ageDays: Int
+  "The audit's id within the tenant, e.g. `month-close`."
+  audit: String
+  "The statement's category: `orders`, `refundsAndCredits`, `returns` or `exchangesAndWarranty`."
+  category: String
+  "`actual - expected`."
+  difference: Money
+  "The morning a check first reported it."
+  firstFound: String
+  "One line naming the record and what is wrong."
+  headline: String
+  "The finding's id."
+  id: String
+  "The last morning a check reported it."
+  lastSeen: String
+  "The CLI command that shows the full finding, e.g. `darpan findings show F-20761`."
+  next: String
+  "The period whose run found it, e.g. `2026-10`."
+  period: String
+  "The records it names: one entry per system, record type and id."
+  records: [FindingRecord!]!
+  "`open`, `pending` or `fixed`, as of the last check."
+  state: String
+  "The id of the statement it breaks, e.g. `R2`."
+  statement: String
+}
+
+"A page of findings."
+type FindingListItemConnection {
+  "The findings on this page, in order."
+  edges: [FindingListItemEdge!]!
+  "Whether more pages follow or precede."
+  pageInfo: PageInfo
+}
+
+"One finding in a page, with the cursor that marks its place."
+type FindingListItemEdge {
+  "Pass as after: to page on from this finding, in the same sortKey and reverse."
+  cursor: String
+  "The finding."
+  node: FindingListItem
+}
+
+"One record a finding names, in one system."
+type FindingRecord {
+  "The record's id in that system, as people see it."
+  id: String
+  "The system's internal id, when it differs from id (NetSuite)."
+  internalId: String
+  "The kind of record, e.g. invoice, creditMemo, return or orderItem."
+  recordType: String
+  "The record's status in that system, when known."
+  status: String
+  "The system the record lives in: OMS, NetSuite or Shopify."
+  system: String
+}
+
+"Where a finding stands and when it was seen."
+type FindingStatus {
+  "Days from `firstFound` to `lastSeen`, or to the closing day once fixed."
+  ageDays: Int
+  "When it became fixed."
+  closedAt: String
+  "What closed it: in v1, always the scheduled check."
+  closedBy: EventActor
+  "The morning a check first reported it."
+  firstFound: String
+  "When a check last looked at this record, whether or not it reported it."
+  lastChecked: String
+  "The latest morning a check still reported it."
+  lastSeen: String
+  "The first morning it counts as open if it is still reported."
+  pendingUntil: String
+  "Where the finding stands now."
+  state: String
+  "Mornings on which a check reported it, counting the first."
+  timesSeen: Int
+}
+
+"A finding as a report lists it; auditFinding(id:) returns the whole finding."
+type FindingSummary {
+  "Days since `firstFound`, as of `report.date`."
+  ageDays: Int
+  "`actual - expected`."
+  difference: Money
+  "The morning a check first reported it."
+  firstFound: String
+  "One line naming the record and what is wrong."
+  headline: String
+  "The finding's id."
+  id: String
+  "The CLI command that shows the full finding, e.g. `darpan findings show F-20761`."
+  next: String
+  "The records it names: one entry per system, record type and id."
+  records: [FindingRecord!]!
+  "`open`, `pending` or `fixed` (fixed today)."
+  state: String
+}
+
+"Who fixes the finding, where, how, and how Darpan confirms it."
+type Fix {
+  "What to change, with this record's values filled in."
+  action: String
+  "Always \"Nothing. Darpan reads NetSuite and the OMS; it never writes to them.\"."
+  darpanChanges: String
+  "The team that fixes it, e.g. \"HotWax Support\"."
+  owner: String
+  "How Darpan confirms the fix."
+  verify: FixVerify
+  "The system where the fix is made."
+  where: String
+}
+
+"How Darpan confirms the fix."
+type FixVerify {
+  "Always \"Darpan's next scheduled check\" in v1."
+  by: String
+  "When that check next runs."
+  nextCheck: String
+  "What the check must see for the finding to close."
+  passesWhen: String
+}
+
+"An amount: a decimal string at the currency's scale (2 for USD), with a leading - when negative, and its ISO 4217 currency."
+type Money {
+  "A decimal string at the currency's scale, with a leading - when negative."
+  amount: String
+  "The ISO 4217 currency code."
+  currency: String
+}
+
+"An amount and where it came from."
+type MoneySource {
+  "A decimal string at the currency's scale, with a leading - when negative."
+  amount: String
+  "The ISO 4217 currency code."
+  currency: String
+  "Where the amount came from."
+  source: String
+}
+
+"The open finding with the earliest `firstFound`."
+type OldestOpen {
+  "Days since `firstFound`, as of `report.date`."
+  ageDays: Int
+  "The morning it was first found."
+  firstFound: String
+  "The finding's id."
+  id: String
+  "The statement id it breaks."
+  statement: String
+}
+
+"Where a page of a connection sits: whether more pages follow or precede, and the cursors to ask for them."
+type PageInfo {
+  "The cursor of the last edge on this page."
+  endCursor: String
+  "True when another page follows; ask with after: endCursor."
+  hasNextPage: Boolean
+  "True when a page precedes this one; ask with before: startCursor."
+  hasPreviousPage: Boolean
+  "The cursor of the first edge on this page."
+  startCursor: String
+}
+
+type Query {
+  "One finding by id, with its records, evidence, fix and history. Another tenant's finding reads as not found."
+  auditFinding(
+    "The finding's id, e.g. F-20761."
+    id: ID!
+  ): AuditFindingDocument
+  "An audit's report for one morning, from the tenant of the API key."
+  auditReport(
+    "The audit's code, e.g. month-close."
+    audit: String!,
+    "The morning to describe, YYYY-MM-DD; blank is today in the tenant's time zone."
+    date: String,
+    "Which period's run, e.g. 2026-10 while October is extended; blank is the morning's own period."
+    period: String
+  ): AuditReportDocument
+  "The tenant's findings, oldest first by default; each node is the report's finding summary plus its audit, statement, category and period. ageDays is as of today in the tenant's time zone. Filter via `query:` search string. Allowed keys: audit, statement, category, state, period, firstFound"
+  findings(
+    "Return findings after this cursor (pageInfo.endCursor). A cursor belongs to its sortKey and reverse."
+    after: String,
+    "Return the first n findings, 1 to 100; default 50."
+    first: Int,
+    "A search string of key:value terms; see the field description for the keys."
+    query: String,
+    "Reverse the sort order."
+    reverse: Boolean,
+    "The field to sort by."
+    sortKey: FindingListItemSortKey
+  ): FindingListItemConnection
+  "One reconciliation run result by id."
+  reconciliationResult(
+    "The id of the ReconciliationResult to return."
+    reconciliationRunResultId: ID
+  ): ReconciliationResult
+  "Reconciliation run results, newest or oldest first. Filter via `query:` search string. Allowed keys: savedRunId, reconciliationRunId, ruleSetId, statusEnumId"
+  reconciliationResults(
+    "Return records after this cursor."
+    after: String,
+    "Return records before this cursor."
+    before: String,
+    "Return the first n records (required unless last is given)."
+    first: Int,
+    "Return the last n records."
+    last: Int,
+    "A search string of key:value terms; see the field description for the keys."
+    query: String,
+    "Reverse the sort order."
+    reverse: Boolean,
+    "The field to sort by."
+    sortKey: ReconciliationResultSortKey
+  ): ReconciliationResultConnection
+}
+
+"One run of a saved reconciliation: which sources it compared, its outcome and how many records were on only one side."
+type ReconciliationResult {
+  "When the run result was created."
+  createdDate: DateTime
+  "Records found on only one side (onlyInFile1Count + onlyInFile2Count); value mismatches are not counted."
+  differenceCount: Int
+  "The first source's file or extract name."
+  file1Name: String
+  "The second source's file or extract name."
+  file2Name: String
+  "Records present in the first source and missing from the second."
+  onlyInFile1Count: Int
+  "Records present in the second source and missing from the first."
+  onlyInFile2Count: Int
+  "The field mapping the run used, if any."
+  reconciliationMappingId: String
+  "The run definition, when the run came from one."
+  reconciliationRunId: String
+  "The run result's id."
+  reconciliationRunResultId: ID
+  "The kind of reconciliation the run performed."
+  reconciliationType: String
+  "The rule set the run evaluated."
+  ruleSetId: String
+  "The saved run (rule set) this run executed."
+  savedRunId: String
+  "Which kind of saved run it was."
+  savedRunType: String
+  "How the run ended, e.g. AUT_STAT_SUCCESS."
+  statusEnumId: String
+}
+
+"A page of ReconciliationResult records."
+type ReconciliationResultConnection {
+  "The records on this page, in order."
+  edges: [ReconciliationResultEdge]
+  "Whether more pages follow or precede."
+  pageInfo: PageInfo
+}
+
+"One ReconciliationResult in a connection, with the cursor that marks its place."
+type ReconciliationResultEdge {
+  "Pass as after: or before: to page from this ReconciliationResult."
+  cursor: String
+  "The ReconciliationResult."
+  node: ReconciliationResult
+}
+
+"One system's reads this morning, across every check that read it."
+type SourceHealth {
+  "Statements whose checks read this system and are not `ran` as a result; `[]` when the read was complete."
+  affects: [String!]!
+  "The worst status among this system's reads this morning."
+  read: String
+  "When the last of this system's reads finished."
+  readAt: String
+  "Why the read was partial or failed, in plain words."
+  reason: String
+  "Records read from this system, summed over its reads."
+  records: Int
+  "The system: OMS, NetSuite or Shopify."
+  system: String
+}
+
+"One thing the tenant needs to be true, its checks this morning, and the findings that break it."
+type Statement {
+  "Each configured check that tests this statement; `[]` when none is configured."
+  checks: [StatementCheck!]!
+  "Ledger counts for this statement; never null, even when its check did not run today."
+  counts: FindingCounts
+  "Open, pending and fixed-today findings, oldest first, at most 50."
+  findings: [FindingSummary!]!
+  "How many findings were left out by the 50 cap; `0` when all are shown."
+  findingsOmitted: Int
+  "The statement id, e.g. R4."
+  id: String
+  "Why the statement's checks were partial or did not run."
+  reason: String
+  "The worst status among this statement's checks; `notRun` when it has none."
+  status: String
+  "The statement in the tenant's own words."
+  text: String
+  "Whether the tenant stated it (`firm`) or it was derived and awaits confirmation (`derived`)."
+  weight: String
+}
+
+"A configured check that tests a statement, and how it ran this morning."
+type StatementCheck {
+  "Records compared on each side."
+  compared: [SystemCount!]!
+  "Days a new finding stays `pending` before it counts as open; `0` means none."
+  graceDays: Int
+  "The check's id."
+  id: String
+  "What the check compares, in a few words."
+  label: String
+  "The shared id that the two sides are joined on, e.g. \"return id (custbody_hc_return_id)\"."
+  matchedBy: String
+  "Why it was partial or did not run."
+  reason: String
+  "How this check ran this morning."
+  status: String
+}
+
+"The statement a finding breaks."
+type StatementRef {
+  "The statement it breaks."
+  id: String
+  "That statement in the tenant's own words, repeated so the finding stands alone."
+  text: String
+  "`firm` or `derived`."
+  weight: String
+}
+
+"Records compared in one system."
+type SystemCount {
+  "Records compared in that system."
+  count: Int
+  "The system: OMS, NetSuite or Shopify."
+  system: String
+}
+
+"The orders a findings list can be sorted in; reverse: true flips it."
+enum FindingListItemSortKey {
+  "Sort by firstFound."
+  FIRST_FOUND
+  "Sort by statement."
+  STATEMENT
+}
+
+"The orders a reconciliationResults list can be sorted in; reverse: true flips it."
+enum ReconciliationResultSortKey {
+  "Sort by createdDate."
+  CREATED_DATE
+  "Sort by reconciliationRunResultId."
+  RESULT_ID
+}
+
+"ISO-8601 timestamp, e.g. 2026-05-14T09:32:00Z"
+scalar DateTime
+
+"Arbitrary-precision decimal serialized as a string, e.g. \"129.00\"."
+scalar Decimal

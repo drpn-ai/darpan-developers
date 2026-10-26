@@ -1,0 +1,46 @@
+---
+title: "Release discipline"
+description: "How Darpan keeps product releases reviewable."
+---
+
+Darpan release work is evidence-led. A release explains what changed, what was verified, and what remains intentionally out of scope. Tagged release notes are in [Release updates](https://docs.drpn.ai/releases/updates).
+
+## Release principles
+
+Darpan releases keep scope reviewable, pair user-facing behavior with documentation, validate the changed backend and UI surfaces, and separate shipped behavior from known deferrals.
+
+## Release note questions
+
+- Which reconciliation workflows changed?
+- Which setup surfaces changed, such as schemas, connections, saved runs, or RuleSets?
+- Which backend contracts or generated-output shapes changed?
+- Which checks passed before release?
+- Are there migration, upgrade-data, or configuration steps?
+
+## Versions
+
+The backend and the app are versioned separately.
+
+| Repository | Version source | Tag form |
+| --- | --- | --- |
+| `drpn-ai/darpan` | `component.xml` `version` attribute | `v1.x.y` |
+| `drpn-ai/darpan-ui` | `package.json` and `package-lock.json`, kept equal | `v2.x.y` (current line) |
+
+Connector components carry their own version tags and are released when they change.
+
+## Cut checklist
+
+1. Bump the version only where the release changes, with no unrelated dependency or config changes in the same commit.
+2. Rebuild upgrade data from the seed files. Generate the candidate from the seed-data diff against the previous release tag rather than editing release XML by hand. Make `data/upgrade-data.xml` the current release's load target, and archive the release pack under `data/releases/<version>/`. Check foreign-key load order and every file's `type` attribute before relying on the pack (see [Data migrations](/backend/migrations#upgrade-data)).
+3. Move the production image pins to the new tags in the same change set as the tag, and move components that must ship together as a pair.
+4. Run the narrowest checks for every changed surface, and confirm the test tasks actually executed rather than reporting results from an earlier run.
+5. Tag the exact verified commit, after pushing the branch.
+6. Write the release notes: user-visible behaviour, operator actions (upgrade-data load, migration sweep, configuration), and deferred work, in separate parts.
+
+A hotfix does not get its own public release page. The newest tag on a release line carries one consolidated set of notes, and [Release updates](https://docs.drpn.ai/releases/updates) keeps one section per release line. The per-version packs under `data/releases/` stay separate for tooling.
+
+Backend tags start at `v1.0.0`. Packs under `data/releases/pre-reset/` belong to an earlier, retired numbering; their version numbers are not the same releases as the current tags.
+
+## Verification
+
+Start with the narrowest reliable checks for the changed surface, then broaden when a release touches shared contracts or critical reconciliation flows. Release notes distinguish automated checks, manual workflow checks, and unverified areas.

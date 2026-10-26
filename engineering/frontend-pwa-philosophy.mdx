@@ -1,0 +1,77 @@
+---
+title: "Frontend PWA philosophy"
+description: "How the Darpan frontend is shaped as a focused browser application."
+---
+
+Darpan's frontend is the user control surface for the backend engine; these decisions explain where the browser surface ends and backend ownership begins.
+
+The app is implemented in [`drpn-ai/darpan-ui`](https://github.com/drpn-ai/darpan-ui). It helps users set up connections, define schemas and RuleSets, start reconciliation runs, and reopen saved output without moving that work into the browser. The current PWA direction is about shell behavior, route structure, keyboard access, responsive layout, and durable browser workflows. It is not currently an offline-first or installable app.
+
+## What PWA means today
+
+| Area | Current behavior |
+| --- | --- |
+| App shell | `src/App.vue` owns the skip link, the offline banner, an error boundary around the routed page, the mascot dock, Tara (`src/components/shell/MascotDock.vue`), and the command palette. The mascot is the only floating control: it opens **Ask Darpan** (Cmd/Ctrl+K opens it too), explains whatever the pointer rests on, and raises warnings (`MascotWarningPopup.vue`). There is no user menu and no Dashboard button. Sign out and theme are the `/logout`, `/light` and `/dark` commands (`src/lib/slashCommands.ts`). Tenant switching lives on the **User Settings** page (`src/pages/settings/UserSettingsPage.vue`) and in the `/switch-tenant` command. |
+| Routing | `src/router/index.ts` is the route registry and auth gate. Route metadata tells the shell whether the page is static, workflow, authenticated, or public. |
+| Navigation | **Ask Darpan** is the primary global navigation model. The command palette combines static destinations with limited record-backed actions such as saved outputs and SFTP records. |
+| Workflow continuity | Static pages launch workflows with origin state. Workflow pages can return to the originating static page instead of forcing users back through the dashboard. |
+| Browser behavior | Routes are linkable, page reloads keep route intent, the app respects focus states, and the shell provides a skip link for keyboard users. |
+| User preference | Theme selection (`/light`, `/dark`) is persisted through the frontend theme helper and reflected in CSS variables. |
+| Page reads | `src/lib/api/readCache.ts` is stale-while-revalidate: a page that opts in renders the copy from its last visit at once, then the fresh answer. Every write (save, delete, run, tenant switch, login, logout) clears the whole cache. The cache is per tab and in memory only. `src/router/dataPrefetch.ts` warms it when a pointer rests on a link (80 ms intent). Wizards, edit forms and pollers do not use it. |
+| Session | Two build-time modes, chosen by `VITE_DARPAN_COOKIE_AUTH`. In header mode, the session token is held in memory with a `sessionStorage` backing, so it lasts for one tab and each new tab signs in on its own. In cookie mode, the credential is the HttpOnly `darpan_login_key` cookie and every call carries an `X-CSRF-Token` header; the CSRF token is kept per tab. The active tenant is stored on the server per user, so switching it in one tab affects every tab. |
+
+The frontend does not currently ship a service worker, install prompt, manifest-driven install flow, background sync, or offline reconciliation mode. Those capabilities become documentation topics when they are implemented.
+
+What it does have is an `OfflineBanner` (`src/components/shell/OfflineBanner.vue`): when the browser reports it is offline, the shell shows a status banner, and it clears when the connection returns. Requests made while offline fail; they are not queued.
+
+## Surface model
+
+Darpan pages are split into three surface types.
+
+| Surface | Purpose | Examples |
+| --- | --- | --- |
+| Shellless | Entry points without the authenticated app shell. | Login. |
+| Static | Saved-record dashboards, editors, and review pages. | Dashboard, Schema Library, SFTP Servers, Ruleset Manager, Run Result. |
+| Workflow | Guided create, edit, and run paths. | Create Schema, Create Reconciliation Flow, Run Reconciliation, connection edit flows. |
+
+Static surfaces are where users inspect durable state. Workflow surfaces are where users make a focused change or start a run. The route metadata contract keeps those surfaces visible to the shell, tests, and shared styling.
+
+## Command-first navigation
+
+Darpan avoids assuming a permanent left sidebar or nested application menu. Users start from **Ask Darpan**, search for the destination, and land directly on the right surface.
+
+This matters because the product has several setup records and run-review surfaces. The command model keeps the user focused on intent: open a saved schema, edit an SFTP server, create a run, or review generated output.
+
+The command palette is still part of the frontend shell. It routes users to app surfaces while backend search, authorization, reconciliation logic, and output filtering remain service-owned.
+
+## Workflow posture
+
+Workflow pages are built to reduce setup ambiguity.
+
+- Create flows prefer one question per step.
+- Edit flows can use compact single-page layouts when the record already exists.
+- Shared controls own common actions such as save, cancel, selection, inline validation, and shortcut choice cards.
+- Plain `Esc` can abort an active workflow back to its static origin when one is available.
+- Route state preserves the origin label and path so workflow exits feel tied to where the user started.
+
+This model keeps workflow pages smaller and keeps long-lived records on static surfaces.
+
+## Frontend and backend boundary
+
+The frontend stays thin around durable business behavior. It collects user intent, shows saved records, manages browser interactions, and calls JSON-RPC facade services. Tenant filtering, reconciliation rules, output path logic, and service-side validation remain backend-owned.
+
+Backend-owned behavior belongs in the Darpan Moqui component. Frontend code consumes those contracts through typed API helpers and presents the result through shared page surfaces.
+
+## Future PWA layer
+
+Installability and offline behavior can be added later within the current shell model:
+
+- Add a manifest only when install behavior is intentional and tested.
+- Add a service worker only with clear cache invalidation and session handling.
+- Treat offline UI as a product state, not a silent network failure.
+- Keep reconciliation execution and generated-output durability on the backend.
+- Document which surfaces work without a network before calling the app offline-ready.
+
+Until then, Darpan is a responsive browser app with PWA-oriented shell patterns, not a fully offline PWA.
+
+See also: [Frontend design system](/engineering/frontend-design-system) for shared CSS, component, and page-surface contracts; [Engineering process](/engineering/process) for how frontend changes are traced and verified.

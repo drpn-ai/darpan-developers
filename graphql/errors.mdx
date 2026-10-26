@@ -1,0 +1,27 @@
+---
+title: "Errors"
+description: "Every error code the GraphQL API returns, and what to do about it."
+---
+
+Errors come back in `errors`, each with a `message` and, where Darpan sets one, `extensions.code`. A query rejected before it runs returns no `data`.
+
+| Code | Meaning | What to do |
+|---|---|---|
+| `UNAUTHENTICATED` | No API key, or the key is unknown, disabled or expired | Check the key; ask your administrator for a new one |
+| `COST_EXCEEDED` | The query costs more than the limit | Ask for fewer fields or a smaller `first` |
+| `DEPTH_EXCEEDED` | The query nests objects too deeply | Split it into two queries |
+| `FIRST_REQUIRED` | A connection has no `first` or `last` | Add `first:` |
+| `FIRST_TOO_LARGE` | `first` or `last` is over the limit | Use 100 or less and page |
+| `THROTTLED` | The key's bucket does not hold the query's cost | Wait; it refills at 50 points a second |
+| `DEADLINE_EXCEEDED` | The request ran out of time | Ask for less |
+| `MALFORMED_QUERY` | A `query:` term is not `key:value` | See [Search syntax](/graphql/search-syntax) |
+| `FIELD_NOT_FILTERABLE` | A `query:` key is not accepted | Use a key the query lists |
+| `OPERATOR_NOT_ALLOWED` | A comparator is not allowed on that key | Use one the key allows |
+| `INVALID_CURSOR` | `after` or `before` is not a cursor Darpan issued | Start again from the first page |
+| `BATCH_LIMIT_EXCEEDED` | A field would be looked up for too many records at once | Ask for fewer records |
+
+## Errors from an audit query
+
+`auditReport` and `auditFinding` explain an expected refusal in plain words, for example `Audit month-closing was not found`, `Finding F-1 was not found` (also for another tenant's finding) or `date must be YYYY-MM-DD`. Any other failure reads `auditReport could not be completed`; Darpan logs the detail.
+
+GraphQL syntax and validation errors (an unknown field, a wrong argument type, a mutation) come from the GraphQL layer itself and do not use the codes above.

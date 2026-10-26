@@ -1,0 +1,221 @@
+---
+title: "Reconciliation engine"
+description: "How Darpan turns source data into generated reconciliation output."
+---
+
+This is where a run actually spends its time, so the two passes — base diff and rule evaluation — are worth understanding before making engine changes.
+
+The reconciliation engine is the run pipeline. It stages source data, normalizes records, compares matching keys, applies rules, and writes generated output for review.
+
+## High-level flow
+
+```text
+UI workflow
+  -> JSON-RPC facade service
+  -> access and tenant checks
+  -> saved run, RuleSet, mapping, or source records
+  -> source data staging
+  -> Spark dataset preparation
+  -> base diff and optional rule execution
+  -> verification passes
+  -> generated output descriptor and file
+  -> UI result view
+```
+
+## Run responsibilities
+
+| Stage | Responsibility |
+| --- | --- |
+| Setup and access | Persist run setup and resolve user, company, and tenant scope. |
+| Source staging | Save uploaded files, text payloads, or configured-source inputs for processing. |
+| Base comparison | Normalize records and compute missing-object or matched-pair output. |
+| Rule evaluation | Apply RuleSet rules to compare-ready data and matched pairs. |
+| Verification | Recheck reported differences against lookup-capable sources before the output is written. |
+| Output storage | Store generated output metadata and files for review. |
+
+## Current execution paths
+
+A run starts from one of two entry points. After the trigger, both execute the same stages and the same verification passes.
+
+| Entry point | Where it lives | Starts when |
+| --- | --- | --- |
+| Interactive saved run | `facade.ReconciliationFacadeServices.run#SavedRunDiff`, implemented in `src/main/groovy/darpan/facade/reconciliation/runSavedRunDiff.groovy` | A user runs a saved run from the app. |
+| Automation pipeline | `darpan.reconciliation.automation.AutomationExecutionSupport`, driven by `scan#DueAutomations`, `execute#Automation`, and SFTP polling | A schedule comes due, a user presses **Run now**, or SFTP polling picks up a file. |
+
+The verification decisions live in one place, `darpan.facade.reconciliation.RunVerificationSupport`, so a scheduled run and an interactive run apply the same rechecks. On the automation path, one runtime switch can turn all verification off for an instance.
+
+Separately, a run's compare definition takes one of two shapes:
+
+| Shape | Role |
+| --- | --- |
+| RuleSet | A saved run points to a `RuleSetCompareScope` with compare sources and optional rules. |
+| Mapping | A reconciliation mapping describes source members and comparison behavior. |
+
+Darpan supports both. New run contracts center on `RuleSetCompareScope`; existing services and release history may still reference mappings.
+
+## Scope modes, flowcharts and lifecycles
+
+A compare scope has a `scopeMode`. Null or `COMPARE` is the two-sided compare above. `EVALUATE` is single-sided: `evaluate#RuleSetCompareScope` reads one source and its rows are the findings, in the missing-diff row shape. The interactive path forks once, early, and `EXTRACT_FILE2` is never opened. An unknown mode, or a FILE_2 source on an `EVALUATE` scope, is refused.
+
+A run flowchart is a `Reconciliation` whose questions form a parent-first tree. Each question is one RuleSet run; the questions under it run on its yes or no branch, and a parent's keys narrow the child's FILE_1 at prepare, so each question answers only for the records that reached it. `run#Reconciliation` and an automation whose `savedRunType` is `reconciliation` walk the tree per window (`darpan.reconciliation.flowchart.RunFlowchartWalker`). A question under one that failed or was switched off ends `AUT_STAT_NOT_RUN`. `import#NetSuiteChecksAsRuns` turns a tenant's NetSuite checks into flowcharts: one START per population, each check a yes question under it. It is safe to repeat, and says why any check was skipped.
+
+A lifecycle is a flowchart compiled by `save#Lifecycle` from a NetSuite account, a start record type, and its stages in order. Every record lands in exactly one named place. Leave-out rules, stage exceptions (`waiveRules`), written findings (`matchRules`) and places marked as not a finding are stored on the lifecycle and recompiled into the tree. A lifecycle walk reads its window once (`darpan.reconciliation.core.RunSnapshotScope`); switch that off with `-Ddarpan.reconciliation.runSnapshot=off`, and every question reads live.
+
+## Conclusions
+
+When a scope has conclusion rules, the `CONCLUDE` stage names every verified finding from a per-run Drools tree (`darpan.reconciliation.conclusion.ConclusionTreeEngine`) and stores the evidence the deciding rule tested. A finding no rule explains is `UNEXPLAINED`. Conclusion catalogues and rules are tenant configuration, loaded per tenant, not seed data.
+
+## Run stages and observability
+
+A run's progress is recorded so an operator can see where it is, and where it stopped. `darpan.facade.reconciliation.RunObservability` is the single instrumentation point for both entry points.
+
+Each run has one `ReconciliationRunResult` row. Its `statusEnumId` moves from `AUT_STAT_PENDING` or `AUT_STAT_RUNNING` to one terminal status: `AUT_STAT_SUCCESS`, `AUT_STAT_FAILED`, `AUT_STAT_NO_DATA`, `AUT_STAT_SKIP_DUP`, `AUT_STAT_CANCELLED`, or `AUT_STAT_NOT_RUN` (a flowchart question under one that failed or was switched off). The row also carries `currentStage`, a heartbeat date, and `windowTimeZone`, the zone the run window was anchored in.
+
+Each stage writes one `ReconciliationRunStep` row with its own status, timing, and metrics. Stages run in this order (`RunObservability.STAGE_SEQUENCE`):
+
+| Sequence | Stage | Work |
+| --- | --- | --- |
+| 1 | `RESOLVE` | Load the saved run, its compare scope, and the run window. |
+| 2 | `EXTRACT_FILE1` | Extract or stage the first source. |
+| 3 | `EXTRACT_FILE2` | Extract or stage the second source. Never opened on a single-sided (`EVALUATE`) scope. |
+| 4 | `COMPARE` | Spark base diff and rule evaluation. |
+| 5 | `VERIFY_MISSING` | Missing-diff recheck. |
+| 6 | `VERIFY_EXCHANGE` | Exchange presence. |
+| 7 | `VERIFY_RETURNS` | Return presence. |
+| 8 | `CONCLUDE` | Name every verified finding by the scope's conclusion rules. Opened only when the scope has rules. |
+| 9 | `WRITE_OUTPUT` | Write the verified result artifact and the run-result summary. |
+| 10 | `NOTIFY` | Send run-completion alerts. |
+
+Verification runs before `WRITE_OUTPUT`, so the file a user downloads is the corrected one. Each pass has its own stage code and records the systems it rechecked in its own step metrics. A pass that declines to run records why.
+
+Rows written before 2.0.0 carry a single `VERIFY` code. It keeps sequence 5, so old runs still sort into their original slot; their `WRITE_OUTPUT` and `NOTIFY` rows keep sequences 6 and 7. New runs never enter `VERIFY`. A consumer that reads `stageCode` or `stageSequence` must accept both sets.
+
+| Pass | What it rechecks |
+| --- | --- |
+| Missing-diff recheck | Rows reported missing on a side whose connector supports point lookups are looked up again in that system. Rows the lookup confirms present are removed and the counts adjusted, with an audit note. A failed or skipped lookup changes nothing. |
+| Return presence | For returns runs between Shopify and HotWax OMS, regrades return and refund events reported missing on one side. An event younger than the sync grace period is pending, not missing. An event before the run window, a refund on a cancelled order, or an unrefunded Shopify return draft on an order that already has a booked OMS return is not reported as a gap. |
+| Exchange presence | For order runs between Shopify and HotWax OMS, checks that each Shopify exchange in the window was imported into OMS. Only lookup-confirmed absences become rows. |
+
+## Stuck-run recovery
+
+If a JVM crash or container restart kills a run mid-flight, its run-result row can be left in a running state forever, which blocks re-triggering. An internal scheduled reaper handles this:
+
+```text
+reconciliation.ReconciliationAutomationServices.sweep#StuckReconciliationRuns
+```
+
+It flips `ReconciliationRunResult` and `ReconciliationAutomationExecution` rows still in running or pending state, whose last update is older than a threshold (`staleMinutes`, default 120), to failed with an explanatory status message. The service is internal only (`allow-remote="false"`) and is not part of the JSON-RPC surface.
+
+## RuleSet compare flow
+
+The RuleSet path is built from these records:
+
+- `RuleSet`
+- `RuleSetCompareScope`
+- `RuleSetCompareSource`
+- `Rule`
+- `ReconciliationRun`
+- Generated output descriptor records
+
+The compare flow is:
+
+1. The facade service creates or loads a saved run and its compare scope.
+2. Generic reconciliation saves uploaded or text payloads in a tenant-scoped temp location.
+3. `prepare#RuleSetCompareScope` resolves compare sources and builds normalized Spark datasets.
+4. `reconcile#RuleSetCompareScopeBaseDiff` finds base missing-object differences and matched pairs.
+5. `reconcile#RuleSetCompareScope` preserves base diffs and appends rule-generated diffs from matched pairs.
+6. The backend writes result data and summary metadata as a generated output.
+
+## File and source handling
+
+The backend can compare uploaded files, text payloads, and configured sources. CSV and JSON inputs are normalized before comparison. The comparison layer receives structured data and saved run context, not UI-specific state.
+
+Generic file reconciliation is routed through:
+
+```text
+reconciliation.ReconciliationGenericServices.reconcile#GenericFiles
+```
+
+RuleSet comparison uses:
+
+```text
+reconciliation.ReconciliationCoreServices.prepare#RuleSetCompareScope
+reconciliation.ReconciliationCoreServices.reconcile#RuleSetCompareScope
+```
+
+The legacy mapping path still routes through:
+
+```text
+reconciliation.ReconciliationCoreServices.reconcile#FilesByMapping
+```
+
+## Generated outputs
+
+Generated outputs are not only downloaded files. The backend stores descriptor metadata so the UI can list, open, and delete outputs consistently.
+
+Generated-output metadata can include:
+
+- Saved run ID and display name
+- RuleSet and compare-scope IDs
+- Source labels
+- Output location
+- Diff counts and summary fields
+- Created user and tenant scope
+
+Generated output operations are exposed through facade services such as:
+
+```text
+facade.ReconciliationFacadeServices.list#GeneratedOutputs
+facade.ReconciliationFacadeServices.get#GeneratedOutput
+facade.ReconciliationFacadeServices.delete#GeneratedOutput
+```
+
+## Run-completion notifications
+
+Runs that reach a terminal state alert the owning tenant so sync issues surface without anyone watching the run history page. Destinations are resolved per run rather than per tenant, which is what lets one person follow a single run without changing shared configuration.
+
+1. A run reaches a terminal state through one of three paths: a manual saved-run diff (`facade.ReconciliationFacadeServices.run#SavedRunDiff`), a scheduled automation execution, or SFTP polling. Terminal states are `AUT_STAT_SUCCESS`, `AUT_STAT_FAILED`, `AUT_STAT_NO_DATA`, `AUT_STAT_SKIP_DUP`, and `AUT_STAT_CANCELLED`.
+2. The completion path calls `darpan.reconciliation.notification.TenantNotificationSupport`, which resolves destinations through `resolveDestinationChatSpaces`: the automation's linked `chatSpaceId`, plus the snapshotted space on every `darpan.reconciliation.ReconciliationRunNotifySubscription` row for the run.
+3. That set is deduplicated and filtered to `darpan.reconciliation.TenantChatSpace` rows that are active, can deliver, and belong to the run's own tenant. A dropped *automation-linked* space is logged as a warning; a dropped subscriber space is expected churn and stays silent.
+4. The helper builds the message through `reconciliation.ReconciliationNotificationServices.build#RunCompletedPayload` and posts it to each surviving destination.
+
+Delivery is claim-then-deliver: a single claim per run-result means at most one notification pass even when several stages report completion. A failed delivery still consumes the claim; there is no automatic redelivery. Subscription rows are purged once the run is terminal. The payload includes the run name, tenant label, result ID, a link back to the run result, the difference count, and the only-in-source counts. The run-result link base URL comes from the `DARPAN_APP_BASE_URL` environment variable or the `darpan.app.baseUrl` property, falling back to the first allowed origin.
+
+Automation executions have one more end state. An execution that fails with a transient error is retried; one that exhausts its retries ends in `AUT_STAT_DEAD_LETTER` and sends a give-up alert to the same destinations. `facade.ReconciliationFacadeServices.reprocess#AutomationExecution` resets a failed or dead-lettered execution to pending with a fresh retry budget.
+
+### Chat providers
+
+A chat space posts to one provider, recorded in `chatProviderEnumId`:
+
+| Provider | Enum | Delivery |
+| --- | --- | --- |
+| Google Chat | `CHAT_PROV_GOOGLE` | Incoming webhook. A null provider reads as Google Chat, because rows written before Slack support have no provider. |
+| Slack | `CHAT_PROV_SLACK` | The bot token of a connected Slack workspace (`chat.postMessage` to `slackChannelId`) when the space names a workspace install, or an incoming webhook otherwise. |
+
+The webhook URL is validated on save:
+
+- Google Chat: `https` on `chat.googleapis.com`, a `/v1/spaces/…/messages` path, and `key` and `token` query parameters.
+- Slack: `https` on `hooks.slack.com`, a complete `/services/…` path.
+
+Webhook URLs are stored in clear text in `TenantChatSpace.webhookUrl`, and `list#TenantChatSpaces` returns them to members of the tenant. Treat read access to a tenant's settings as access to its webhook URLs. Slack bot tokens belong to the workspace install and are not returned.
+
+The registry, the per-user default, and Slack setup are configured through:
+
+```text
+facade.SettingsFacadeServices.list#TenantChatSpaces
+facade.SettingsFacadeServices.save#TenantChatSpace
+facade.SettingsFacadeServices.delete#TenantChatSpace
+facade.SettingsFacadeServices.get#UserNotificationDefault
+facade.SettingsFacadeServices.save#UserNotificationDefault
+facade.ReconciliationFacadeServices.subscribe#RunNotification
+facade.ReconciliationFacadeServices.unsubscribe#RunNotification
+facade.SlackFacadeServices.begin#SlackInstall
+facade.SlackFacadeServices.save#SlackBotToken
+facade.SlackFacadeServices.get#SlackInstall
+facade.SlackFacadeServices.list#SlackChannels
+facade.SlackFacadeServices.disconnect#SlackWorkspace
+```
+
+`save#TenantChatSpace` requires tenant write access; `save#UserNotificationDefault` and the subscribe pair are personal preferences and do not. `delete#TenantChatSpace` hard-deletes only unreferenced spaces — a space an automation or subscription points at must be deactivated instead. A Slack space can only name a workspace install that belongs to the same tenant.
+
+The single-webhook `darpan.reconciliation.TenantNotificationSetting` entity this replaced is retired. `reconciliation.ReconciliationNotificationServices.migrate#TenantNotificationSettings` is the one-time upgrade that copies each tenant's old webhook into a space named `Default space` and links that tenant's space-less automations to it. It is idempotent, internal only (`allow-remote="false"`), and registered as a [data migration](/backend/migrations). The product-side setup flow is described in [Manage tenant settings](https://docs.drpn.ai/guides/manage-tenant-settings).

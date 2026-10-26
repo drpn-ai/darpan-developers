@@ -1,0 +1,63 @@
+---
+title: "Errors"
+description: "How failed calls come back: HTTP refusals, the JSON-RPC error object, and business-validation results."
+---
+
+A failed call can come back with HTTP 200, HTTP 401, or HTTP 500. Read the response body on every status, not only on 200, and decide the outcome from its shape.
+
+## Error shape
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 500,
+    "message": "<service error message>"
+  }
+}
+```
+
+The `message` is the real error string from the backend.
+
+When a service ends with errors, the dispatcher replaces the `result` with this `error` object, sets `error.code` to `500`, and sends the response with HTTP 500. Most failed facade calls take this path, including a refused sign-in:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": 500,
+    "message": "Invalid username or password"
+  }
+}
+```
+
+## HTTP-level refusals
+
+These are refused before the JSON-RPC dispatcher runs, so the body is not a JSON-RPC envelope.
+
+| HTTP status | When |
+| --- | --- |
+| `401` | A cookie-authenticated call (browser channel) is missing the `X-CSRF-Token` header, or the token does not match the session. Calls that send the `login_key` header are not CSRF-checked. |
+| `403` | From Darpan 2.0.0, the `method` (or any entry of a batch) is outside `facade.*`, `admin.*` and `gql.*`. The call is refused before dispatch, whether or not it carries a session. The framework's `/rest/login` endpoint is refused the same way. |
+
+## JSON-RPC error codes
+
+| Code | Meaning |
+| --- | --- |
+| `-32700` | Parse error (invalid JSON). |
+| `-32600` | Invalid request (no method specified). |
+| `-32601` | Unknown method, or a service that does not allow remote calls. |
+| `-32602` | Invalid params (named parameters required: `params` must be a JSON object). |
+| `-32603` | Internal JSON-RPC error (defined by the dispatcher, rarely emitted). |
+| `500` | The service failed or ended with errors. Also returned for an unauthenticated call to a method that needs a session, with the message `User must be logged in to call service …`. This is not an HTTP 401. |
+| `403` | The service call was denied by authorization inside the dispatcher. |
+
+These codes are part of the generated contract: `JsonRpcError.code` in the [OpenAPI reference](/api-reference/openapi.json) carries the same enum, regenerated from the backend facade XML (`./gradlew :runtime:component:darpan:generateApiContract`).
+
+## Business validation
+
+Every facade result carries `ok`, `messages[]`, and `errors[]`. Because a service that ends with errors is turned into the `error` object above, most validation failures arrive as `error.code: 500`. A `result` with `ok: false` and a non-empty `result.errors[]` is possible but uncommon; treat it as a failed call too.
+
+Some methods report a completed call that still needs a next step. `login#Session` returns `ok: true` with `authenticated: false` when the password must be changed first. Read the method's own fields, such as `authenticated`, rather than `ok` alone. See [API quickstart](/api-reference/quickstart).

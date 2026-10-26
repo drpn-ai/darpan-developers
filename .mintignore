@@ -1,0 +1,7 @@
+# Mintlify automatically ignores .git, .github, node_modules, README.md, LICENSE.md, CHANGELOG.md, CONTRIBUTING.md
+
+# JSON-RPC (/rpc/json) is internal: kept here for the contract-drift check, never published
+api-reference/
+
+# Internal
+VOICE.md

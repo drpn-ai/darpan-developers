@@ -1,0 +1,23 @@
+query MorningReport {
+  auditReport(audit: "month-close", date: "2026-10-08") {
+    schema
+    report { date period window { from thru } }
+    health {
+      complete
+      summary
+      sources { system read records reason affects }
+    }
+    summary { open pending newToday fixedToday }
+    categories {
+      id
+      label
+      statements {
+        id
+        text
+        status
+        counts { open pending }
+        findings { id headline state firstFound ageDays records { system recordType id } }
+      }
+    }
+  }
+}

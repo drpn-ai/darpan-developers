@@ -1,0 +1,9 @@
+query RecentRuns {
+  reconciliationResults(first: 2, sortKey: CREATED_DATE, reverse: true, query: "statusEnumId:AUT_STAT_SUCCESS") {
+    edges {
+      cursor
+      node { reconciliationRunResultId savedRunId differenceCount onlyInFile1Count onlyInFile2Count createdDate }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}

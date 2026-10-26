@@ -1,0 +1,88 @@
+---
+title: "Operations and validation"
+description: "Backend commands and review checks for engine changes."
+---
+
+These checks confirm engine changes before merge; run them from the Moqui framework checkout that contains the Darpan component unless a command states otherwise. Start with focused tests, then widen.
+
+```text
+<moqui-framework>
+```
+
+## Common checks
+
+Run the narrowest check that covers your change first, then widen.
+
+| Check | Command |
+| --- | --- |
+| Run only the tests your diff can break | `runtime/component/darpan/scripts/focused-test.sh [base-ref]` |
+| Run one backend test class | `./gradlew :runtime:component:darpan:test --tests <TestClass>` |
+| Run the classes that do not boot Moqui (fast) | `./gradlew :runtime:component:darpan:unitTest` |
+| Run the classes that boot Moqui | `./gradlew :runtime:component:darpan:smokeTest` |
+| Run the full suite as the two pools above | `./gradlew :runtime:component:darpan:testAll` |
+| Run the full suite, one JVM per class | `./gradlew :runtime:component:darpan:test` |
+| Run the MySQL-only tests (needs a local `darpan_test` MySQL database) | `./gradlew :runtime:component:darpan:mysqlTest` |
+| Compile the Darpan backend component | `./gradlew :runtime:component:darpan:compileGroovy` |
+| Check the committed API contract against the service XML | `./gradlew :runtime:component:darpan:checkApiContract` |
+| Validate component organization rules | `./gradlew :runtime:component:darpan:verifyOrganization` |
+| Build the component jar | `./gradlew :runtime:component:darpan:jar` |
+| Load seed and upgrade data | `./gradlew :runtime:component:darpan:loadDarpanUpgradeData` |
+
+`focused-test.sh` picks test classes from the files changed since the base ref (default `origin/main`) and falls back to the full suite for anything it cannot map. Pass `-n` as the second argument to print the selection without running it. It is a faster inner loop, not a substitute for the full suite before you push.
+
+Tests tagged `mysql` cover InnoDB locking behaviour that the default H2 test database cannot reproduce. They are excluded from `test`, `unitTest`, and `smokeTest`.
+
+## Runtime baseline
+
+| Piece | Version or setting |
+| --- | --- |
+| JDK | 21 (the component's Gradle toolchain) |
+| Framework | Moqui 4, built from the `drpn-ai/moqui-framework` fork, with embedded Bitronix as the JTA transaction manager |
+| Build | Gradle 9 |
+| Comparison | Apache Spark SQL 3.5.1 |
+| Rules | Drools 8.44.0.Final (`drools-engine`, `drools-mvel`, `drools-xml-support`) |
+| MySQL driver | Connector/J 9.7.0; deployments use the `mysql8` database configuration |
+| PostgreSQL driver | 42.7.7 |
+
+Spark on JDK 21 needs a set of `--add-opens` JVM flags, plus `-XX:+EnableDynamicAgentLoading` and `--enable-native-access=ALL-UNNAMED`. The component's test tasks pass them, and the production entrypoint exports them through `JAVA_TOOL_OPTIONS`. A local server needs the same flags; without them a compare fails at runtime.
+
+Production images are built from a separate, private deployment repository (`darpan-docker-config`). Its production entrypoint refuses to start unless the database connection (`Moqui_DB_HOST`, `Moqui_DB_USER`, `Moqui_DB_PASSWORD`, `Moqui_DB_NAME`), `entity_ds_crypt_pass`, and `JWT_KEY` are set. `entity_ds_crypt_pass_old` is optional and used only during a key rotation.
+
+## When to run broader checks
+
+Run broader backend checks when a change touches:
+
+- Shared facade services
+- Entity definitions or seed data
+- Active tenant or permission behavior
+- Reconciliation run execution
+- Generated output descriptors or file locations
+- RuleSet compilation or execution
+- JSON schema validation or inference
+
+## Backend service review checklist
+
+Backend engine changes are ready to merge when:
+
+- The owning XML service contract is clear.
+- Inputs and outputs are documented in the service definition.
+- Access checks run before scoped data is returned or mutated.
+- Entity queries include active tenant or company filters where required.
+- Groovy helpers do not hide normal service orchestration.
+- Generated outputs include both descriptor metadata and scoped file handling.
+- Tests cover the changed contract or processing path.
+
+## Expected service documentation
+
+Backend service documentation includes:
+
+- Service name
+- Owning file
+- Inputs and outputs
+- Authentication and authorization expectations
+- Runtime side effects
+- Verification path
+
+## Troubleshooting
+
+For backend failures, read the earliest meaningful backend log entry for the request. The final exception often hides the first contract or data-shape problem.

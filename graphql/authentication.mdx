@@ -1,0 +1,46 @@
+---
+title: "Authentication"
+description: "API keys for the GraphQL API: one tenant per key, read-only, sent in a header."
+---
+
+The GraphQL API authenticates with an API key. A key belongs to one tenant: every query made with it reads that tenant's data and nothing else. A query cannot name a tenant.
+
+## Send the key
+
+Send the key in the `Authorization` header:
+
+```http
+Authorization: Bearer dgql_9bPq…
+```
+
+`X-Darpan-Gql-Key: dgql_9bPq…` is accepted as well. A session cookie or `login_key` does not authenticate this endpoint.
+
+## Get a key
+
+A Darpan super-admin creates keys for a tenant. Each key has a label that names the agent or integration using it, and may have an expiry date. The key is shown once, when it is created; Darpan stores only its SHA-256 digest and cannot show it again.
+
+| Change | What happens |
+|---|---|
+| Rotate | A new key is issued for the same tenant and label. The old key keeps working for a grace period (60 minutes unless set otherwise, at most 24 hours), then stops. |
+| Disable | The key stops working from the next request. |
+| Expire | After its expiry date the key stops working. |
+
+Ask your Darpan administrator to rotate or disable a key; there is no self-service key endpoint.
+
+## When a key is refused
+
+A missing, unknown, disabled or expired key gets the same response, so a refusal does not reveal which check failed:
+
+```json
+{
+  "messages": "invalid API key\n",
+  "extensions": {},
+  "errors": [ { "message": "invalid API key", "extensions": { "code": "UNAUTHENTICATED" } } ]
+}
+```
+
+With no key at all the message is `missing API key`.
+
+## Keep keys safe
+
+Store a key as a secret (for example in an environment variable such as `DARPAN_GQL_KEY`), never in source control. A key reads a tenant's audit findings and run results; treat it like a password.

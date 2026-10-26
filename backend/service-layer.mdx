@@ -1,0 +1,110 @@
+---
+title: "Service layer"
+description: "How Darpan exposes and organizes backend services."
+---
+
+Understanding the service layers clarifies where to add validation, change behavior, or trace a bug.
+
+Darpan backend calls use Moqui JSON-RPC through `/rpc/json`. The method name is a Moqui service name, for example:
+
+```text
+facade.ReconciliationFacadeServices.list#SavedRuns
+```
+
+## Layering
+
+| Layer | Role |
+| --- | --- |
+| Facade services (`facade.*`) | Public JSON-RPC contracts used by the app. They validate inputs, enforce tenant access, normalize parameters, and shape responses. |
+| Admin services (`admin.*`) | Operator-only contracts for the Darpan admin app: tenants, users, memberships, migrations, and the admin session. Restricted to super admins through the `DARPAN_ADMIN_API` artifact group. Not part of the public API. |
+| Core services | Internal services that perform reconciliation, schema, rule, migration, and file-processing work. Not callable remotely (`allow-remote="false"`). |
+| Entity operations | Moqui entity finds and writes, usually inside XML actions. |
+| Helper code | Groovy classes for dense processing such as Spark, Drools, streaming file I/O, HTTP clients, crypto, and non-trivial JSON work. |
+
+## Remote surface
+
+Facade services are granted to every signed-in Darpan user through the `DARPAN_FACADE_APP` artifact group. Each facade service then checks the active tenant and the caller's role before it reads or writes. Admin services are granted only to super admins.
+
+Four facade services accept anonymous calls, all in `AuthFacadeServices.xml`: `login#Session`, `get#SessionInfo`, `change#ExpiredPassword`, and `logout#Session`. Every other facade service requires a signed-in user.
+
+`/rpc/json` is fenced to Darpan's own namespaces. `RpcMethodFence` (`src/main/groovy/darpan/facade/common/RpcMethodFence.groovy`), wired as a webroot before-request hook in the component `MoquiConf.xml`, refuses any method that does not start with `facade.`, `admin.` or `gql.`, checking the top-level method and every batch entry, with an `ArtifactAuthorizationException` (HTTP 403) before dispatch. That includes stock Moqui services marked `allow-remote="true"`. `gql.*` stays callable because each moqui-gql remote service gates itself. The same fence closes the framework's `/rest/login` transition. `/rest/s1/*` is not affected.
+
+## Facade services
+
+Facade services are the app integration point. The `darpan` component's facade files are:
+
+| File | Covers |
+| --- | --- |
+| `service/facade/AuthFacadeServices.xml` | Login, session info, logout, active tenant, user settings, and password changes. |
+| `service/facade/SettingsFacadeServices.xml` | Tenant settings, enum options, SFTP servers, NetSuite configs, source connection tests, chat spaces, notification defaults, and stored AI provider settings. |
+| `service/facade/JsonSchemaFacadeServices.xml` | Schema library: create, infer, refine, validate, and delete. |
+| `service/facade/ReconciliationFacadeServices.xml` | Saved runs and their rule sets, mappings, interactive runs, run status and cancel, generated outputs, run notifications, and automations. |
+| `service/facade/SearchFacadeServices.xml` | Navigation-target search for the command palette (`search#NavigationTargets`). |
+| `service/facade/ConfigSharingFacadeServices.xml` | Sharing an API source config with other tenants. |
+| `service/facade/SlackFacadeServices.xml` | Slack workspace install, bot token, channel list, and disconnect. |
+| `service/facade/SourceEndpointFacadeServices.xml` | Per-config source endpoint access. |
+
+Connector components add their own facade files under the same `facade.*` namespace:
+
+| Component | Facade file |
+| --- | --- |
+| `darpan-hotwax` | `service/facade/HotWaxOmsFacadeServices.xml` |
+| `shopify-darpan` | `service/facade/ShopifyFacadeServices.xml` |
+| `database-darpan` | `service/facade/DatabaseFacadeServices.xml` |
+
+## Core reconciliation services
+
+Core reconciliation services live under `service/reconciliation/**`.
+
+| Service file | Purpose |
+| --- | --- |
+| `ReconciliationCoreServices.xml` | Spark-backed core compare services, RuleSet compare-scope preparation, base diff generation, and legacy mapping execution. |
+| `ReconciliationGenericServices.xml` | Generic reconciliation entrypoints that accept uploaded or text payloads and route to RuleSet or mapping execution. Also holds generated-output file cleanup (`delete#GeneratedOutputFile`, `purge#GeneratedOutputFiles`) and encrypted-field key rotation (`rotate#EncryptedFieldValues`). |
+| `ReconciliationRuleEngineServices.xml` | RuleSet, Rule, Drools compile, execution, and cache operations. |
+| `ReconciliationAutomationServices.xml` | Scheduled automation scanning and execution, SFTP polling, and the stuck-run reaper (`sweep#StuckReconciliationRuns`). |
+| `ReconciliationNotificationServices.xml` | Run-completion payload building (`build#RunCompletedPayload`) for tenant chat alerts, plus the one-time notification migrations. |
+| `ReconciliationJsonServices.xml` | JSON file reconciliation entrypoints. |
+| `ReconciliationMixedServices.xml` | CSV-against-JSON file reconciliation (`reconcile#MixedFiles`). |
+
+Two more internal service files sit beside them:
+
+| Service file | Purpose |
+| --- | --- |
+| `service/jsonschema/JsonSchemaServices.xml` | Schema persistence, inference, refinement, validation, and flattening. |
+| `service/migration/MigrationServices.xml` | The data-migration supervisor and ledger. See [Data migrations](/backend/migrations). |
+
+## XML actions first
+
+Service bodies are written as Moqui XML actions by default. XML actions compile to Groovy, so they cost nothing at runtime, and they keep the contract and its orchestration readable in one place.
+
+New Groovy whose body is only entity find or CRUD, simple conditions and loops, service calls, field mapping, or message handling is a review finding: write it as XML actions instead. Groovy is the right tool for:
+
+- Spark dataset work
+- Drools compilation and execution
+- Streaming file I/O
+- HTTP and GraphQL clients
+- Crypto
+- Non-trivial JSON or string processing
+
+Tenant-scoped reads go through `TenantScopedFinder`. See [Data access and tenancy](/backend/data-access-and-tenancy).
+
+## Generated API contract
+
+The remote API contract is generated from the service XML, not written by hand.
+
+| Command | What it does |
+| --- | --- |
+| `./gradlew :runtime:component:darpan:generateApiContract` | Regenerates `docs/api-contract/openapi.json` and `docs/api-contract/methods.txt` from the `facade.*` and `admin.*` service files, including the connector components' facades. |
+| `./gradlew :runtime:component:darpan:checkApiContract` | Fails when the committed contract has drifted from the service XML. |
+
+`ApiContractGeneratorTests` runs the same drift check inside the test suite, so a service change that skips regeneration fails the build. The contract carries a version number that changes only on a breaking change: a removed method, a removed or renamed parameter or output field, or a type change. Additive changes keep the version.
+
+When you add or change a remote service:
+
+1. Define it in the right namespace: `facade.*` for the app, `admin.*` for operator-only work.
+2. Regenerate the contract and commit it with the service change.
+3. Refresh the app's copy of the contract (`npm run sync-contract` in `darpan-ui`) when the app calls the new method.
+
+## API shape
+
+Darpan APIs are exposed through facade service names and the Moqui JSON-RPC envelope. Service references document required parameters, auth expectations, side effects, and response fields for those facade contracts.

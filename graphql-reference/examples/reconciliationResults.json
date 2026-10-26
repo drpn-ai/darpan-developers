@@ -1,0 +1,20 @@
+{
+  "data": {
+    "reconciliationResults": {
+      "edges": [
+        {
+          "cursor": "eyJpZCI6IjEwMDQ1In0",
+          "node": {
+            "reconciliationRunResultId": "10045",
+            "savedRunId": "ORDERS_OMS_NS",
+            "differenceCount": 3,
+            "onlyInFile1Count": 2,
+            "onlyInFile2Count": 1,
+            "createdDate": "2026-10-08T13:05:41Z"
+          }
+        }
+      ],
+      "pageInfo": { "hasNextPage": true, "endCursor": "eyJpZCI6IjEwMDQ1In0" }
+    }
+  }
+}

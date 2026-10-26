@@ -1,0 +1,58 @@
+---
+title: "Repo map"
+description: "Where Darpan work belongs."
+---
+
+Before editing, confirm you are in the right repository; the two codebases have separate release cycles, dependency graphs, and test suites.
+
+## Git repositories
+
+Darpan engineering work is split across the frontend app and backend engine.
+
+| Repository | Stack | Owns | Repository root |
+| --- | --- | --- | --- |
+| [`drpn-ai/darpan-ui`](https://github.com/drpn-ai/darpan-ui) | Vue 3, TypeScript, Vite | Darpan frontend app, routes, Ask Darpan shell, browser workflows, frontend API clients | Repository root |
+| [`drpn-ai/darpan`](https://github.com/drpn-ai/darpan) | Moqui runtime component with XML services and Groovy helpers | Backend service contracts, entities, reconciliation engine, RuleSet processing, generated outputs | Component root |
+
+### Source connector components
+
+Connector components install alongside the `darpan` component and register into its connector registry. A connector supplies its extract services and registry seed rows, and usually its own configuration entities; the reconciliation engine dispatches into it without knowing the system it talks to.
+
+| Component | Adds |
+| --- | --- |
+| `drpn-ai/darpan-hotwax` | HotWax OMS as a source. |
+| `drpn-ai/shopify-darpan` | Shopify as a source, including returns and refund references. |
+| `drpn-ai/netsuite-darpan` | NetSuite connector services. Its configuration entities are defined in `darpan`. |
+| `drpn-ai/database-darpan` | Databases as a first-class source: MySQL, PostgreSQL and IBM Db2 over JDBC. |
+| `moqui/moqui-sftp` | SFTP transport for file sources. |
+
+Because a connector contributes registry data, adding an endpoint or a rules-board field is usually a data change in the connector rather than an application change in `darpan`.
+
+### Platform and supporting repositories
+
+| Repository | Role |
+| --- | --- |
+| `drpn-ai/moqui-framework` | The Moqui 4 framework fork the backend builds against. It carries fixes Darpan needs ahead of upstream. |
+| `drpn-ai/moqui-gql` | The GraphQL component included in the backend images. It serves Darpan's read-only [GraphQL API](/graphql/overview). |
+| `drpn-ai/darpan-docs` | Product docs and release notes at [docs.drpn.ai](https://docs.drpn.ai). |
+| `drpn-ai/darpan-developers` | This site: the GraphQL API, self-hosting, and engineering. |
+| `darpan-admin-ui` | The operator admin app for tenants, users, memberships, and migrations. Private. |
+| `darpan-docker-config` | Dockerfiles, entrypoint, and production configuration for the backend images. Private. |
+
+## High-signal paths
+
+| Surface | Paths |
+| --- | --- |
+| UI pages | `src/pages/**` |
+| UI shared code | `src/components/**`, `src/lib/**`, `src/router/**` |
+| UI package and stack | `package.json`, `vite.config.ts`, `src/main.ts` |
+| Backend services | `service/**` |
+| Backend logic | `src/**` |
+| Backend entities | `entity/**` |
+| Backend component descriptor | `component.xml` |
+
+For the full backend component directory layout and runtime stack, see [Component layout](/backend/component-layout).
+
+## Boundary rule
+
+Custom Darpan UI belongs in `drpn-ai/darpan-ui`, not backend `screen/**`, `template/**`, or `theme-library/**`. Backend service contracts belong in `drpn-ai/darpan` and are consumed from the Vue app.
