@@ -1,0 +1,40 @@
+---
+title: "Read recent reconciliation runs"
+description: "List the latest reconciliation runs and what each found, with reconciliationResults."
+keywords: ["reconciliationResults", "runs", "latest", "differences", "status", "saved run"]
+---
+
+A reconciliation run compares two sources and counts the records found on only one side. `reconciliationResults` lists runs newest first; `reconciliationResult` reads one by id.
+
+## The request
+
+```bash
+curl -s "$DARPAN_API/rest/s1/graphql/public" \
+  -H "Authorization: Bearer $DARPAN_GQL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ reconciliationResults(first: 10, sortKey: CREATED_DATE, reverse: true) { edges { node { reconciliationRunResultId savedRunId statusEnumId createdDate differenceCount onlyInFile1Count onlyInFile2Count file1Name file2Name } } pageInfo { hasNextPage endCursor } } }"}'
+```
+
+## Read the answer
+
+| Field | Tells you |
+|---|---|
+| `statusEnumId` | How the run ended, e.g. `AUT_STAT_SUCCESS` |
+| `onlyInFile1Count`, `onlyInFile2Count` | Records present in one source and missing from the other |
+| `differenceCount` | The sum of those two. Records on both sides with different values are not counted here |
+| `file1Name`, `file2Name` | Which sources the run compared |
+| `savedRunId` | The saved run this run executed; use it to filter |
+
+## Filter
+
+```graphql
+reconciliationResults(first: 20, sortKey: CREATED_DATE, reverse: true,
+                      query: "savedRunId:ORDERS_OMS_NS statusEnumId:AUT_STAT_SUCCESS")
+```
+
+The keys are `savedRunId`, `reconciliationRunId`, `ruleSetId` and `statusEnumId`. See [Search syntax](/graphql/search-syntax).
+
+## Related
+
+- [`reconciliationResults`](/graphql/queries/reconciliation-results) and [`reconciliationResult`](/graphql/queries/reconciliation-result) reference
+- [Pagination](/graphql/pagination)

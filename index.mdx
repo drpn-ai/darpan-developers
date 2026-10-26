@@ -1,0 +1,45 @@
+---
+title: "Darpan developers"
+description: "Read your tenant's audits, findings and reconciliation runs over GraphQL, or run Darpan yourself."
+mode: "wide"
+keywords: ["developers", "api", "graphql", "start here", "api key"]
+---
+
+Darpan checks that your order, refund, return and exchange records agree across Shopify, your OMS and NetSuite. This site is for the people who build on that: integrations and agents that read Darpan's findings, and engineers who run or change Darpan itself. Product guides for people using the app are at [docs.drpn.ai](https://docs.drpn.ai).
+
+## Start here
+
+<Columns cols={2}>
+  <Card title="Test your API key" icon="key" href="/graphql/quickstart">
+    You have a `dgql_` key. Make your first request in five minutes, and see what every refusal means.
+  </Card>
+  <Card title="Try it in the explorer" icon="play" href="/graphql/explorer">
+    Paste your key and send any query from this site. No terminal needed.
+  </Card>
+  <Card title="Find the query for your task" icon="compass" href="/graphql/tasks">
+    This morning's audit, open findings, one finding in full, a daily sync, recent runs.
+  </Card>
+  <Card title="Browse the reference" icon="book-open" href="/graphql/queries/audit-report">
+    Every query, object and field, generated from the schema Darpan serves.
+  </Card>
+</Columns>
+
+## What the API gives you
+
+| | |
+|---|---|
+| **Read-only** | Queries only. Fix a record in the system it lives in; Darpan's next check closes the finding |
+| **One tenant per key** | A key reads its own tenant's data and nothing else. A query cannot name a tenant |
+| **One endpoint** | `POST https://api.drpn.ai/rest/s1/graphql/public` on hosted Darpan |
+| **Self-describing** | `GET /rest/s1/graphql/sdl` returns the schema, with a description on every field |
+
+## Run or change Darpan
+
+<Columns cols={2}>
+  <Card title="Self-host" icon="server" href="/self-host/set-up-darpan-independently">
+    Run Darpan on your own infrastructure: environments, production setup, troubleshooting.
+  </Card>
+  <Card title="Engineering" icon="wrench" href="/engineering/overview">
+    How the backend and frontend are built, and how changes ship.
+  </Card>
+</Columns>

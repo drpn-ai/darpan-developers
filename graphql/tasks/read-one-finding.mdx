@@ -1,0 +1,40 @@
+---
+title: "Read one finding"
+description: "Get a finding's records, evidence, fix and history with auditFinding."
+keywords: ["auditFinding", "finding", "evidence", "fix", "records", "history", "details"]
+---
+
+A finding is one record that breaks one statement. `auditFinding` returns all of it: which records in which systems, why the check flagged them, who fixes it and where, and how Darpan confirms the fix.
+
+## The request
+
+```bash
+curl -s "$DARPAN_API/rest/s1/graphql/public" \
+  -H "Authorization: Bearer $DARPAN_GQL_KEY" \
+  -H "Content-Type: application/json" \
+  -d @- <<'JSON'
+{
+  "query": "query One($id: ID!) { auditFinding(id: $id) { finding { id headline statement { id text } status { state firstFound lastSeen pendingUntil } records { system recordType id internalId status } evidence { rule expected { amount currency source } actual { amount currency source } difference { amount currency } checks { label passed value } } fix { owner where action verify { passesWhen nextCheck } } history { at event } } } }",
+  "variables": { "id": "F-20790" }
+}
+JSON
+```
+
+Finding ids come from [`auditReport`](/graphql/tasks/check-the-morning-audit) or [`findings`](/graphql/tasks/list-open-findings). A finding of another tenant reads as `Finding F-… was not found`.
+
+## Read the answer
+
+| Field | Tells you |
+|---|---|
+| `headline` | One line naming the record and what is wrong |
+| `records` | The record in each system: `system`, `recordType`, the `id` people see, and NetSuite's `internalId` |
+| `evidence.rule` | The exact condition the record failed, in plain words |
+| `evidence.expected`, `actual`, `difference` | The amounts and where each came from, when the rule is about money |
+| `evidence.checks` | Each sub-condition, whether it `passed`, and what was seen |
+| `fix.owner`, `fix.where`, `fix.action` | Who fixes it, in which system, and what to change, with this record's values filled in |
+| `fix.verify.passesWhen` | What Darpan's next check must see to close the finding |
+| `history` | Every state change and sighting, oldest first |
+
+## Related
+
+- [`auditFinding` reference](/graphql/queries/audit-finding) and [`Finding`](/graphql/objects/finding)

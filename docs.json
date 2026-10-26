@@ -46,16 +46,50 @@
       "vscode"
     ]
   },
+  "api": {
+    "openapi": "graphql-reference/explorer.openapi.json",
+    "playground": {
+      "display": "interactive",
+      "proxy": false
+    },
+    "examples": {
+      "languages": [
+        "bash",
+        "javascript",
+        "python"
+      ],
+      "prefill": true
+    }
+  },
   "navigation": {
     "tabs": [
       {
         "tab": "GraphQL API",
+        "icon": "brackets-curly",
         "groups": [
           {
-            "group": "Guides",
+            "group": "Get started",
             "pages": [
               "graphql/overview",
+              "graphql/quickstart",
               "graphql/authentication",
+              "graphql/explorer"
+            ]
+          },
+          {
+            "group": "Common tasks",
+            "pages": [
+              "graphql/tasks",
+              "graphql/tasks/check-the-morning-audit",
+              "graphql/tasks/list-open-findings",
+              "graphql/tasks/read-one-finding",
+              "graphql/tasks/sync-findings",
+              "graphql/tasks/recent-reconciliation-runs"
+            ]
+          },
+          {
+            "group": "Using the API",
+            "pages": [
               "graphql/cost-and-throttling",
               "graphql/pagination",
               "graphql/search-syntax",
@@ -65,83 +99,104 @@
             ]
           },
           {
-            "group": "Audit runs: queries",
+            "group": "Queries",
             "pages": [
+              "graphql/queries/audit-report",
               "graphql/queries/audit-finding",
-              "graphql/queries/audit-report"
-            ]
-          },
-          {
-            "group": "Audit runs: objects",
-            "pages": [
-              "graphql/objects/access",
-              "graphql/objects/audit-finding-document",
-              "graphql/objects/audit-health",
-              "graphql/objects/audit-ref",
-              "graphql/objects/audit-report-document",
-              "graphql/objects/audit-report-info",
-              "graphql/objects/audit-summary",
-              "graphql/objects/audit-tenant",
-              "graphql/objects/audit-window",
-              "graphql/objects/category",
-              "graphql/objects/category-counts",
-              "graphql/objects/category-ref",
-              "graphql/objects/check-counts",
-              "graphql/objects/check-ref",
-              "graphql/objects/conclusion",
-              "graphql/objects/diagnosis",
-              "graphql/objects/event-actor",
-              "graphql/objects/evidence",
-              "graphql/objects/evidence-check",
-              "graphql/objects/finding",
-              "graphql/objects/finding-counts",
-              "graphql/objects/finding-event",
-              "graphql/objects/finding-record",
-              "graphql/objects/finding-status",
-              "graphql/objects/finding-summary",
-              "graphql/objects/fix",
-              "graphql/objects/fix-verify",
-              "graphql/objects/money",
-              "graphql/objects/money-source",
-              "graphql/objects/oldest-open",
-              "graphql/objects/source-health",
-              "graphql/objects/statement",
-              "graphql/objects/statement-check",
-              "graphql/objects/statement-ref",
-              "graphql/objects/system-count"
-            ]
-          },
-          {
-            "group": "Reconciliation results: queries",
-            "pages": [
               "graphql/queries/findings",
-              "graphql/queries/reconciliation-result",
-              "graphql/queries/reconciliation-results"
+              "graphql/queries/reconciliation-results",
+              "graphql/queries/reconciliation-result"
             ]
           },
           {
-            "group": "Reconciliation results: objects",
+            "group": "Objects",
             "pages": [
-              "graphql/objects/finding-list-item",
-              "graphql/objects/finding-list-item-connection",
-              "graphql/objects/finding-list-item-edge",
-              "graphql/objects/page-info",
-              "graphql/objects/reconciliation-result",
-              "graphql/objects/reconciliation-result-connection",
-              "graphql/objects/reconciliation-result-edge"
-            ]
-          },
-          {
-            "group": "Enums and scalars",
-            "pages": [
-              "graphql/enums/finding-list-item-sort-key",
-              "graphql/enums/reconciliation-result-sort-key",
-              "graphql/scalars/boolean",
-              "graphql/scalars/date-time",
-              "graphql/scalars/decimal",
-              "graphql/scalars/id",
-              "graphql/scalars/int",
-              "graphql/scalars/string"
+              {
+                "group": "Returned by auditReport",
+                "expanded": false,
+                "pages": [
+                  "graphql/objects/audit-report-document",
+                  "graphql/objects/audit-health",
+                  "graphql/objects/audit-report-info",
+                  "graphql/objects/audit-summary",
+                  "graphql/objects/audit-tenant",
+                  "graphql/objects/audit-window",
+                  "graphql/objects/category",
+                  "graphql/objects/category-counts",
+                  "graphql/objects/check-counts",
+                  "graphql/objects/finding-counts",
+                  "graphql/objects/finding-summary",
+                  "graphql/objects/oldest-open",
+                  "graphql/objects/source-health",
+                  "graphql/objects/statement",
+                  "graphql/objects/statement-check",
+                  "graphql/objects/system-count"
+                ]
+              },
+              {
+                "group": "Returned by auditFinding",
+                "expanded": false,
+                "pages": [
+                  "graphql/objects/audit-finding-document",
+                  "graphql/objects/access",
+                  "graphql/objects/category-ref",
+                  "graphql/objects/check-ref",
+                  "graphql/objects/conclusion",
+                  "graphql/objects/diagnosis",
+                  "graphql/objects/event-actor",
+                  "graphql/objects/evidence",
+                  "graphql/objects/evidence-check",
+                  "graphql/objects/finding",
+                  "graphql/objects/finding-event",
+                  "graphql/objects/finding-status",
+                  "graphql/objects/fix",
+                  "graphql/objects/fix-verify",
+                  "graphql/objects/money-source",
+                  "graphql/objects/statement-ref"
+                ]
+              },
+              {
+                "group": "Returned by findings",
+                "expanded": false,
+                "pages": [
+                  "graphql/objects/finding-list-item-connection",
+                  "graphql/objects/finding-list-item",
+                  "graphql/objects/finding-list-item-edge"
+                ]
+              },
+              {
+                "group": "Returned by reconciliationResults",
+                "expanded": false,
+                "pages": [
+                  "graphql/objects/reconciliation-result-connection",
+                  "graphql/objects/reconciliation-result",
+                  "graphql/objects/reconciliation-result-edge"
+                ]
+              },
+              {
+                "group": "Shared",
+                "expanded": false,
+                "pages": [
+                  "graphql/objects/audit-ref",
+                  "graphql/objects/finding-record",
+                  "graphql/objects/money",
+                  "graphql/objects/page-info"
+                ]
+              },
+              {
+                "group": "Enums and scalars",
+                "expanded": false,
+                "pages": [
+                  "graphql/enums/finding-list-item-sort-key",
+                  "graphql/enums/reconciliation-result-sort-key",
+                  "graphql/scalars/boolean",
+                  "graphql/scalars/date-time",
+                  "graphql/scalars/decimal",
+                  "graphql/scalars/id",
+                  "graphql/scalars/int",
+                  "graphql/scalars/string"
+                ]
+              }
             ]
           }
         ]
@@ -158,7 +213,8 @@
               "self-host/troubleshooting"
             ]
           }
-        ]
+        ],
+        "icon": "server"
       },
       {
         "tab": "Engineering",
@@ -192,7 +248,8 @@
               "engineering/release-discipline"
             ]
           }
-        ]
+        ],
+        "icon": "wrench"
       }
     ],
     "global": {
@@ -216,11 +273,6 @@
     }
   },
   "redirects": [
-    {
-      "source": "/",
-      "destination": "/graphql/overview",
-      "permanent": false
-    },
     {
       "source": "/getting-started/set-up-darpan-independently",
       "destination": "/self-host/set-up-darpan-independently"

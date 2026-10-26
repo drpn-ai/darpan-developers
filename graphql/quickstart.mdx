@@ -1,0 +1,127 @@
+---
+title: "Quickstart: test your API key"
+sidebarTitle: "Quickstart"
+description: "Make your first request with the dgql_ key you were given, and read what comes back."
+keywords: ["api key", "token", "dgql", "test", "first request", "curl", "getting started"]
+---
+
+You have a `dgql_` key and want to know whether it works. This takes about five minutes: one request proves the key, and the table at the end names every way it can go wrong and the fix.
+
+## Before you start
+
+- **An API key** that starts with `dgql_`. A Darpan administrator creates it for one tenant and shows it once. If you lost it, ask for a new one; nobody can show it again. See [Authentication](/graphql/authentication).
+- **Your API host.** On hosted Darpan it is `https://api.drpn.ai`. A self-hosted instance has its own backend URL. The app's address (`app.drpn.ai`) is not the API host.
+
+## Run your first request
+
+<Steps>
+  <Step title="Keep the key in an environment variable">
+    The key reads a tenant's audit findings and run results. Keep it out of your shell history and source code:
+
+    ```bash
+    read -s DARPAN_GQL_KEY && export DARPAN_GQL_KEY
+    export DARPAN_API=https://api.drpn.ai
+    ```
+
+    Paste the key at the silent prompt and press Enter.
+  </Step>
+
+  <Step title="Send a query">
+    This query asks for the tenant's latest reconciliation run. It works on every tenant, including one with no runs yet.
+
+    <CodeGroup>
+
+    ```bash curl
+    curl -s "$DARPAN_API/rest/s1/graphql/public" \
+      -H "Authorization: Bearer $DARPAN_GQL_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"query": "{ reconciliationResults(first: 1) { edges { node { reconciliationRunResultId createdDate } } pageInfo { hasNextPage } } }"}'
+    ```
+
+    ```javascript JavaScript
+    const res = await fetch(`${process.env.DARPAN_API}/rest/s1/graphql/public`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.DARPAN_GQL_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: `{ reconciliationResults(first: 1) {
+          edges { node { reconciliationRunResultId createdDate } }
+          pageInfo { hasNextPage } } }`,
+      }),
+    });
+    console.log(JSON.stringify(await res.json(), null, 2));
+    ```
+
+    ```python Python
+    import json, os, urllib.request
+
+    body = {"query": """{ reconciliationResults(first: 1) {
+        edges { node { reconciliationRunResultId createdDate } }
+        pageInfo { hasNextPage } } }"""}
+    req = urllib.request.Request(
+        os.environ["DARPAN_API"] + "/rest/s1/graphql/public",
+        data=json.dumps(body).encode(),
+        headers={"Authorization": "Bearer " + os.environ["DARPAN_GQL_KEY"],
+                 "Content-Type": "application/json"},
+    )
+    print(json.dumps(json.load(urllib.request.urlopen(req)), indent=2))
+    ```
+
+    </CodeGroup>
+
+    Prefer a browser? The [API explorer](/graphql/explorer) sends the same request from this site: paste your key, pick **Check your key**, and press **Send**.
+  </Step>
+
+  <Step title="Read the answer">
+    A key that works returns `data`, and `extensions.cost` says what the query cost:
+
+    ```json
+    {
+      "data": {
+        "reconciliationResults": {
+          "edges": [ { "node": { "reconciliationRunResultId": "100457", "createdDate": "2026-10-26T06:30:12Z" } } ],
+          "pageInfo": { "hasNextPage": true }
+        }
+      },
+      "extensions": {
+        "cost": {
+          "requestedQueryCost": 3,
+          "actualQueryCost": 3,
+          "throttleStatus": { "maximumAvailable": 1000, "currentlyAvailable": 997, "restoreRate": 50 }
+        }
+      }
+    }
+    ```
+
+    `"edges": []` is a working key too: the tenant has no runs yet.
+  </Step>
+</Steps>
+
+## When it does not work
+
+Darpan answers a refused key or query with HTTP 200 and an `errors` list, so read `errors`, not only the status code.
+
+| What you see | What it means | Fix |
+|---|---|---|
+| `missing API key` (`UNAUTHENTICATED`) | No key reached the API, or the header has no `Bearer ` before the key | Send `Authorization: Bearer dgql_…`, with the space. Check that `$DARPAN_GQL_KEY` is set in this shell |
+| `invalid API key` (`UNAUTHENTICATED`) | The key is unknown, disabled or expired. The API does not say which | Check for a missing character when you copied it. Otherwise ask your administrator for a new key |
+| An HTML page instead of JSON | The request went to the app, not the API | Use the API host (`https://api.drpn.ai` on hosted Darpan), not `app.drpn.ai` |
+| HTTP 400, `Field cannot be empty` | The body was not sent as JSON | Add `-H "Content-Type: application/json"` |
+| A message ending `Audit month-close was not found` or `Finding F-… was not found` | The key works. The tenant has no audit with that code, or no finding with that id. Another tenant's finding reads as not found too | Use an audit code and a finding id from your own tenant |
+| `THROTTLED` | The key's points bucket is empty | Wait a few seconds; it refills at 50 points a second. See [Cost and throttling](/graphql/cost-and-throttling) |
+| The explorer shows a network error, but curl works | Your browser could not reach the host you entered in the explorer | Check the host in the explorer. A self-hosted instance must list `https://developers.drpn.ai` in [`webapp_public_api_origins`](/self-host/production) before the explorer can call it; curl does not need that |
+
+Every other code is listed in [Errors](/graphql/errors).
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Find the query for your task" icon="compass" href="/graphql/tasks">
+    Recipes for the questions integrations ask most: this morning's audit, open findings, one finding, recent runs.
+  </Card>
+  <Card title="Try every query in the explorer" icon="play" href="/graphql/explorer">
+    One example per query, ready to send with your key.
+  </Card>
+</Columns>

@@ -1,0 +1,51 @@
+---
+title: "List open findings"
+description: "Page through a tenant's findings, filtered by audit, statement, category, state, period or date, with findings."
+keywords: ["findings", "open", "filter", "search", "list", "statement", "category", "paginate"]
+---
+
+The `findings` query lists every finding of your tenant across audits, oldest first. Filter it with `query:` terms and read it a page at a time.
+
+## The request
+
+```bash
+curl -s "$DARPAN_API/rest/s1/graphql/public" \
+  -H "Authorization: Bearer $DARPAN_GQL_KEY" \
+  -H "Content-Type: application/json" \
+  -d @- <<'JSON'
+{
+  "query": "query Open($q: String, $after: String) { findings(first: 50, query: $q, after: $after) { edges { node { id audit statement category headline state firstFound ageDays records { system recordType id } } } pageInfo { hasNextPage endCursor } } }",
+  "variables": { "q": "state:open period:2026-10" }
+}
+JSON
+```
+
+## Filter
+
+Combine terms with spaces; every term must match. Separate values with commas to match any of them.
+
+| Term | Matches |
+|---|---|
+| `audit:month-close` | Findings of that audit |
+| `statement:R2,R8` | Findings that break either statement |
+| `category:returns` | `orders`, `refundsAndCredits`, `returns` or `exchangesAndWarranty` |
+| `state:open,pending` | `open`, `pending` or `fixed` |
+| `period:2026-10` | Findings from that period's run |
+| `firstFound:>=2026-10-20` | First found on or after a day. `>`, `<` and `<=` work too |
+
+More on terms: [Search syntax](/graphql/search-syntax).
+
+## Read every page
+
+`first` is at most 100. While `pageInfo.hasNextPage` is `true`, send the same query and variables again with `after` set to `pageInfo.endCursor`. Keep `sortKey` and `reverse` the same on every page; a cursor from one order is refused in another.
+
+To sort by statement instead of date, pass `sortKey: STATEMENT`; `reverse: true` flips either order.
+
+## Next
+
+Each node's `id` is what [Read one finding](/graphql/tasks/read-one-finding) takes. To keep a copy in your own system, see [Sync findings every day](/graphql/tasks/sync-findings).
+
+## Related
+
+- [`findings` reference](/graphql/queries/findings) and [`FindingListItem`](/graphql/objects/finding-list-item)
+- [Pagination](/graphql/pagination)

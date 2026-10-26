@@ -68,6 +68,7 @@ The entrypoint stops with an error naming the variable if any required value is 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `Moqui_WEBAPP_ALLOW_ORIGINS` (or `WEBAPP_ALLOW_ORIGINS`) | The hosted Darpan app origins | Comma-separated list of app origins the API accepts browser calls from. Replace it with your own app's origin. |
+| `webapp_public_api_origins` | `https://developers.drpn.ai` | Comma-separated origins (protocol and host, matched exactly) whose pages may call the public GraphQL API from a browser, without cookies. This is what lets the [API explorer](/graphql/explorer) reach your instance. Empty turns it off. Never put these origins in `Moqui_WEBAPP_ALLOW_ORIGINS`, which allows credentialed calls to every path. |
 | `DARPAN_APP_BASE_URL` | The first allowed origin | Base URL used in alert links to run results. Set it, or links can point at the wrong host. |
 | `Moqui_HOST` | Empty | Public host name of the backend. |
 | `TIME_ZONE` | Empty | Server and database time zone. |

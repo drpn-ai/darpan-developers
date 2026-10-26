@@ -7,33 +7,36 @@ The GraphQL API is Darpan's external, read-only API. An API key belongs to one t
 
 | | |
 |---|---|
-| Endpoint | `POST https://<your-instance>/rest/s1/graphql/public` |
-| Schema (SDL) | `GET https://<your-instance>/rest/s1/graphql/sdl`, no key needed |
+| Endpoint | `POST https://api.drpn.ai/rest/s1/graphql/public` on hosted Darpan; a self-hosted instance uses its own backend URL |
+| Schema (SDL) | `GET https://api.drpn.ai/rest/s1/graphql/sdl`, no key needed |
 | Authentication | An API key in the `Authorization: Bearer dgql_…` header. See [Authentication](/graphql/authentication) |
 | Operations | Queries only. A mutation is rejected |
 
-<Note>
-The audit queries (`auditReport`, `auditFinding`) and API key rotation arrive on an instance with its next Darpan release. Until then, `GET /rest/s1/graphql/sdl` on your instance shows exactly what it serves.
-</Note>
+<Tip>
+New here? [Test your API key](/graphql/quickstart) takes five minutes. To find the right query for a question, start from [Common tasks](/graphql/tasks).
+</Tip>
 
 ## What you can read
 
-- [`auditReport`](/graphql/queries/audit-report): one audit's report for one morning. Whether the checks can be trusted, what is open, and every statement by category with its checks and findings.
-- [`auditFinding`](/graphql/queries/audit-finding): one finding. Its records in each system, evidence, how to fix it, how Darpan confirms the fix, and its history.
-- [`reconciliationResults`](/graphql/queries/reconciliation-results) and [`reconciliationResult`](/graphql/queries/reconciliation-result): reconciliation run results.
+| You want | Query |
+|---|---|
+| This morning's audit: can it be trusted, what is open, every statement | [`auditReport`](/graphql/queries/audit-report) |
+| One finding in full: records, evidence, fix, history | [`auditFinding`](/graphql/queries/audit-finding) |
+| Every finding, filtered and paged | [`findings`](/graphql/queries/findings) |
+| Reconciliation runs, newest first, or one by id | [`reconciliationResults`](/graphql/queries/reconciliation-results), [`reconciliationResult`](/graphql/queries/reconciliation-result) |
 
 The audit queries return the same documents as Darpan's JSON (`darpan.audit.report/v1`, `darpan.audit.finding/v1`), with one difference: GraphQL has no maps with dynamic keys, so a keyed object in the JSON is a list here, and each element carries its key (`categories: [{ id: "orders", … }]`).
 
 ## Make a request
 
 ```bash
-curl -s https://<your-instance>/rest/s1/graphql/public \
+curl -s https://api.drpn.ai/rest/s1/graphql/public \
   -H "Authorization: Bearer $DARPAN_GQL_KEY" \
   -H "Content-Type: application/json" \
   -d '{"query": "{ auditReport(audit: \"month-close\") { health { complete summary } summary { open pending } } }"}'
 ```
 
-Every response has the same envelope: `data`, `errors` and `extensions.cost`. See [Errors](/graphql/errors) and [Cost and throttling](/graphql/cost-and-throttling).
+Every response has the same envelope: `data`, `errors` and `extensions.cost`. See [Errors](/graphql/errors) and [Cost and throttling](/graphql/cost-and-throttling). To send it without a terminal, use the [API explorer](/graphql/explorer).
 
 ## Fixing what a finding reports
 

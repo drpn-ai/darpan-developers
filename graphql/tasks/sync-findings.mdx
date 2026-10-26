@@ -1,0 +1,60 @@
+---
+title: "Sync findings every day"
+description: "Keep a copy of every finding in your own system: page through a period and upsert by id."
+keywords: ["sync", "export", "integration", "ticket", "daily", "upsert", "script", "pagination"]
+---
+
+To raise a ticket for each new finding, or to keep a table of them, read the current period's findings once a day after the morning audit and write each one by its `id`. A finding keeps its `id` from the morning it is found until it is fixed, so writing by `id` updates it in place.
+
+## A complete script
+
+This Python script reads every finding of one period, a page at a time, and prints one JSON line per finding. Replace `upsert` with a write to your system.
+
+```python
+import json, os, time, urllib.request
+
+API = os.environ.get("DARPAN_API", "https://api.drpn.ai") + "/rest/s1/graphql/public"
+KEY = os.environ["DARPAN_GQL_KEY"]
+QUERY = """query Sync($q: String, $after: String) {
+  findings(first: 100, query: $q, after: $after) {
+    edges { node { id audit statement category headline state firstFound lastSeen ageDays
+                   difference { amount currency } records { system recordType id internalId status } } }
+    pageInfo { hasNextPage endCursor }
+  }
+}"""
+
+def call(variables):
+    req = urllib.request.Request(API, data=json.dumps({"query": QUERY, "variables": variables}).encode(),
+                                 headers={"Authorization": "Bearer " + KEY, "Content-Type": "application/json"})
+    body = json.load(urllib.request.urlopen(req))
+    errors = body.get("errors") or []
+    if any(e.get("extensions", {}).get("code") == "THROTTLED" for e in errors):
+        time.sleep(5)                       # the bucket refills at 50 points a second
+        return call(variables)
+    if errors:
+        raise SystemExit(json.dumps(errors))
+    return body["data"]["findings"]
+
+def upsert(finding):
+    print(json.dumps(finding))             # write to your system, keyed by finding["id"]
+
+after = None
+while True:
+    page = call({"q": "period:2026-10", "after": after})
+    for edge in page["edges"]:
+        upsert(edge["node"])
+    if not page["pageInfo"]["hasNextPage"]:
+        break
+    after = page["pageInfo"]["endCursor"]
+```
+
+## How to use it
+
+- **Run it after the morning checks.** Each audit runs once a morning; reading more often returns the same answer.
+- **Read `state`.** It is `open`, `pending` or `fixed`. A finding that becomes `fixed` stays in the period's list, so the next sync updates it rather than leaving it behind.
+- **Pick the period.** `period:2026-10` is one month's run. At month end, sync the closing month one last time, then switch to the new one.
+- **Narrow it** with `audit:`, `statement:`, `category:` or `state:` terms. See [List open findings](/graphql/tasks/list-open-findings#filter).
+
+## Related
+
+- [`findings` reference](/graphql/queries/findings) · [Pagination](/graphql/pagination) · [Cost and throttling](/graphql/cost-and-throttling)

@@ -1,0 +1,209 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Darpan GraphQL API",
+    "version": "v1",
+    "description": "One endpoint for every query. The body carries a GraphQL query; the API key picks the tenant."
+  },
+  "servers": [
+    {
+      "url": "https://api.drpn.ai",
+      "description": "Hosted Darpan"
+    },
+    {
+      "url": "https://{host}",
+      "description": "Self-hosted Darpan",
+      "variables": {
+        "host": {
+          "default": "darpan.example.com",
+          "description": "Your instance's backend host, not the app's host. The instance must allow https://developers.drpn.ai as a public API origin."
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Your `dgql_` API key. Your browser sends it straight to the host above; developers.drpn.ai never receives it. See [Authentication](/graphql/authentication)."
+      }
+    },
+    "schemas": {
+      "Request": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "A GraphQL query document. Queries only: a mutation is rejected."
+          },
+          "variables": {
+            "type": "object",
+            "description": "Values for the variables the query declares, e.g. `{\"id\": \"F-20790\"}`."
+          },
+          "operationName": {
+            "type": "string",
+            "description": "Which operation to run when the document names more than one."
+          }
+        }
+      },
+      "Response": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The fields you asked for. Absent when the query was refused before it ran."
+          },
+          "errors": {
+            "type": "array",
+            "description": "Present when something failed. Each has a `message` and, where Darpan sets one, `extensions.code`; see [Errors](/graphql/errors).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "extensions": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "extensions": {
+            "type": "object",
+            "description": "`cost`: what the query cost and what is left in the key's bucket; see [Cost and throttling](/graphql/cost-and-throttling)."
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/rest/s1/graphql/public": {
+      "post": {
+        "summary": "Run a query",
+        "description": "Runs one GraphQL query for the API key's tenant.",
+        "operationId": "runQuery",
+        "x-mint": {
+          "href": "/graphql/explorer"
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Request"
+              },
+              "examples": {
+                "Check your key": {
+                  "summary": "Check your key (works on any tenant)",
+                  "value": {
+                    "query": "query KeyCheck {\n  reconciliationResults(first: 1) {\n    edges { node { reconciliationRunResultId createdDate } }\n    pageInfo { hasNextPage }\n  }\n}"
+                  }
+                },
+                "auditReport": {
+                  "summary": "auditReport: An audit's report for one morning, from the tenant of the API key.",
+                  "value": {
+                    "query": "query MorningReport {\n  auditReport(audit: \"month-close\", date: \"2026-10-08\") {\n    schema\n    report { date period window { from thru } }\n    health {\n      complete\n      summary\n      sources { system read records reason affects }\n    }\n    summary { open pending newToday fixedToday }\n    categories {\n      id\n      label\n      statements {\n        id\n        text\n        status\n        counts { open pending }\n        findings { id headline state firstFound ageDays records { system recordType id } }\n      }\n    }\n  }\n}"
+                  }
+                },
+                "auditFinding": {
+                  "summary": "auditFinding: One finding by id, with its records, evidence, fix and history. Another tenant's finding reads as not found.",
+                  "value": {
+                    "query": "query OneFinding {\n  auditFinding(id: \"F-20790\") {\n    finding {\n      id\n      headline\n      statement { id text }\n      status { state firstFound lastSeen timesSeen pendingUntil }\n      records { system recordType id internalId status }\n      fix { owner where action verify { by passesWhen } darpanChanges }\n      history { at event }\n    }\n    access { mode note }\n  }\n}"
+                  }
+                },
+                "findings": {
+                  "summary": "findings: The tenant's findings, oldest first by default; each node is the report's finding summary plus its audit, statement, category and period. ageDays is as of today in the tenant's time zone. Filter via `query:` search string. Allowed keys: audit, statement, category, state, period, firstFound",
+                  "value": {
+                    "query": "query OpenReturnsFindings {\n  findings(first: 2, query: \"category:returns state:open period:2026-10\", sortKey: FIRST_FOUND) {\n    edges {\n      cursor\n      node {\n        id\n        statement\n        headline\n        state\n        firstFound\n        ageDays\n        records { system recordType id internalId status }\n        next\n      }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}"
+                  }
+                },
+                "reconciliationResults": {
+                  "summary": "reconciliationResults: Reconciliation run results, newest or oldest first. Filter via `query:` search string. Allowed keys: savedRunId, reconciliationRunId, ruleSetId, statusEnumId",
+                  "value": {
+                    "query": "query RecentRuns {\n  reconciliationResults(first: 2, sortKey: CREATED_DATE, reverse: true, query: \"statusEnumId:AUT_STAT_SUCCESS\") {\n    edges {\n      cursor\n      node { reconciliationRunResultId savedRunId differenceCount onlyInFile1Count onlyInFile2Count createdDate }\n    }\n    pageInfo { hasNextPage endCursor }\n  }\n}"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every response is HTTP 200, a refused one too: read `errors`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Response"
+                },
+                "examples": {
+                  "ok": {
+                    "summary": "A key that works",
+                    "value": {
+                      "data": {
+                        "reconciliationResults": {
+                          "edges": [
+                            {
+                              "node": {
+                                "reconciliationRunResultId": "100457",
+                                "createdDate": "2026-10-26T06:30:12Z"
+                              }
+                            }
+                          ],
+                          "pageInfo": {
+                            "hasNextPage": true
+                          }
+                        }
+                      },
+                      "extensions": {
+                        "cost": {
+                          "requestedQueryCost": 3,
+                          "actualQueryCost": 3,
+                          "throttleStatus": {
+                            "maximumAvailable": 1000,
+                            "currentlyAvailable": 997,
+                            "restoreRate": 50
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "refused": {
+                    "summary": "A key that is unknown, disabled or expired",
+                    "value": {
+                      "extensions": {},
+                      "errors": [
+                        {
+                          "message": "invalid API key",
+                          "extensions": {
+                            "code": "UNAUTHENTICATED"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

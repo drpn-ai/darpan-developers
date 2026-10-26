@@ -1,0 +1,57 @@
+---
+title: "Check this morning's audit"
+description: "Read whether today's audit checks can be trusted and what they found, with auditReport."
+keywords: ["auditReport", "health", "morning", "daily", "summary", "open findings", "month close"]
+---
+
+Every morning an audit reads your systems and checks each statement your team needs to be true. Before acting on what it found, ask whether the reads were complete; then read the counts.
+
+## The request
+
+```bash
+curl -s "$DARPAN_API/rest/s1/graphql/public" \
+  -H "Authorization: Bearer $DARPAN_GQL_KEY" \
+  -H "Content-Type: application/json" \
+  -d @- <<'JSON'
+{
+  "query": "query Morning($audit: String!) { auditReport(audit: $audit) { report { date period } health { complete summary sources { system read reason affects } } summary { open pending newToday fixedToday oldestOpen { id statement ageDays } } } }",
+  "variables": { "audit": "month-close" }
+}
+JSON
+```
+
+Replace `month-close` with your audit's code. Leave out `date` for today in your tenant's time zone, or pass `date: "2026-10-08"` for an earlier morning.
+
+## Read the answer
+
+1. **`health.complete`.** `true` means every source read was complete and every configured check ran. When it is `false`, `health.summary` says what was missing in one or two sentences, and each entry in `health.sources` names the system, its `reason`, and the statements it `affects`. Counts for those statements may be short today.
+2. **`summary`.** `open` and `pending` across the tenant, plus `newToday` and `fixedToday`. A `pending` finding is inside its check's grace period and becomes `open` if it is still there after it.
+3. **`summary.oldestOpen`.** The finding that has waited longest. Pass its `id` to [Read one finding](/graphql/tasks/read-one-finding).
+
+## Drill into one category or statement
+
+Ask for one category, and one statement inside it, by id:
+
+```graphql
+{
+  auditReport(audit: "month-close") {
+    category(id: "returns") {
+      counts { open pending }
+      statement(id: "R8") {
+        text
+        status
+        reason
+        findings { id headline state ageDays }
+        findingsOmitted
+      }
+    }
+  }
+}
+```
+
+The category ids are `orders`, `refundsAndCredits`, `returns` and `exchangesAndWarranty`. A statement lists at most 50 findings; `findingsOmitted` says how many more it has. To read all of them, use [List open findings](/graphql/tasks/list-open-findings) with `statement:R8`.
+
+## Related
+
+- [`auditReport` reference](/graphql/queries/audit-report) and [`AuditHealth`](/graphql/objects/audit-health)
+- [Cost and throttling](/graphql/cost-and-throttling): `auditReport` costs 25 plus its fields

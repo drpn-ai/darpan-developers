@@ -1,0 +1,22 @@
+---
+title: "Common tasks"
+sidebarTitle: "Which query do I need?"
+description: "Find the query for what you want to read, with a request you can copy and run."
+keywords: ["recipes", "examples", "how do I", "which query", "use cases"]
+---
+
+Start from the question you want answered. Each recipe names the query, gives a request you can run with your key, and says which fields in the answer to read.
+
+| You want to know | Query | Recipe |
+|---|---|---|
+| Can this morning's audit be trusted, and what is open? | [`auditReport`](/graphql/queries/audit-report) | [Check this morning's audit](/graphql/tasks/check-the-morning-audit) |
+| Which findings are open, filtered by statement, category or date? | [`findings`](/graphql/queries/findings) | [List open findings](/graphql/tasks/list-open-findings) |
+| Everything about one finding: records, evidence, the fix | [`auditFinding`](/graphql/queries/audit-finding) | [Read one finding](/graphql/tasks/read-one-finding) |
+| How do I keep a copy of every finding in my own system? | [`findings`](/graphql/queries/findings) | [Sync findings every day](/graphql/tasks/sync-findings) |
+| What did the latest reconciliation runs find? | [`reconciliationResults`](/graphql/queries/reconciliation-results) | [Read recent reconciliation runs](/graphql/tasks/recent-reconciliation-runs) |
+
+Every recipe assumes `DARPAN_API` and `DARPAN_GQL_KEY` are set as in the [quickstart](/graphql/quickstart). To try a query without a terminal, use the [API explorer](/graphql/explorer).
+
+<Note>
+The API is read-only. To fix what a finding reports, change the record in the system it lives in (NetSuite, the OMS, Shopify). Darpan's next scheduled check looks again and closes the finding.
+</Note>

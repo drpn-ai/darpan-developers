@@ -11,6 +11,7 @@
 
 - GraphQL is Darpan's external API. It is read-only: do not document or propose mutations.
 - `/rpc/json` (JSON-RPC) is internal. `api-reference/**` stays in `.mintignore`, out of `docs.json`, and unlinked from published pages. Keep it accurate with `scripts/check_service_catalog.py`.
+- The API explorer's request examples (`graphql-reference/explorer.openapi.json`) are generated from `graphql-reference/examples/*.graphql`, and its playground calls the API straight from the browser (`proxy: false`); an instance must list `https://developers.drpn.ai` in `webapp_public_api_origins`, never in `webapp_allow_origins`.
 - The generated GraphQL pages come from the SDL. Change the schema description in `moqui-gql`, regenerate, and commit both. Generate from the deployed SDL (`--sdl-url`), not from a checked-in doc you have not compared.
 - Backend docs must be grounded in the Darpan Moqui component at `<moqui-framework>/runtime/component/darpan`. Frontend docs must be grounded in `darpan-ui/src`.
 - Everything here is public. Do not publish credentials, API keys, tenant data, customer data, private URLs, or cookies.

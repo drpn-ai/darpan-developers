@@ -23,6 +23,7 @@ import urllib.request
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SDL_PATH = os.path.join(ROOT, "graphql-reference", "schema.graphql")
 EXAMPLES = os.path.join(ROOT, "graphql-reference", "examples")
+EXPLORER = os.path.join(ROOT, "graphql-reference", "explorer.openapi.json")
 OUT = "graphql"
 GENERATED_DIRS = ["queries", "objects", "enums", "scalars"]
 BUILTIN_SCALARS = {
@@ -32,8 +33,27 @@ BUILTIN_SCALARS = {
     "ID": "A unique identifier, serialized as a string.",
 }
 TAB = "GraphQL API"
-GUIDES = ["graphql/overview", "graphql/authentication", "graphql/cost-and-throttling", "graphql/pagination",
-          "graphql/search-syntax", "graphql/errors", "graphql/versioning", "graphql/changelog"]
+# Hand-written groups, above the generated reference: start, then tasks, then how the API behaves.
+GUIDE_GROUPS = [
+    {"group": "Get started", "pages": ["graphql/overview", "graphql/quickstart", "graphql/authentication",
+                                       "graphql/explorer"]},
+    {"group": "Common tasks", "pages": ["graphql/tasks", "graphql/tasks/check-the-morning-audit",
+                                        "graphql/tasks/list-open-findings", "graphql/tasks/read-one-finding",
+                                        "graphql/tasks/sync-findings", "graphql/tasks/recent-reconciliation-runs"]},
+    {"group": "Using the API", "pages": ["graphql/cost-and-throttling", "graphql/pagination", "graphql/search-syntax",
+                                         "graphql/errors", "graphql/versioning", "graphql/changelog"]},
+]
+# Queries in the order a reader needs them; a query not named here follows, alphabetically.
+QUERY_ORDER = ["auditReport", "auditFinding", "findings", "reconciliationResults", "reconciliationResult"]
+# The recipe pages that use each query, linked from its page.
+RECIPES = {
+    "auditReport": [("Check this morning's audit", "/graphql/tasks/check-the-morning-audit")],
+    "auditFinding": [("Read one finding", "/graphql/tasks/read-one-finding")],
+    "findings": [("List open findings", "/graphql/tasks/list-open-findings"),
+                 ("Sync findings every day", "/graphql/tasks/sync-findings")],
+    "reconciliationResults": [("Read recent reconciliation runs", "/graphql/tasks/recent-reconciliation-runs")],
+    "reconciliationResult": [("Read recent reconciliation runs", "/graphql/tasks/recent-reconciliation-runs")],
+}
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -211,7 +231,6 @@ def example_blocks(name):
 
 def query_page(types, f):
     md = frontmatter(f["name"], f["description"])
-    md += (f["description"] or "") + "\n\n"
     md += "```graphql\n" + signature(f) + "\n```\n\n"
     if f["args"]:
         md += "## Arguments\n\n| Argument | Type | Description |\n|---|---|---|\n"
@@ -220,6 +239,12 @@ def query_page(types, f):
         md += "\n"
     md += "## Returns\n\n" + type_link(types, f["type"]) + "\n\n"
     md += example_blocks(f["name"])
+    md += "## Try it\n\nSend " + ("this example" if os.path.exists(os.path.join(EXAMPLES, f["name"] + ".graphql"))
+                                   else "a query") + " with your own key in the [API explorer](/graphql/explorer)"
+    recipes = RECIPES.get(f["name"], [])
+    if recipes:
+        md += ", or follow " + " and ".join(f"[{title}]({href})" for title, href in recipes)
+    md += ".\n"
     return md
 
 
@@ -232,7 +257,7 @@ def signature(f):
 
 def object_page(types, t, returned_by):
     md = frontmatter(t["name"], t["description"])
-    md += (t["description"] or "") + "\n\n## Fields\n\n| Field | Type | Description |\n|---|---|---|\n"
+    md += "## Fields\n\n| Field | Type | Description |\n|---|---|---|\n"
     for f in t["fields"]:
         name = f"`{f['name']}`"
         if f["args"]:
@@ -246,15 +271,14 @@ def object_page(types, t, returned_by):
 
 def enum_page(t):
     md = frontmatter(t["name"], t["description"])
-    md += (t["description"] or "") + "\n\n## Values\n\n| Value | Description |\n|---|---|\n"
+    md += "## Values\n\n| Value | Description |\n|---|---|\n"
     for v in t["values"]:
         md += f"| `{v['name']}` | {cell(v['description'])} |\n"
     return md
 
 
 def scalar_page(t):
-    md = frontmatter(t["name"], t["description"])
-    return md + (t["description"] or "") + "\n"
+    return frontmatter(t["name"], t["description"])
 
 
 def reachable(types, start):
@@ -291,25 +315,33 @@ def generate(sdl, out_root):
         files[path] = {"object": lambda: object_page(types, t, returned_by), "enum": lambda: enum_page(t),
                        "scalar": lambda: scalar_page(t)}[t["kind"]]()
 
-    # Navigation: queries and objects grouped by the root family that reaches them (audit*, reconciliation*).
-    families = {}
-    for f in query["fields"]:
-        family = "Audit runs" if f["name"].startswith("audit") else "Reconciliation results"
-        families.setdefault(family, {"queries": [], "objects": set()})
-        families[family]["queries"].append(f"{OUT}/queries/{slug(f['name'])}")
-        families[family]["objects"] |= {n for n in reachable(types, base(f["type"])) if types[n]["kind"] == "object"}
-    groups = []
-    claimed = set()
-    for family in sorted(families):
-        objects = sorted(families[family]["objects"] - claimed)
-        claimed |= set(objects)
-        groups.append({"group": f"{family}: queries", "pages": families[family]["queries"]})
-        groups.append({"group": f"{family}: objects", "pages": [f"{OUT}/{page_of(types, n)}" for n in objects]})
-    leftovers = sorted(n for n, t in types.items() if t["kind"] == "object" and n not in claimed)
-    if leftovers:
-        groups.append({"group": "Other objects", "pages": [f"{OUT}/{page_of(types, n)}" for n in leftovers]})
-    groups.append({"group": "Enums and scalars", "pages": sorted(f"{OUT}/{page_of(types, n)}" for n, t in types.items()
-                                                                  if t["kind"] in ("enum", "scalar"))})
+    # Navigation: the queries, then every object in a collapsed folder named for the query that returns it.
+    # reconciliationResult and reconciliationResults share one folder; an object two folders reach is "Shared".
+    fields = sorted(query["fields"], key=lambda f: (QUERY_ORDER.index(f["name"]) if f["name"] in QUERY_ORDER
+                                                     else len(QUERY_ORDER), f["name"]))
+    folders, roots = {}, {}
+    for f in fields:
+        folder = "reconciliationResults" if f["name"].startswith("reconciliationResult") else f["name"]
+        roots.setdefault(folder, base(f["type"]))
+        for n in reachable(types, base(f["type"])):
+            if types[n]["kind"] == "object":
+                folders.setdefault(n, set()).add(folder)
+    objects = {}
+    for n, owners in folders.items():
+        objects.setdefault(next(iter(owners)) if len(owners) == 1 else None, []).append(n)
+    leftovers = [n for n, t in types.items() if t["kind"] == "object" and n not in folders]
+    nested = []
+    for folder, root in roots.items():
+        names = sorted(objects.get(folder, []), key=lambda n: (n != root, n))
+        nested.append({"group": f"Returned by {folder}", "expanded": False,
+                       "pages": [f"{OUT}/{page_of(types, n)}" for n in names]})
+    shared = sorted(objects.get(None, []) + leftovers)
+    if shared:
+        nested.append({"group": "Shared", "expanded": False, "pages": [f"{OUT}/{page_of(types, n)}" for n in shared]})
+    nested.append({"group": "Enums and scalars", "expanded": False,
+                   "pages": sorted(f"{OUT}/{page_of(types, n)}" for n, t in types.items() if t["kind"] in ("enum", "scalar"))})
+    groups = [{"group": "Queries", "pages": [f"{OUT}/queries/{slug(f['name'])}" for f in fields]},
+              {"group": "Objects", "pages": nested}]
 
     for rel, text in files.items():
         path = os.path.join(out_root, OUT, rel)
@@ -323,7 +355,7 @@ def update_navigation(groups, docs_json):
     with open(docs_json) as fh:
         docs = json.load(fh)
     tabs = docs["navigation"]["tabs"]
-    tab = {"tab": TAB, "groups": [{"group": "Guides", "pages": GUIDES}] + groups}
+    tab = {"tab": TAB, "icon": "brackets-curly", "groups": GUIDE_GROUPS + groups}
     existing = [i for i, t in enumerate(tabs) if t.get("tab") == TAB]
     if existing:
         tabs[existing[0]] = tab
@@ -331,6 +363,24 @@ def update_navigation(groups, docs_json):
         tabs.insert(0, tab)
     text = json.dumps(docs, indent=2, ensure_ascii=False) + "\n"
     with open(docs_json, "w") as fh:
+        fh.write(text)
+    return text
+
+
+def update_explorer(fields, spec_json):
+    """The API explorer's request examples: its own key check first, then each query's example file."""
+    with open(spec_json) as fh:
+        spec = json.load(fh)
+    content = spec["paths"]["/rest/s1/graphql/public"]["post"]["requestBody"]["content"]["application/json"]
+    examples = {"Check your key": content["examples"]["Check your key"]}
+    for f in sorted(fields, key=lambda f: (QUERY_ORDER.index(f["name"]) if f["name"] in QUERY_ORDER
+                                           else len(QUERY_ORDER), f["name"])):
+        q = os.path.join(EXAMPLES, f["name"] + ".graphql")
+        if os.path.exists(q):
+            examples[f["name"]] = {"summary": f"{f['name']}: {f['description']}", "value": {"query": open(q).read().strip()}}
+    content["examples"] = examples
+    text = json.dumps(spec, indent=2, ensure_ascii=False) + "\n"
+    with open(spec_json, "w") as fh:
         fh.write(text)
     return text
 
@@ -359,6 +409,7 @@ def main():
                     os.remove(os.path.join(target, name))
         files, groups = generate(sdl, ROOT)
         update_navigation(groups, os.path.join(ROOT, "docs.json"))
+        update_explorer(Parser(sdl).parse()["Query"]["fields"], EXPLORER)
         print(f"wrote {len(files)} pages under {OUT}/ and the {TAB!r} tab in docs.json")
         return 0
 
@@ -380,6 +431,11 @@ def main():
             dst.write(src.read())
         if update_navigation(groups, tmp_json) != open(docs_json).read():
             stale.append("docs.json navigation")
+        tmp_spec = os.path.join(tmp, "explorer.openapi.json")
+        with open(EXPLORER) as src, open(tmp_spec, "w") as dst:
+            dst.write(src.read())
+        if update_explorer(Parser(sdl).parse()["Query"]["fields"], tmp_spec) != open(EXPLORER).read():
+            stale.append("graphql-reference/explorer.openapi.json examples")
     if stale:
         print("STALE: regenerate with scripts/generate_graphql_reference.py:\n  " + "\n  ".join(stale), file=sys.stderr)
         return 1

@@ -1,0 +1,15 @@
+---
+title: "API explorer"
+description: "Send any query with your own API key, from this page."
+openapi: "graphql-reference/explorer.openapi.json POST /rest/s1/graphql/public"
+keywords: ["playground", "try it", "test", "api key", "token", "graphiql", "console"]
+---
+
+Paste your `dgql_` key into **Authorization**, choose an example in the request panel, and press **Send**. Every query goes to the same endpoint; the body's `query` says what to read.
+
+- **Your key goes only to the API.** Your browser sends the request straight to the API host; developers.drpn.ai never receives the key. The browser remembers it for this site, so on a shared computer clear the **Authorization** field when you finish.
+- **Pick the host.** **Hosted Darpan** is `https://api.drpn.ai`. For your own instance, choose **Self-hosted Darpan** and enter its backend host; it must list `https://developers.drpn.ai` in [`webapp_public_api_origins`](/self-host/production).
+- **Start with Check your key.** It works on every tenant. The other examples name an audit (`month-close`), a date and a finding id (`F-20790`): replace them with ones from your tenant, or the answer is `… was not found`.
+- **Write your own.** Switch the body to **JSON** and edit `query`. Field names and types are in the [reference](/graphql/queries/audit-report); the full schema is at `GET /rest/s1/graphql/sdl`.
+
+Something refused? See [When it does not work](/graphql/quickstart#when-it-does-not-work).
