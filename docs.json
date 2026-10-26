@@ -217,6 +217,11 @@
   },
   "redirects": [
     {
+      "source": "/",
+      "destination": "/graphql/overview",
+      "permanent": false
+    },
+    {
       "source": "/getting-started/set-up-darpan-independently",
       "destination": "/self-host/set-up-darpan-independently"
     },
