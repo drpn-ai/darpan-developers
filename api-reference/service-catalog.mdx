@@ -73,6 +73,9 @@ The password reset methods need the password reset email templates loaded and an
 | `pause#Automation` / `resume#Automation` / `run#AutomationNow` | Control automation execution. |
 | `list#AutomationExecutions` | List automation execution history. |
 | `reprocess#AutomationExecution` | Re-run a failed or dead-lettered automation execution. |
+| `retry#AutomationExecutionFromExtracts` | Re-run a failed or dead-lettered execution from the files it already read: a new execution over the same window, whose compare and later steps run again without reading any system. Refused, with the reason, when a read did not finish or its file is gone; then use `reprocess#AutomationExecution`, which reads again. |
+| `repair#ConnectorRecordKeys` | Add the record root to each bare key of one saved run's connector sources (`omsOrderId` becomes `$.records[*].omsOrderId`), the form runs saved in the app use. Rules, filters and everything else are left as they are. With `dryRun`, returns the changes without saving them. |
+| `get#AutomationStreaks` | The active tenant's clean-day streaks: each automation's live and best streak in days and the badges it has earned, the tenant streak (the shortest live streak of its active scheduled automations), and the side quests the tenant has found. Read-only. |
 | `list#AutomationSourceOptions` | List configured source options for automation setup. |
 | `list#GeneratedOutputs` / `get#GeneratedOutput` / `delete#GeneratedOutput` | Manage generated reconciliation outputs. |
 | `get#GeneratedOutputDifferences` | Page through the difference rows of one generated output. |
@@ -141,6 +144,7 @@ An audit is a set of statements about the active tenant's data, each tested by c
 | `get#AuditFinding` | One finding as a `darpan.audit.finding/v1` document: records, evidence, fix and history. |
 | `verify#AuditFinding` | Re-check one finding's record now: its check runs for that record only, reading each system by key, and the finding is closed if the problem is gone or refreshed with today's cause. Submitted in the background; `get#AuditFinding` shows the result once `lastChecked` changes. Records no check run, so the check's health and next read are unchanged. Refused when the check has no automation yet. |
 | `get#AuditCheckExtracts` | The files each system's read wrote for one check, day and period: one row per side with the system, the record count, and the file's data-manager path. Empty when the check has no recorded run for that day and period. |
+| `get#AuditProgress` | What an audit's checks are doing now: each automation with a run in progress or queued, the checks it feeds, its stage and progress, and whether it looks healthy, slow or stuck against its own last successful run. Cheap enough to poll while a play or the morning run is going. |
 
 ## Slack (`facade.SlackFacadeServices`)
 
@@ -256,11 +260,21 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | --- | --- |
 | `get#ScheduleBoard` | Every tenant's scheduled automations on one instance-wide timeline, in the order the scheduler will submit them. Only each automation's next fire is authoritative; later entries are projected. |
 
-### Admin session (`admin.ObserveAdminServices`)
+### Config transfer (`admin.TransferAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#TransferCatalog` | What a tenant can send: its audits, saved runs and connections. |
+| `export#ConfigBundle` | The bundle a target instance imports: the picked audits with every statement, check, run, query, conclusion code and connection they reach, plus picked runs and connections. Ids travel as references; secrets never travel in the bundle. |
+| `import#ConfigBundle` | Plan a bundle into a target tenant (a dry run that writes nothing), or apply the previewed plan by its hash, in one transaction: all of it or none of it. |
+| `begin#SecretHandoff` | Start a credentials handoff on the target instance: a one-time key pair, valid for 30 minutes, that the source seals connection credentials to. Nothing is stored but an audit-log row. |
+
+### Observe (`admin.ObserveAdminServices`)
 
 | Method | Purpose |
 | --- | --- |
 | `get#AdminSessionInfo` | Fence probe and admin route guard: returns the operator identity when the caller clears both the artifact fence and the super-admin gate. |
+| `get#LiveOperations` | What is running on this instance now, across every tenant: each in-flight reconciliation, automation and audit run with its stage, progress and health, the automation slots and overdue schedules, failures in the last 24 hours, the JVM's load, and the warnings that follow, critical first. |
 
 ## Per-method reference
 

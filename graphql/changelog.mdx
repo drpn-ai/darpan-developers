@@ -3,6 +3,11 @@ title: "Changelog"
 description: "Changes to the GraphQL API."
 ---
 
+## Darpan 2.1.1 (2026-10-27)
+
+- Tenant administrators can create API keys, and a key is always for the tenant its creator is signed into.
+- The GraphQL and API-key paths refuse cookies and answer CORS without credentials. `developers.drpn.ai` is an allowed origin, so the explorer can run your own key.
+
 ## Darpan 2.1.0 (2026-10-26)
 
 - `auditReport` and `auditFinding` queries: audit runs over GraphQL, in the `darpan.audit.report/v1` and `darpan.audit.finding/v1` shapes.
