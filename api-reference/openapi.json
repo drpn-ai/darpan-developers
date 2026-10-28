@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Darpan Facade API",
-    "version": "2.1.1",
+    "version": "2.1.2",
     "x-darpan-contract-version": 3,
-    "description": "Public copy of the darpan v2.1.1 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
+    "description": "Public copy of the darpan v2.1.2 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
   },
   "servers": [
     {
@@ -52,6 +52,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/GetAuditsRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RetryAuditCheckRequest"
                   },
                   {
                     "$ref": "#/components/schemas/RunAuditRequest"
@@ -217,6 +220,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/EnableSavedRunRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GetActiveRunResultRequest"
                   },
                   {
                     "$ref": "#/components/schemas/GetAutomationRequest"
@@ -472,6 +478,7 @@
                     "facade.AuditFacadeServices.get#AuditReport": "#/components/schemas/GetAuditReportRequest",
                     "facade.AuditFacadeServices.get#AuditSettings": "#/components/schemas/GetAuditSettingsRequest",
                     "facade.AuditFacadeServices.get#Audits": "#/components/schemas/GetAuditsRequest",
+                    "facade.AuditFacadeServices.retry#AuditCheck": "#/components/schemas/RetryAuditCheckRequest",
                     "facade.AuditFacadeServices.run#Audit": "#/components/schemas/RunAuditRequest",
                     "facade.AuditFacadeServices.save#AuditCheck": "#/components/schemas/SaveAuditCheckRequest",
                     "facade.AuditFacadeServices.save#AuditSettings": "#/components/schemas/SaveAuditSettingsRequest",
@@ -527,6 +534,7 @@
                     "facade.ReconciliationFacadeServices.delete#SavedRun": "#/components/schemas/DeleteSavedRunRequest",
                     "facade.ReconciliationFacadeServices.disable#SavedRun": "#/components/schemas/DisableSavedRunRequest",
                     "facade.ReconciliationFacadeServices.enable#SavedRun": "#/components/schemas/EnableSavedRunRequest",
+                    "facade.ReconciliationFacadeServices.get#ActiveRunResult": "#/components/schemas/GetActiveRunResultRequest",
                     "facade.ReconciliationFacadeServices.get#Automation": "#/components/schemas/GetAutomationRequest",
                     "facade.ReconciliationFacadeServices.get#AutomationStreaks": "#/components/schemas/GetAutomationStreaksRequest",
                     "facade.ReconciliationFacadeServices.get#GeneratedOutput": "#/components/schemas/GetGeneratedOutputRequest",
@@ -652,6 +660,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/GetAuditsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RetryAuditCheckResponse"
                     },
                     {
                       "$ref": "#/components/schemas/RunAuditResponse"
@@ -817,6 +828,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/EnableSavedRunResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetActiveRunResultResponse"
                     },
                     {
                       "$ref": "#/components/schemas/GetAutomationResponse"
@@ -2163,6 +2177,121 @@
           "result"
         ]
       },
+      "RetryAuditCheckParams": {
+        "type": "object",
+        "properties": {
+          "audit": {
+            "type": "string",
+            "description": "The audit's code."
+          },
+          "check": {
+            "type": "string",
+            "description": "The check's code, e.g. completed-not-billed."
+          },
+          "date": {
+            "type": "string",
+            "description": "The morning, YYYY-MM-DD; blank is today in the tenant's zone."
+          },
+          "period": {
+            "type": "string",
+            "description": "The report's period, e.g. 2026-10."
+          }
+        },
+        "required": [
+          "audit",
+          "check",
+          "period"
+        ],
+        "description": "DAR-UI-086. \"Retry from last read\": one check that did not run on one morning is run again from the extracts\n            that morning's run already read (retry#AutomationExecutionFromExtracts), so no system is read again; its findings\n            land on that morning's report. Refused, in words, when it ran already, has no run that morning, or a read did\n            not finish (then play the audit)."
+      },
+      "RetryAuditCheckResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "submitted": {
+            "type": "boolean"
+          },
+          "extracts": {
+            "type": "array",
+            "items": {},
+            "description": "[{side, fileName, recordCount}] replayed."
+          }
+        }
+      },
+      "RetryAuditCheckRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.retry#AuditCheck",
+        "x-darpan-method": "facade.AuditFacadeServices.retry#AuditCheck",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.retry#AuditCheck"
+          },
+          "params": {
+            "$ref": "#/components/schemas/RetryAuditCheckParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "RetryAuditCheckResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.retry#AuditCheck. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/RetryAuditCheckResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "RunAuditParams": {
         "type": "object",
         "properties": {
@@ -2214,7 +2343,7 @@
               "type": "string",
               "description": "Moqui type Map"
             },
-            "description": "[{automationId, savedRunId, submitted, error}]"
+            "description": "[{automationId, savedRunId, submitted, queued, error}]; queued: the\n                run waits for a free slot (DAR-BE-143) and starts on its own."
           }
         }
       },
@@ -9661,6 +9790,101 @@
           },
           "result": {
             "$ref": "#/components/schemas/EnableSavedRunResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "GetActiveRunResultParams": {
+        "type": "object",
+        "properties": {
+          "savedRunId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "savedRunId"
+        ],
+        "description": "DAR-BE-146. The newest run of a saved run still pending or running that began in the last two minutes, in the active tenant; empty when there is none. run#SavedRunDiff answers only when its run ends, so the run page asks this right after Run to open the live view."
+      },
+      "GetActiveRunResultResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reconciliationRunResultId": {
+            "type": "string"
+          }
+        }
+      },
+      "GetActiveRunResultRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.ReconciliationFacadeServices.get#ActiveRunResult",
+        "x-darpan-method": "facade.ReconciliationFacadeServices.get#ActiveRunResult",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.ReconciliationFacadeServices.get#ActiveRunResult"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GetActiveRunResultParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "GetActiveRunResultResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.ReconciliationFacadeServices.get#ActiveRunResult. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/GetActiveRunResultResult"
           }
         },
         "required": [
@@ -21283,6 +21507,7 @@
     "facade.AuditFacadeServices.get#AuditReport": "GetAuditReport",
     "facade.AuditFacadeServices.get#AuditSettings": "GetAuditSettings",
     "facade.AuditFacadeServices.get#Audits": "GetAudits",
+    "facade.AuditFacadeServices.retry#AuditCheck": "RetryAuditCheck",
     "facade.AuditFacadeServices.run#Audit": "RunAudit",
     "facade.AuditFacadeServices.save#AuditCheck": "SaveAuditCheck",
     "facade.AuditFacadeServices.save#AuditSettings": "SaveAuditSettings",
@@ -21338,6 +21563,7 @@
     "facade.ReconciliationFacadeServices.delete#SavedRun": "DeleteSavedRun",
     "facade.ReconciliationFacadeServices.disable#SavedRun": "DisableSavedRun",
     "facade.ReconciliationFacadeServices.enable#SavedRun": "EnableSavedRun",
+    "facade.ReconciliationFacadeServices.get#ActiveRunResult": "GetActiveRunResult",
     "facade.ReconciliationFacadeServices.get#Automation": "GetAutomation",
     "facade.ReconciliationFacadeServices.get#AutomationStreaks": "GetAutomationStreaks",
     "facade.ReconciliationFacadeServices.get#GeneratedOutput": "GetGeneratedOutput",

@@ -78,6 +78,7 @@ The password reset methods need the password reset email templates loaded and an
 | `get#AutomationStreaks` | The active tenant's clean-day streaks: each automation's live and best streak in days and the badges it has earned, the tenant streak (the shortest live streak of its active scheduled automations), and the side quests the tenant has found. Read-only. |
 | `list#AutomationSourceOptions` | List configured source options for automation setup. |
 | `list#GeneratedOutputs` / `get#GeneratedOutput` / `delete#GeneratedOutput` | Manage generated reconciliation outputs. |
+| `get#ActiveRunResult` | The active tenant's newest pending or running run of a saved run, begun in the last two minutes: the run page opens it straight after **Run** instead of listing outputs. |
 | `get#GeneratedOutputDifferences` | Page through the difference rows of one generated output. |
 | `get#ReconciliationRunStatus` | Live status and per-stage timeline for one run. Tenant-gated. |
 | `cancel#ReconciliationRun` | Request that a running reconciliation stop. Cooperative — the run ends at its next checkpoint, so it may still report as running briefly. |
@@ -145,6 +146,7 @@ An audit is a set of statements about the active tenant's data, each tested by c
 | `verify#AuditFinding` | Re-check one finding's record now: its check runs for that record only, reading each system by key, and the finding is closed if the problem is gone or refreshed with today's cause. Submitted in the background; `get#AuditFinding` shows the result once `lastChecked` changes. Records no check run, so the check's health and next read are unchanged. Refused when the check has no automation yet. |
 | `get#AuditCheckExtracts` | The files each system's read wrote for one check, day and period: one row per side with the system, the record count, and the file's data-manager path. Empty when the check has no recorded run for that day and period. |
 | `get#AuditProgress` | What an audit's checks are doing now: each automation with a run in progress or queued, the checks it feeds, its stage and progress, and whether it looks healthy, slow or stuck against its own last successful run. Cheap enough to poll while a play or the morning run is going. |
+| `retry#AuditCheck` | Retry from last read: re-runs one check that did not run on one morning, from the files that morning's run already read. Refused, with the reason, when the check is not the audit's, already ran, has no run that morning, or its reads did not finish. |
 
 ## Slack (`facade.SlackFacadeServices`)
 
