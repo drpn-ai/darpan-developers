@@ -11,7 +11,7 @@ description: "One thing the tenant needs to be true, its checks this morning, an
 |---|---|---|
 | `checks` | [`[StatementCheck!]!`](/graphql/objects/statement-check) | Each configured check that tests this statement; `[]` when none is configured. |
 | `counts` | [`FindingCounts`](/graphql/objects/finding-counts) | Ledger counts for this statement; never null, even when its check did not run today. |
-| `findings` | [`[FindingSummary!]!`](/graphql/objects/finding-summary) | Open, pending and fixed-today findings, oldest first, at most 50. |
+| `findings` | [`[FindingSummary!]!`](/graphql/objects/finding-summary) | Open and fixed-today findings, oldest first, at most 50. |
 | `findingsOmitted` | [`Int`](/graphql/scalars/int) | How many findings were left out by the 50 cap; `0` when all are shown. |
 | `id` | [`String`](/graphql/scalars/string) | The statement id, e.g. R4. |
 | `reason` | [`String`](/graphql/scalars/string) | Why the statement's checks were partial or did not run. |

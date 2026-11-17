@@ -25,9 +25,22 @@ facade.ReconciliationFacadeServices.list#SavedRuns
 
 Facade services are granted to every signed-in Darpan user through the `DARPAN_FACADE_APP` artifact group. Each facade service then checks the active tenant and the caller's role before it reads or writes. Admin services are granted only to super admins.
 
-Four facade services accept anonymous calls, all in `AuthFacadeServices.xml`: `login#Session`, `get#SessionInfo`, `change#ExpiredPassword`, and `logout#Session`. Every other facade service requires a signed-in user.
+Sixteen facade services accept anonymous calls: the sign-in, two-factor, passkey and password-reset steps in `AuthFacadeServices.xml`, and `start#CliLogin` and `poll#CliLogin` in `CliAuthFacadeServices.xml`. The service catalog lists them. Without a session, the two-factor and passkey steps act only for the account named by the single-use challenge token that `login#Session` returned. Every other facade service requires a signed-in user.
 
 `/rpc/json` is fenced to Darpan's own namespaces. `RpcMethodFence` (`src/main/groovy/darpan/facade/common/RpcMethodFence.groovy`), wired as a webroot before-request hook in the component `MoquiConf.xml`, refuses any method that does not start with `facade.`, `admin.` or `gql.`, checking the top-level method and every batch entry, with an `ArtifactAuthorizationException` (HTTP 403) before dispatch. That includes stock Moqui services marked `allow-remote="true"`. `gql.*` stays callable because each moqui-gql remote service gates itself. The same fence closes the framework's `/rest/login` transition. `/rest/s1/*` is not affected.
+
+`PasswordOnlyRouteFence` (`src/main/groovy/darpan/facade/auth/PasswordOnlyRouteFence.groovy`) runs before `RpcMethodFence` in the same hook. A request that carries an HTTP Basic `Authorization` header, or `authUsername`, `authPassword` or `authUserAccount` in its parameters or anywhere in its JSON body (each call of a batch, or GraphQL variables), is signed out and answered 401 with `Sign in through the Darpan app. Passwords are not accepted on this request.`, whether the password was right or not. The framework's `/Login`, `/SecondFactor` and `/ChangePassword` screens answer 404. Every client signs in through `facade.AuthFacadeServices.login#Session`, which asks for the second factor, and sends the returned key as the `login_key` header (or the session cookie in the browser).
+
+Every admin mutation writes a `darpan.admin.AdminAuditLog` row: user, tenant, AI-access and CLI-access changes, migration runs (failed attempts too, in their own transaction) and parking, data-source definition changes, a person-run output purge or encryption-key rotation, and GraphQL API key mints, rotations and disables. Dry runs and reads write none. Every result file served for download writes a `darpan.admin.DataExportLog` row (user, tenant, file, format, size, time; never the contents). Both entities are create-only: Moqui refuses updates and deletes on them, and an operator should also revoke `UPDATE` and `DELETE` on those tables from the application's database user.
+
+## Outbound HTTP
+
+Calls to tenant-supplied URLs (data-defined GraphQL and REST sources, HotWax OMS, Shopify) go through one shared client, `darpan.facade.common.OutboundHttpClient`:
+
+- `OutboundHttpPolicy.validate` checks a URL when it is saved and before it is called: absolute `https` only, and no host that resolves to a private, loopback, link-local, multicast, broadcast or cloud-metadata address.
+- The client's own DNS step resolves the host once per new connection, refuses unless every address passes the same policy, and connects to exactly those addresses. The address checked is the address connected to. TLS still verifies the certificate against the URL's host name.
+- Redirects are not followed, and the client keeps no cookies, so one tenant's `Set-Cookie` is never sent on another tenant's call to the same host.
+- An answer read into memory is capped at 256 MB. Large downloads, such as a month of Shopify bulk JSONL, are streamed instead.
 
 ## Facade services
 
@@ -35,7 +48,7 @@ Facade services are the app integration point. The `darpan` component's facade f
 
 | File | Covers |
 | --- | --- |
-| `service/facade/AuthFacadeServices.xml` | Login, session info, logout, active tenant, user settings, and password changes. |
+| `service/facade/AuthFacadeServices.xml` | Login, two-factor and passkey sign-in and setup, session info, logout, active tenant, user settings, password changes and resets. |
 | `service/facade/SettingsFacadeServices.xml` | Tenant settings, enum options, SFTP servers, NetSuite configs, source connection tests, chat spaces, notification defaults, and stored AI provider settings. |
 | `service/facade/JsonSchemaFacadeServices.xml` | Schema library: create, infer, refine, validate, and delete. |
 | `service/facade/ReconciliationFacadeServices.xml` | Saved runs and their rule sets, mappings, interactive runs, run status and cancel, generated outputs, run notifications, and automations. |

@@ -14,7 +14,7 @@ curl -s "$DARPAN_API/rest/s1/graphql/public" \
   -H "Content-Type: application/json" \
   -d @- <<'JSON'
 {
-  "query": "query One($id: ID!) { auditFinding(id: $id) { finding { id headline statement { id text } status { state firstFound lastSeen pendingUntil } records { system recordType id internalId status } evidence { rule expected { amount currency source } actual { amount currency source } difference { amount currency } checks { label passed value } } fix { owner where action verify { passesWhen nextCheck } } history { at event } } } }",
+  "query": "query One($id: ID!) { auditFinding(id: $id) { finding { id headline statement { id text } status { state firstFound lastSeen timesSeen } records { system recordType id internalId status } evidence { rule expected { amount currency source } actual { amount currency source } difference { amount currency } checks { label passed value } } fix { owner where action verify { passesWhen nextCheck } } history { at event } } } }",
   "variables": { "id": "F-20790" }
 }
 JSON

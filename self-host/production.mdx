@@ -6,7 +6,7 @@ description: "Build the Darpan backend image, configure it, load its data, and u
 Running Darpan for real users is mostly configuration, and the image enforces the parts that matter: it refuses to start without its secrets, exports the JVM flags Spark needs, and loads its own reference data. What is left is choosing the right image, setting a handful of environment variables, and running the first data load once. This page covers each in order.
 
 <Note>
-This page describes the released backend, `v2.0.0`, with the app `darpan-ui` `v3.0.0`. For a development stack on your own machine, see [Set up Darpan independently](/self-host/set-up-darpan-independently).
+This page describes the released backend, `v3.1.0`, with the app `darpan-ui` `v4.1.0`. For a development stack on your own machine, see [Set up Darpan independently](/self-host/set-up-darpan-independently).
 </Note>
 
 ## Before you start
@@ -24,10 +24,10 @@ Build images only from the [darpan-docker-config](https://github.com/drpn-ai/dar
 
 | Dockerfile | Track | Components |
 | --- | --- | --- |
-| `docker/prod/Dockerfile` | Production | Pinned to release tags: `darpan` `v2.0.0`, `darpan-hotwax` `v0.9.0`, `shopify-darpan` `v0.7.0`, `netsuite-darpan` `v0.3.0`, `database-darpan` `v0.2.1`. |
+| `docker/prod/Dockerfile` | Production | Pinned to release tags: `darpan` `v3.1.0`, `darpan-hotwax` `v1.1.0`, `shopify-darpan` `v0.10.0`, `netsuite-darpan` `v0.6.0`, `database-darpan` `v0.4.0`, `moqui-gql` `v1.1.0`, `darpan-agent` `v0.2.0`. |
 | `docker/Dockerfile` | Test and CI | Every component at `main`. Use it to try unreleased work, not to serve users. |
 
-The components ship as a set. The pins in the production Dockerfile move together; changing one tag on its own can seed configuration that points at a service or field the other component does not have. For 2.0.0 no mixed pairing works in either direction: darpan `v2.0.0` with an older connector fails at extraction, and the new connectors do not run on darpan `v1.5.1`. The app moves with the backend too: `darpan-ui` `v3.0.0` calls methods `v1.5.1` lacks, so keep the app on `v2.6.1` if the backend stays on `v1.5.1`.
+The components ship as a set. The pins in the production Dockerfile move together; changing one tag on its own can seed configuration that points at a service or field the other component does not have. Deploy all backend components and the app of one release together: `darpan-ui` `v4.1.0` calls the two-factor and passkey methods that 3.1.0 adds.
 
 Build from the repository root, so the Dockerfile's `COPY docker/...` paths resolve:
 
@@ -35,18 +35,18 @@ Build from the repository root, so the Dockerfile's `COPY docker/...` paths reso
 docker build -f docker/prod/Dockerfile \
   --build-arg BASE_IMAGE=<ubuntu-22.04-image>@sha256:<digest> \
   --build-arg REQUIRE_PINNED_BASE=1 \
-  -t darpan-backend:2.0.0 .
+  -t darpan-backend:3.1.0 .
 ```
 
 | Build argument | Why |
 | --- | --- |
 | `BASE_IMAGE` | The default base names a registry you may not be able to pull from. Supply an Ubuntu 22.04 image that includes `git`, as a full reference with a digest. The JDK 21 runtime is copied in from Temurin, so the base needs none. |
 | `REQUIRE_PINNED_BASE=1` | Fails the build unless `BASE_IMAGE` is digest-pinned. |
-| `MOQUI_FRAMEWORK_REF` | Defaults to the `master` branch of the `drpn-ai/moqui-framework` fork, which moves. For a byte-identical rebuild, pass an immutable commit. |
+| `MOQUI_FRAMEWORK_REF` | Defaults to the `master` branch of the `drpn-ai/moqui-framework` fork, which moves. For a byte-identical rebuild, pass an immutable commit. Darpan 3.1.0 needs a commit with PBKDF2 password hashing and the password-only sign-in closures. |
 
 The cloned repositories are public, so the build needs no credentials. If you build from private forks, pass a netrc file as a BuildKit secret (`--secret id=netrc,src=<file>`). Never pass credentials as build arguments; they would remain in the image history.
 
-During the build the image applies `docker/buildGradle.patch` to the framework build, builds the `moqui-gql` component's jar, and fails if the active Java is not 21. `moqui-gql` is not a supported public API yet.
+During the build the image applies `docker/buildGradle.patch` to the framework build, builds the `moqui-gql` component's jar, and fails if the active Java is not 21. `moqui-gql` serves the [GraphQL API](/graphql/overview).
 
 ## Configure the container
 
@@ -67,9 +67,12 @@ The entrypoint stops with an error naming the variable if any required value is 
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `Moqui_WEBAPP_ALLOW_ORIGINS` (or `WEBAPP_ALLOW_ORIGINS`) | The hosted Darpan app origins | Comma-separated list of app origins the API accepts browser calls from. Replace it with your own app's origin. |
+| `Moqui_WEBAPP_ALLOW_ORIGINS` (or `WEBAPP_ALLOW_ORIGINS`) | `app.drpn.ai` | Comma-separated list of app origins the API accepts browser calls from. Replace it with your own app's origin. A `*` entry is dropped. |
 | `webapp_public_api_origins` | `https://developers.drpn.ai` | Comma-separated origins (protocol and host, matched exactly) whose pages may call the public GraphQL API from a browser, without cookies. This is what lets the [API explorer](/graphql/explorer) reach your instance. Empty turns it off. Never put these origins in `Moqui_WEBAPP_ALLOW_ORIGINS`, which allows credentialed calls to every path. |
-| `DARPAN_APP_BASE_URL` | The first allowed origin | Base URL used in alert links to run results. Set it, or links can point at the wrong host. |
+| `DARPAN_APP_BASE_URL` | The first allowed origin | The app's address. Used in alert and email links, and its host is the default passkey relying party. Set it, or links can point at the wrong host. |
+| `DARPAN_WEBAUTHN_RP_ID` | The host of `DARPAN_APP_BASE_URL` | Passkey relying party id: the host your users open the app from, never the API's host. A passkey is bound to it, so changing it makes registered passkeys unusable. |
+| `DARPAN_WEBAUTHN_ORIGINS` | `Moqui_WEBAPP_ALLOW_ORIGINS` plus `DARPAN_APP_BASE_URL` | Comma-separated app origins a passkey ceremony may come from. Only origins on the relying party's host, or under it, are kept. |
+| `DARPAN_TOTP_ISSUER` | `Darpan` | The name an authenticator app shows for this instance, for example `Darpan UAT`. |
 | `Moqui_HOST` | Empty | Public host name of the backend. |
 | `TIME_ZONE` | Empty | Server and database time zone. |
 | `entity_ds_crypt_pass_old` | Same as `entity_ds_crypt_pass` | Set only while rotating the encryption key: the outgoing key goes here and the new key in `entity_ds_crypt_pass`, so values written under either can be read. |
@@ -78,13 +81,39 @@ The entrypoint stops with an error naming the variable if any required value is 
 | `DARPAN_LOAD_UPGRADE_DATA` | `Y` | Whether the container loads Darpan's reference data on start. See [Upgrade](#upgrade). |
 | `JAVA_OPTS` | Heap from 25% to 75% of the container memory limit, capped at 6 GB, plus JSON log output | JVM options. Setting it replaces the defaults, so carry over the heap and logging options you want to keep. |
 
+Some settings are JVM system properties. Add them to `JAVA_OPTS` as `-D<name>=<value>`:
+
+| Property | Default | Purpose |
+| --- | --- | --- |
+| `gql.apiKey.maxDays` | `90` | The longest a GraphQL API key may last from creation or rotation. A missing, unparsable or non-positive value uses 90. |
+| `darpan.retention.auditFinding.days`, `darpan.retention.runResult.days`, `darpan.retention.agentMessage.days`, `darpan.retention.agentQueryLog.days` | Unset (keep forever) | Retention period for audit findings, run results, AI transcripts and agent query logs. Nothing is deleted until a period is set and the paused `run_DataRetention_daily` job is resumed. See [Scheduled data cleanup](/backend/operations-and-validation#scheduled-data-cleanup). |
+| `darpan.retention.batchSize` | `500` | Rows per retention batch; each batch is its own transaction. |
+
 The database configuration is MySQL (`mysql8`). Database sources that point at private, loopback or metadata addresses are refused by default; to allow a private database host, add `-Ddatabase_source_allow_private_hosts=true` to `JAVA_OPTS`.
 
 The entrypoint exports the JDK 21 flags Spark needs through `JAVA_TOOL_OPTIONS`. A value you set in that variable is kept, and the flags are added after it. The server listens on port `8080`, and the image health check calls `/status` from inside the container.
 
-<Warning>
-The images currently run the server as root. Do not set `runAsNonRoot: true` in a pod security context, or the container will not start.
-</Warning>
+The server runs as the non-root user uid/gid `1000`. Everything it writes at run time is under `/moqui-framework`, `/moqui-deploy` and `/tmp`, all owned by `1000:1000`.
+
+## Keep run files on a volume
+
+The server keeps run files (source extracts, results, schemas) under `/moqui-deploy/runtime/datamanager`. Mount a persistent volume there, or every deploy and restart loses them. `/moqui-framework/runtime/datamanager` is not the live runtime; a volume mounted there holds nothing.
+
+The volume must let uid `1000` write. A volume holding root-owned files from an older image needs a one-time `chown -R 1000:1000`, `fsGroup: 1000`, or an access point that maps writes to `1000:1000`, or new run folders fail with `AccessDeniedException`.
+
+Raw source extracts are deleted 7 days after their run, and generated result files after 15 days, by scheduled jobs. See [Scheduled data cleanup](/backend/operations-and-validation#scheduled-data-cleanup).
+
+## Rotate the field-encryption key
+
+Stored connection credentials and two-factor secrets are encrypted with `entity_ds_crypt_pass`. To rotate it:
+
+1. Take a database backup. It holds values under the old key and is your rollback point.
+2. Restart with the outgoing key in `entity_ds_crypt_pass_old` and the new key in `entity_ds_crypt_pass`. The server writes with the new key and reads values under either.
+3. As a super admin with two-factor sign-in, call `admin.SecurityAdminServices.rotate#EncryptedFields` with `dryRun` left at `true`. It reports which key each value is on, and `undecryptableCount` must be `0`.
+4. Call it again with `dryRun: false` and a new code. It re-encrypts every stored value with the new key; the reply should show `oldKeyOnlyCount: 0`.
+5. Restart without `entity_ds_crypt_pass_old`. Keep the old key until every backup taken before step 4 has expired.
+
+A real run is refused unless an old key different from the current one is configured. The run writes an admin audit log row with counts, never values.
 
 ## Load the database the first time
 
@@ -114,6 +143,24 @@ An upgrade runs in this order: load the reference data with the new image, start
 2. **One-time data migrations.** Once the new backend is running, run the pending migrations from the backend's **Migrations** screen at `/apps/darpan/Migrations`, signed in as a super-admin. A preview shows what would run. Migrations already applied are skipped, so a second run applies nothing.
 
 Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists anything else that release needs before you deploy.
+
+### Upgrading to 3.1.0
+
+3.1.0 adds two-factor and passkey sign-in, closes the password-only ways into the backend, and moves password hashing to PBKDF2. The upgrade data is a delta on 3.0.3: 90 records, among them the two scheduled cleanup jobs, the two-factor role policies and email templates, and 66 tenant `EntityFilter` rows that now fail closed when no tenant is active. New tables are created on boot.
+
+1. **Tell your users first.** Web sign-ins older than 24 hours and CLI sign-ins older than 7 days end at the deploy, and everyone signs in again.
+2. **Check your API clients.** A script that sends a password as HTTP Basic or as `authUsername`/`authPassword` now gets HTTP 401. Move it to `login#Session` and the `login_key` header, or to a [GraphQL API key](/graphql/authentication). A `/Login` health check now gets 404; check `/` (a redirect) or `/status` from inside the container instead.
+3. **Build and deploy the set** from `darpan-docker-config` `v3.1.0`, with a `MOQUI_FRAMEWORK_REF` that includes PBKDF2 hashing, and deploy `darpan-ui` `v4.1.0` with it.
+4. **Load the upgrade data** with `loadDarpanUpgradeData`, as above.
+5. **Run the pending migrations.** `NS_AUTH_ACCOUNTS` records each NetSuite auth config's account, so its endpoints stay on that account; preview it first.
+6. **Turn on two-factor sign-in.** Every role starts optional. Each super admin sets up a second factor; then `admin.SecurityAdminServices.update#TwoFactorPolicy` makes a role required from a date. Set `DARPAN_APP_BASE_URL` (or the `DARPAN_WEBAUTHN_*` variables) first if your users will use passkeys.
+7. **Set retention, when you decide it.** The retention job is seeded paused and every period is unset, so it deletes nothing until you set a period and resume the job.
+
+To roll back to 3.0.3, roll back the whole set, knowing:
+
+- The 3.0.3 framework cannot verify a password re-hashed to PBKDF2 after the deploy. Those users reset their password.
+- Reload 3.0.3's `data/SecuritySeedData.xml` with the rollback, so its tenant filters match its code.
+- New tables and seed rows stay and are ignored. Two-factor enrolments and passkeys are kept and not asked for.
 
 ### Upgrading to 2.0.0
 

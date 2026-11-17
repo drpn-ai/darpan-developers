@@ -24,6 +24,8 @@ Local development supports behavior changes and validation. See [Set up Darpan i
 
 The test environment is for release smoke testing and workflows that need stable external access before a change reaches production. A dedicated instance runs on its own hosts, which the team running it provides.
 
+In every environment a web sign-in ends after 60 idle minutes, and at most 24 hours after sign-in. A CLI sign-in lasts 7 days.
+
 For what each session mode means in practice, see [Login and session](https://docs.drpn.ai/troubleshooting/login-and-session#how-the-app-keeps-you-signed-in).
 
 <Warning>

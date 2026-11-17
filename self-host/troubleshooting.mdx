@@ -19,6 +19,11 @@ Local setup breaks in predictable ways — almost always a JDK version mismatch,
 | `Task 'loadDarpanSetup' not found` | Use `./gradlew load` for a fresh setup. `loadDarpanSetup` was removed. |
 | `npm install` or Vite fails on Node version | Use Node.js 20 or newer. |
 | Backend starts but UI API calls fail | Wait for Moqui boot to finish, then refresh the UI. |
-| Login shows no active session | Create the initial admin user from `http://localhost:8080/Login`, then sign in through the UI. |
+| Login shows no active session | Sign in through the app at `http://localhost:5173/login` with the demo administrator that `./gradlew load` creates (see [Sign in locally](/self-host/set-up-darpan-independently#sign-in-locally)). |
+| `http://localhost:8080/Login` answers 404 | Expected from Darpan 3.1.0: the backend's own sign-in screens are closed. Sign in through the app. |
+| A script or API client gets HTTP 401 `Sign in through the Darpan app. Passwords are not accepted on this request.` | The request sent a password as HTTP Basic (`curl -u`) or as `authUsername`/`authPassword`. Call `facade.AuthFacadeServices.login#Session`, then send its token as the `login_key` header. For data reads, use a [GraphQL API key](/graphql/authentication). |
+| `login#Session` returns no token, with `twoFactorRequired` or `twoFactorSetupRequired` | The account has two-factor sign-in, or its role requires it. Finish the sign-in with the second factor, or set it up first; a script cannot skip this step. |
+| A new password is refused as too short | Passwords need at least 12 characters. |
+| Passkey setup fails, or the browser offers no passkey | The relying party must be the host the app is opened from. Locally it is `localhost`. On a deployed instance set `DARPAN_APP_BASE_URL` to the app's address, or set `DARPAN_WEBAUTHN_RP_ID` and `DARPAN_WEBAUTHN_ORIGINS` (see [Self-host in production](/self-host/production#configure-the-container)). |
 | Data load fails with a database lock | The local database is H2, which allows one process at a time. Stop `npm run dev:stack` or any running backend process before rerunning the load. |
 | Ports keep changing or Vite starts on a different port | Use `npm run dev:stack`; it targets `8080` and `5173` and clears old listeners. Export `JAVA_TOOL_OPTIONS` in the same shell first. |

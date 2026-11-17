@@ -23,8 +23,8 @@ The backend and the app are versioned separately.
 
 | Repository | Version source | Tag form |
 | --- | --- | --- |
-| `drpn-ai/darpan` | `component.xml` `version` attribute | `v1.x.y` |
-| `drpn-ai/darpan-ui` | `package.json` and `package-lock.json`, kept equal | `v2.x.y` (current line) |
+| `drpn-ai/darpan` | `component.xml` `version` attribute | `v3.x.y` (current line) |
+| `drpn-ai/darpan-ui` | `package.json` and `package-lock.json`, kept equal | `v4.x.y` (current line) |
 
 Connector components carry their own version tags and are released when they change.
 
@@ -36,6 +36,7 @@ Connector components carry their own version tags and are released when they cha
 4. Run the narrowest checks for every changed surface, and confirm the test tasks actually executed rather than reporting results from an earlier run.
 5. Tag the exact verified commit, after pushing the branch.
 6. Write the release notes: user-visible behaviour, operator actions (upgrade-data load, migration sweep, configuration), and deferred work, in separate parts.
+7. Document the release, not only announce it. `data/releases/<version>/docs-impact.md` records, for every shipped item, the product-docs and developer-docs pages it changed, or why none needed to. On this site that means the GraphQL reference regenerated from the SDL the release serves, every contract method in the service catalog, the public OpenAPI copy at the release version, and the runtime baseline as `build.gradle` states it. `verify_release_docs.py --version <version>` fails the cut until each of those holds.
 
 A hotfix does not get its own public release page. The newest tag on a release line carries one consolidated set of notes, and [Release updates](https://docs.drpn.ai/releases/updates) keeps one section per release line. The per-version packs under `data/releases/` stay separate for tooling.
 

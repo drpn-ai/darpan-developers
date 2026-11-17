@@ -7,7 +7,7 @@ query MorningReport {
       summary
       sources { system read records reason affects }
     }
-    summary { open pending newToday fixedToday }
+    summary { open newToday fixedToday }
     categories {
       id
       label
@@ -15,7 +15,7 @@ query MorningReport {
         id
         text
         status
-        counts { open pending }
+        counts { open newToday }
         findings { id headline state firstFound ageDays records { system recordType id } }
       }
     }

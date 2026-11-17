@@ -3,6 +3,17 @@ title: "Changelog"
 description: "Changes to the GraphQL API."
 ---
 
+## Darpan 3.1.0
+
+- Every API key expires. A key lasts at most 90 days from when it is created or rotated (`gql.apiKey.maxDays` on a self-hosted instance); a key created without an expiry date gets the maximum, and a later date is refused. Keys created earlier without an expiry date keep working until they are rotated or disabled. See [Authentication](/graphql/authentication#get-a-key).
+- Each key records the user who created it, and creating, rotating or disabling a key writes an admin audit log row.
+- On the signed-in session endpoint, a caller profile's product-store scope narrows the tenant's data instead of replacing the tenant condition. The API-key endpoint is unchanged.
+- The reference pages are regenerated from the 3.1.0 schema, which includes the 3.0.0 change below.
+
+## Darpan 3.0.0
+
+- A finding is `open` or `fixed`; there is no `pending` state. `AuditSummary`, `CategoryCounts` and `FindingCounts` drop `pending`, `FindingStatus` drops `pendingUntil`, and `StatementCheck` drops `graceDays`. `newToday` counts findings first found that morning and still open. A query that selects a removed field fails validation, so remove those fields from saved queries.
+
 ## Darpan 2.1.1 (2026-10-27)
 
 - Tenant administrators can create API keys, and a key is always for the tenant its creator is signed into.

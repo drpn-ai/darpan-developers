@@ -37,16 +37,41 @@ Tests tagged `mysql` cover InnoDB locking behaviour that the default H2 test dat
 | Piece | Version or setting |
 | --- | --- |
 | JDK | 21 (the component's Gradle toolchain) |
-| Framework | Moqui 4, built from the `drpn-ai/moqui-framework` fork, with embedded Bitronix as the JTA transaction manager |
+| Framework | Moqui 4, built from the `drpn-ai/moqui-framework` fork, with embedded Bitronix as the JTA transaction manager. Darpan 3.1.0 needs the fork's `master` with PBKDF2 password hashing and the password-only sign-in closures. |
 | Build | Gradle 9 |
-| Comparison | Apache Spark SQL 3.5.1 |
-| Rules | Drools 8.44.0.Final (`drools-engine`, `drools-mvel`, `drools-xml-support`) |
+| Comparison | Apache Spark SQL 4.2.1 (Scala 2.13, ANSI mode on); every embedded `SparkSession` sets `spark.ui.enabled=false` |
+| Rules | Drools 10.2.0 (`drools-engine`, `drools-mvel`, `drools-xml-support`, `kie-api`), with MVEL 2.5.2.Final |
+| Passkeys | webauthn4j-core 0.30.3 (with jackson-dataformat-cbor), Apache-2.0 |
 | MySQL driver | Connector/J 9.7.0; deployments use the `mysql8` database configuration |
 | PostgreSQL driver | 42.7.7 |
 
-Spark on JDK 21 needs a set of `--add-opens` JVM flags, plus `-XX:+EnableDynamicAgentLoading` and `--enable-native-access=ALL-UNNAMED`. The component's test tasks pass them, and the production entrypoint exports them through `JAVA_TOOL_OPTIONS`. A local server needs the same flags; without them a compare fails at runtime.
+Spark on JDK 21 needs a set of `--add-opens` JVM flags, plus `-Dio.netty.tryReflectionSetAccessible=true`, `-XX:+EnableDynamicAgentLoading` and `--enable-native-access=ALL-UNNAMED`. The component's test tasks pass them, and the production entrypoint exports them through `JAVA_TOOL_OPTIONS`. A local server needs the same flags; without them a compare fails at runtime. Spark 4 and Drools 10 share ANTLR 4.13, so do not pin ANTLR to make them agree.
 
 Production images are built from a separate, private deployment repository (`darpan-docker-config`). Its production entrypoint refuses to start unless the database connection (`Moqui_DB_HOST`, `Moqui_DB_USER`, `Moqui_DB_PASSWORD`, `Moqui_DB_NAME`), `entity_ds_crypt_pass`, and `JWT_KEY` are set. `entity_ds_crypt_pass_old` is optional and used only during a key rotation.
+
+## Sign-in and session settings
+
+The component's `MoquiConf.xml` sets these for every deployment:
+
+| Setting | Value |
+| --- | --- |
+| Web sign-in | Ends after 60 idle minutes (`session-config timeout="60"`, and the login key slides 60 minutes on with each request), and at most 24 hours after sign-in (`login-key expire-hours="24"`). `AuthSessionSupport.enforceWebSignInLifetime` signs out an expired one before the request runs. |
+| CLI sign-in | Lasts 7 days (`CliAccess.SIGN_IN_DAYS`). Revoking the sign-in, or disabling the user, ends it on the next call. |
+| Signed out everywhere | A key issued before the user's `UserAccount.sessionsEndedDate` is refused. |
+| Passwords | At least 12 characters (`password min-length="12"`). The framework hashes new and changed passwords with PBKDF2-HMAC-SHA256 and re-hashes an older hash at the next sign-in. |
+| Password-only sign-in | Refused. `PasswordOnlyRouteFence` runs first in the webroot before-request hook: a request carrying an HTTP Basic `Authorization` header, or `authUsername`, `authPassword` or `authUserAccount` anywhere in its parameters or JSON body, is signed out and answered 401. The framework's `/Login`, `/SecondFactor` and `/ChangePassword` screens answer 404. Clients sign in through `facade.AuthFacadeServices.login#Session`, or use a GraphQL API key. |
+
+Two-factor sign-in is configured per role in `darpan.auth.TwoFactorRolePolicy` for `ADMIN`, `DARPAN_SUPER_ADMIN`, `DARPAN_ADMIN` and `DARPAN_TENANT_ADMIN`. Every role starts optional; `admin.SecurityAdminServices.update#TwoFactorPolicy` makes a role required from a date. Authenticator-app secrets are stored encrypted (`TwoFactorFactor`), recovery codes as salted SHA-256 hashes, and passkeys as webauthn4j attested credential data.
+
+## Scheduled data cleanup
+
+| Job | Schedule | What it does |
+| --- | --- | --- |
+| `purge_ReconciliationGeneratedFiles_daily` | 02:00 daily | Deletes generated result files older than 15 days. |
+| `purge_ReconciliationExtractFiles_daily` | 02:15 daily | Deletes raw source extract files 7 days after their run (`reconciliation.ReconciliationGenericServices.purge#ExtractFiles`, `retentionDays=7`). Result files and findings are not touched. |
+| `run_DataRetention_daily` | 03:30 daily, seeded paused | Deletes audit findings, run results, AI transcripts and agent query logs older than their retention period (`retention.RetentionServices.run#Retention`), tenant by tenant in batches of `darpan.retention.batchSize` (default 500), each batch in its own transaction. |
+
+Each retention period is a system property: `darpan.retention.auditFinding.days`, `darpan.retention.runResult.days`, `darpan.retention.agentMessage.days` and `darpan.retention.agentQueryLog.days`. An unset period keeps that table forever, so resuming the paused job deletes nothing until a period is set. `admin.RetentionAdminServices.dryRun#Retention` counts what a run would delete, per table and tenant, and can preview periods that are not set yet.
 
 ## When to run broader checks
 

@@ -52,7 +52,9 @@ The assignable tenant roles are:
 | Tenant user | `DARPAN_TENANT_USER` | Yes | Yes | No |
 | Company view-only | `DARPAN_COMPANY_VIEW_ONLY` | Yes | No | No |
 
-Super admin is not a tenant role. It is granted through the `DARPAN_SUPER_ADMIN` or `ADMIN` group and applies across tenants.
+Run access covers running and connecting, not only starting a run: playing an audit, resolving a finding, running a saved run, a one-off comparison or a reconciliation, and saving or deleting connections (NetSuite auth and RESTlet, SFTP, Shopify, HotWax OMS, database connections and queries). Changing setup, such as schemas, saved runs and rules, still needs edit access. The agent is limited to edit access: `send#AgentTurn` refuses a tenant user or a view-only member before anything is stored or sent to the model.
+
+Super admin is not a tenant role. It is granted through the `DARPAN_SUPER_ADMIN` or `ADMIN` group and applies across tenants. `admin.UserAdminServices.add#DarpanAdmin` grants `DARPAN_ADMIN` (the default) or `DARPAN_SUPER_ADMIN`, and `remove#DarpanAdmin` ends it; the admin user list and detail return each user's Darpan-wide roles in `darpanRoles`.
 
 That split lets the backend decide whether the current user can view, run, or edit the active tenant's data without applying one global role everywhere.
 
@@ -71,7 +73,7 @@ Backend access helpers are responsible for:
 
 Two mechanisms keep a read inside the active tenant. Use both the way the existing code does.
 
-Entity filters: the `DARPAN_ACTIVE_COMPANY_SCOPE` entity filter set, in `data/SecuritySeedData.xml`, adds `companyUserGroupId = activeTenantUserGroupId` to finds on tenant-owned entities. The set is attached to the facade artifact authorizations, so it applies to entity finds made inside facade service calls while authorization is enabled. A find that disables authorization skips it.
+Entity filters: the `DARPAN_ACTIVE_COMPANY_SCOPE` entity filter set, in `data/SecuritySeedData.xml`, adds `companyUserGroupId = activeTenantUserGroupId` to finds on tenant-owned entities. The set is attached to the facade artifact authorizations, so it applies to entity finds made inside facade service calls while authorization is enabled. A find that disables authorization skips it. When the user context has no active tenant, the filter compares against a sentinel value that no row carries, so the find returns nothing rather than every tenant's rows.
 
 `TenantScopedFinder`: code that has to read with authorization disabled goes through `darpan.facade.common.TenantScopedFinder` instead of calling `disableAuthz()` directly:
 
@@ -88,7 +90,7 @@ One Moqui behaviour to know: when a find specifies the complete primary key, `on
 
 Tests guard these rules:
 
-- `DisableAuthzRatchetTest` counts bare `disableAuthz()` calls in production Groovy outside the allowlisted helpers, and fails the build when the count rises above its baseline.
+- `DisableAuthzRatchetTest` counts bare `disableAuthz()` calls in production Groovy and XML outside the allowlisted helpers, across `darpan`, the connector components, `darpan-agent` and `moqui-gql`, and fails the build when a count rises above its baseline.
 - `EntityOwnershipGuardTest` fails when the same entity is defined in two components, or when core code starts depending on a connector-owned entity.
 
 ## Shared source configs
@@ -111,6 +113,10 @@ Generated output behavior includes both sides:
 
 - The descriptor record users can list, open, or delete
 - The scoped file location where the generated data is stored
+
+A file is resolved to its owner through the run result that names it. A file named without a folder resolves only inside the active tenant's runs, and deleting one deletes only the active tenant's run rows. When no run result names a file and ownership falls back to its run folder, the tenant stamped in the file can only deny access: a file stamped for another tenant is never shown, even when its folder id now belongs to a different tenant's run (for example after a database restore re-issues ids). `list#AutomationExecutions` returns nothing to a user with no active tenant.
+
+JSON schemas resolve by name inside the running tenant, so a run never loads another tenant's schema of the same name, and a save never writes over another tenant's schema file.
 
 ## Backend contract
 

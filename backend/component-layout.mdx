@@ -49,7 +49,7 @@ Other components install beside `darpan` in the same Moqui runtime:
 | `shopify-darpan` | Shopify connector: config entities, extract services, and `facade.ShopifyFacadeServices`. |
 | `netsuite-darpan` | NetSuite connector services: SuiteQL extraction (`extract#NetSuiteOrders`), NetSuite check save/get/list (`facade.NetSuiteQueryFacadeServices`), and lifecycle options. Its entities (`NsAuthConfig`, `NsRestletConfig`, `NsSuiteQlSourceQuery`, `NsSuiteQlSourceQueryField`) are defined in `darpan`; its own entity file is intentionally empty so no entity is defined twice. |
 | `database-darpan` | Database sources over JDBC: config entities, extract services, and `facade.DatabaseFacadeServices`. |
-| `moqui-gql` | A GraphQL component included in the images. It is not a supported public API yet. |
+| `moqui-gql` | The read-only [GraphQL API](/graphql/overview): schema, per-tenant API keys with a maximum lifetime (`gql.apiKey.maxDays`), cost limits and throttling. |
 | `moqui-sftp` | SFTP transport for file sources. |
 
 ## Runtime stack
@@ -61,6 +61,7 @@ The component uses these runtime pieces:
 - Groovy helpers for dense processing
 - Apache Spark SQL for file and dataset comparison
 - Drools for RuleSet compilation and execution
+- webauthn4j for passkey and security-key sign-in
 - JSON Schema, JSONPath, and schema inference libraries
 - MySQL Connector/J and the PostgreSQL JDBC driver
 

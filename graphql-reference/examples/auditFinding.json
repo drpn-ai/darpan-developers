@@ -9,11 +9,10 @@
           "text": "Every invoice and credit memo carries the Shopify order id (the Etail id)."
         },
         "status": {
-          "state": "pending",
+          "state": "open",
           "firstFound": "2026-10-08",
           "lastSeen": "2026-10-08",
-          "timesSeen": 1,
-          "pendingUntil": "2026-10-09"
+          "timesSeen": 1
         },
         "records": [
           {

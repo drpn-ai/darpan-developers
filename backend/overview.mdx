@@ -23,7 +23,7 @@ This split keeps browser workflows thin. The UI asks for a run; the backend vali
 - Moqui component descriptor: `component.xml`
 - Public service surface: `facade.*` Moqui JSON-RPC services through `/rpc/json`
 - Operator surface: `admin.*` services, restricted to super admins and called by the Darpan admin app. They are not part of the public API.
-- GraphQL: the images include a GraphQL component (`moqui-gql`). It is not a supported public API yet.
+- GraphQL: the `moqui-gql` component serves Darpan's read-only external API, authenticated with per-tenant API keys. See the [GraphQL API](/graphql/overview).
 - Service contracts: XML service definitions under `service/**`
 - Data model: Moqui entity definitions under `entity/**`
 - Processing helpers: Groovy code under `src/main/groovy/**`

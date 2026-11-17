@@ -51,7 +51,7 @@ while True:
 ## How to use it
 
 - **Run it after the morning checks.** Each audit runs once a morning; reading more often returns the same answer.
-- **Read `state`.** It is `open`, `pending` or `fixed`. A finding that becomes `fixed` stays in the period's list, so the next sync updates it rather than leaving it behind.
+- **Read `state`.** It is `open` or `fixed`. A finding that becomes `fixed` stays in the period's list, so the next sync updates it rather than leaving it behind.
 - **Pick the period.** `period:2026-10` is one month's run. At month end, sync the closing month one last time, then switch to the new one.
 - **Narrow it** with `audit:`, `statement:`, `category:` or `state:` terms. See [List open findings](/graphql/tasks/list-open-findings#filter).
 

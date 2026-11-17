@@ -17,15 +17,23 @@ Authorization: Bearer dgql_9bPq…
 
 ## Get a key
 
-A Darpan super-admin creates keys for a tenant. Each key has a label that names the agent or integration using it, and may have an expiry date. The key is shown once, when it is created; Darpan stores only its SHA-256 digest and cannot show it again.
+A tenant administrator creates keys for the tenant they are signed into; a Darpan super-admin can too. Each key has a label that names the agent or integration using it. The key is shown once, when it is created; Darpan stores only its SHA-256 digest and the user who created it, and cannot show the key again.
+
+Every key expires. A key lasts at most 90 days from when it is created or rotated. A key created without an expiry date gets that maximum, and an expiry date later than the maximum is refused. A self-hosted instance sets the maximum with the `gql.apiKey.maxDays` property. Keys created before Darpan 3.1.0 without an expiry date keep working until they are rotated or disabled.
 
 | Change | What happens |
 |---|---|
-| Rotate | A new key is issued for the same tenant and label. The old key keeps working for a grace period (60 minutes unless set otherwise, at most 24 hours), then stops. |
+| Rotate | A new key is issued for the same tenant and label. The old key keeps working for a grace period (60 minutes unless set otherwise, at most 24 hours), then stops. The new key keeps the old key's expiry date when that date is within the maximum, and gets the maximum otherwise. |
 | Disable | The key stops working from the next request. |
-| Expire | After its expiry date the key stops working. |
+| Expire | After its expiry date the key stops working. Ask for a new key before then. |
+
+Creating, rotating and disabling a key each writes a row to Darpan's admin audit log, naming the key's id and the user. The row never holds the key or its digest.
 
 Ask your Darpan administrator to rotate or disable a key; there is no self-service key endpoint.
+
+## Tenant scope
+
+A key reads its own tenant and nothing else. A Darpan super-admin can attach a caller profile to a key for its cost and throttle limits; a product-store scope on that profile has no effect on the API-key endpoint. On the signed-in session endpoint the Darpan app uses, a caller profile's product-store scope narrows the signed-in tenant's data to that store. It is added to the tenant condition and never replaces it, so it cannot reach another tenant's records.
 
 ## When a key is refused
 

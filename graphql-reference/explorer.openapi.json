@@ -119,13 +119,13 @@
                 "auditReport": {
                   "summary": "auditReport: An audit's report for one morning, from the tenant of the API key.",
                   "value": {
-                    "query": "query MorningReport {\n  auditReport(audit: \"month-close\", date: \"2026-10-08\") {\n    schema\n    report { date period window { from thru } }\n    health {\n      complete\n      summary\n      sources { system read records reason affects }\n    }\n    summary { open pending newToday fixedToday }\n    categories {\n      id\n      label\n      statements {\n        id\n        text\n        status\n        counts { open pending }\n        findings { id headline state firstFound ageDays records { system recordType id } }\n      }\n    }\n  }\n}"
+                    "query": "query MorningReport {\n  auditReport(audit: \"month-close\", date: \"2026-10-08\") {\n    schema\n    report { date period window { from thru } }\n    health {\n      complete\n      summary\n      sources { system read records reason affects }\n    }\n    summary { open newToday fixedToday }\n    categories {\n      id\n      label\n      statements {\n        id\n        text\n        status\n        counts { open newToday }\n        findings { id headline state firstFound ageDays records { system recordType id } }\n      }\n    }\n  }\n}"
                   }
                 },
                 "auditFinding": {
                   "summary": "auditFinding: One finding by id, with its records, evidence, fix and history. Another tenant's finding reads as not found.",
                   "value": {
-                    "query": "query OneFinding {\n  auditFinding(id: \"F-20790\") {\n    finding {\n      id\n      headline\n      statement { id text }\n      status { state firstFound lastSeen timesSeen pendingUntil }\n      records { system recordType id internalId status }\n      fix { owner where action verify { by passesWhen } darpanChanges }\n      history { at event }\n    }\n    access { mode note }\n  }\n}"
+                    "query": "query OneFinding {\n  auditFinding(id: \"F-20790\") {\n    finding {\n      id\n      headline\n      statement { id text }\n      status { state firstFound lastSeen timesSeen }\n      records { system recordType id internalId status }\n      fix { owner where action verify { by passesWhen } darpanChanges }\n      history { at event }\n    }\n    access { mode note }\n  }\n}"
                   }
                 },
                 "findings": {

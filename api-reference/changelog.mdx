@@ -7,19 +7,141 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 3 (current) | 1.5.0, 1.5.1, 2.0.0, 2.1.0, 2.1.1, 2.1.2 | 147 |
+| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0 | 202 |
+| 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
 
-Releases 1.3.0, 1.4.0, and 1.5.1 added or removed no methods.
+Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2 and 3.0.3 added or removed no methods. There is no 3.0.1 release.
 
 <Note>
 Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
 </Note>
 
+## Contract version 4
+
+Darpan 3.0.0. Current.
+
+### Added in 3.1.0
+
+The facade contract stays at version 4: no 3.0.3 method, parameter or response field is removed, and 13 public methods are added (189 to 202). One existing method changes what it returns for some accounts: `login#Session` can answer a correct password with a two-factor challenge instead of a session (see below).
+
+Two-factor sign-in:
+
+- `facade.AuthFacadeServices.verify#SignInCode`: finishes a sign-in with the challenge token and an authenticator code, a recovery code or a passkey assertion. Anonymous.
+- `facade.AuthFacadeServices.begin#TwoFactorSetup`: starts adding an authenticator app and returns its secret and QR code once. Anonymous with a setup challenge token.
+- `facade.AuthFacadeServices.confirm#TwoFactorSetup`: turns the app on with its first code; returns a fresh token and, for a first factor, 10 recovery codes. Anonymous with a setup challenge token.
+- `facade.AuthFacadeServices.get#TwoFactorStatus`: the caller's two-factor state, passkeys and recovery-code count.
+- `facade.AuthFacadeServices.create#RecoveryCodes`: replaces the caller's recovery codes, with a fresh proof.
+- `facade.AuthFacadeServices.disable#TwoFactor`: turns two-factor off, or removes only the authenticator app, with a fresh proof.
+
+Passkeys and security keys:
+
+- `facade.AuthFacadeServices.begin#PasskeySignIn`: WebAuthn request options for a sign-in challenge. Anonymous.
+- `facade.AuthFacadeServices.begin#PasskeyRegistration`: WebAuthn creation options for a new passkey. Anonymous with a setup challenge token.
+- `facade.AuthFacadeServices.finish#PasskeyRegistration`: stores the new passkey; as a first factor, turns two-factor on. Anonymous with a setup challenge token.
+- `facade.AuthFacadeServices.begin#PasskeyProof`: WebAuthn request options for one action that asks for a fresh proof.
+- `facade.AuthFacadeServices.rename#Passkey`: renames one of the caller's passkeys.
+- `facade.AuthFacadeServices.delete#Passkey`: removes one of the caller's passkeys, with a fresh proof.
+
+Shopify:
+
+- `facade.ShopifyFacadeServices.begin#ShopifyInstall`: returns the Shopify authorize URL that installs the Darpan custom app registered for a store and the active tenant.
+
+Changed behaviour of existing methods:
+
+- `login#Session`: when the account has two-factor on, or a role requires it and it is not set up, a correct password returns `twoFactorRequired` or `twoFactorSetupRequired` with `challengeToken`, `challengeExpiresInSeconds` (300), `twoFactorMethods` and `passkeysAvailable`, and no `authToken`; `ok` is true and `authenticated` is false. A client that reads `authToken` without checking `authenticated` gets no token for these accounts. Accounts with no two-factor step sign in as before.
+- The six sign-in and setup steps refuse with a completed call carrying a `reason` code: `CODE`, `PASSKEY`, `PROOF_NEEDED`, `PASSWORD`, `CHALLENGE_ENDED`, `SETUP_EXPIRED`, `PASSKEYS_UNAVAILABLE`, `PASSKEY_LIMIT`, `PASSKEY_EXISTS`, `ACCOUNT_CANNOT_SIGN_IN` or `SIGN_IN_FIRST`. `login#Session` itself has no `reason` field.
+- Session lifetime: a web sign-in ends after 60 minutes with no request and at most 24 hours after sign-in, so `authTokenExpiresInSeconds` is 86400 (was 518400, 144 hours). A CLI sign-in lasts 7 days for every role (was 30 days for Darpan and tenant admins).
+- `sessionInfo`, returned by `login#Session`, `get#SessionInfo`, `save#ActiveTenant`, `save#UserSettings`, `verify#OwnPassword` and `change#OwnPassword`, adds `twoFactorEnabled` and `twoFactorDueDate`.
+- New passwords need at least 12 characters (was 8) in `change#OwnPassword`, `change#ExpiredPassword` and `complete#PasswordReset`. Passwords set or changed from 3.1.0 are stored with PBKDF2-HMAC-SHA256; an existing password is re-hashed at its next sign-in.
+- `complete#PasswordReset` leaves two-factor on and clears a two-factor code lock.
+- `request#PasswordReset`: requests with no usable client IP share one per-IP limit (20 codes an hour) instead of having none.
+- `facade.CliAuthFacadeServices.approve#CliLogin` takes `code` or `passkeyAssertion`, required when the approver has two-factor on.
+- Run access (tenant user, editor or tenant admin) replaces edit access for `run#Audit`, `verify#AuditFinding`, `run#Reconciliation`, `run#SavedRunDiff`, `run#GenericDiff`, `save#SftpServer`, `save#NsAuthConfig`, `delete#NsAuthConfig`, `save#NsRestletConfig`, and the save and delete methods for Shopify, HotWax OMS and database connections. `facade.AgentTurnFacadeServices.send#AgentTurn` now refuses view-only members and tenant users.
+- `save#NsAuthConfig` and `save#ShopifyAuthConfig` keep a stored secret only while the token URL or shop URL is unchanged; a changed URL needs the secret again. `save#NsRestletConfig` refuses an endpoint on a different NetSuite account from its auth config.
+- `list#AutomationExecutions` with no active tenant returns nothing. `delete#GeneratedOutput` deletes only the active tenant's run rows. `get#GeneratedOutput` records each download (user, tenant, file, format, size), never the contents.
+- `run#ShopifyGraphqlAgentQuery` refuses a query that selects customer email, phone, name or address.
+- Transport: a request carrying an HTTP Basic `Authorization` header, or `authUsername`, `authPassword` or `authUserAccount` anywhere in a JSON-RPC body or GraphQL variables, is signed out and refused with HTTP 401. The framework's `/Login`, `/SecondFactor` and `/ChangePassword` screens answer 404.
+
+GraphQL API keys (`gql.GqlAuthServices`, outside the generated contract): `create#ApiKey` gives every key an expiry at most `gql.apiKey.maxDays` (default 90) days away, and a blank expiry gets that maximum. `rotate#ApiKey` with a blank expiry keeps the old key's expiry, brought within the maximum.
+
+Ten operator-only `admin.*` methods are added: `admin.UserAdminServices.add#DarpanAdmin`, `remove#DarpanAdmin` and `reset#TwoFactor`; `admin.MembershipAdminServices.send#TenantWelcome`; `admin.SecurityAdminServices.get#TwoFactorPolicies`, `update#TwoFactorPolicy` and `rotate#EncryptedFields`; `admin.RetentionAdminServices.dryRun#Retention`; `admin.ShopifyAppAdminServices.list#ShopifyApps` and `save#ShopifyApp`. Existing operator methods change: `add#TenantMember` takes `sendWelcome` and returns `welcomeQueued`; `get#UserList` takes `darpanAdminsOnly` and returns `darpanRoles` and `twoFactor`; `get#UserDetail` returns `darpanRoles` and two-factor fields; `export#ConfigBundle` and `begin#SecretHandoff` need `twoFactorCode` or `twoFactorPasskeyAssertion` from a caller with two-factor on.
+
+### Added in 3.0.0
+
+The facade contract moves to version 4: the HotWax OMS source configuration drops `ordersPath` and `returnsPageSize`. No method is removed, and 42 public methods are added (147 to 189).
+
+CLI sign-in and access:
+
+- `facade.CliAuthFacadeServices.start#CliLogin`: starts a CLI sign-in and returns a device code and a user code. Anonymous.
+- `facade.CliAuthFacadeServices.poll#CliLogin`: whether a CLI sign-in was approved; the first poll after approval returns the login key. Anonymous.
+- `facade.CliAuthFacadeServices.get#CliLoginRequest`: what a waiting CLI sign-in asks for, by user code.
+- `facade.CliAuthFacadeServices.approve#CliLogin`
+- `facade.CliAuthFacadeServices.deny#CliLogin`
+- `facade.CliAuthFacadeServices.list#CliSessions`
+- `facade.CliAuthFacadeServices.revoke#CliSession`
+- `facade.CliAuthFacadeServices.logout#CliSession`
+- `facade.CliAccessFacadeServices.get#MyCliAccess`: the signed-in person's CLI state in the active tenant.
+- `facade.CliAccessFacadeServices.request#CliAccess`: asks a Darpan admin to turn the CLI on.
+
+Audit agent:
+
+- `facade.AgentTurnFacadeServices.send#AgentTurn`: one message to the audit agent about an audit.
+- `facade.AgentTurnFacadeServices.get#AgentStatus`
+- `facade.AgentTurnFacadeServices.get#AgentConversation`
+- `facade.AgentChangeFacadeServices.plan#AuditChange`
+- `facade.AgentChangeFacadeServices.apply#AuditChange`
+- `facade.AgentChangeFacadeServices.reject#AuditChange`
+- `facade.AgentChangeFacadeServices.revert#AuditChange`
+- `facade.AgentChangeFacadeServices.list#BrainChangeTickets`
+- `facade.AgentReadFacadeServices.get#AgentAuditScope`
+
+Agent queries to a tenant's own systems:
+
+- `facade.AgentFacadeServices.list#AgentQueryLogs`: the log of fresh queries agents sent. Tenant admins only.
+- `facade.NetSuiteQueryFacadeServices.list#NsAgentConnections`
+- `facade.NetSuiteQueryFacadeServices.run#NsSuiteQlAgentQuery`
+- `facade.HotWaxOmsFacadeServices.get#OmsGraphqlSchema`
+- `facade.HotWaxOmsFacadeServices.run#OmsGraphqlAgentQuery`
+- `facade.ShopifyFacadeServices.get#ShopifyGraphqlSchema`
+- `facade.ShopifyFacadeServices.run#ShopifyGraphqlAgentQuery`
+
+Config versions:
+
+- `facade.TenantConfigFacadeServices.snapshot#TenantConfig`
+- `facade.TenantConfigFacadeServices.get#TenantConfigVersions`
+- `facade.TenantConfigFacadeServices.get#TenantConfigVersion`
+- `facade.TenantConfigFacadeServices.preview#TenantConfigRestore`
+- `facade.TenantConfigFacadeServices.restore#TenantConfigVersion`
+
+Scripts:
+
+- `facade.TenantScriptFacadeServices.list#TenantScripts`
+- `facade.TenantScriptFacadeServices.save#TenantScript`
+- `facade.TenantScriptFacadeServices.delete#TenantScript`
+- `facade.TenantScriptFacadeServices.run#TenantScript`
+- `facade.TenantScriptFacadeServices.list#TenantScriptDeployments`
+- `facade.TenantScriptFacadeServices.save#TenantScriptDeployment`
+- `facade.TenantScriptFacadeServices.delete#TenantScriptDeployment`
+- `facade.TenantScriptFacadeServices.run#TenantScriptDeployment`
+
+Data source definitions (super-admin only):
+
+- `facade.DataSourceDefinitionFacadeServices.validate#DataSourceDefinition`
+- `facade.DataSourceDefinitionFacadeServices.create#DataSourceDefinition`
+- `facade.DataSourceDefinitionFacadeServices.retire#DataSourceDefinition`
+
+24 operator-only `admin.*` methods are added (30 to 54):
+
+- AI access: `create#AgentAccessGrant`, `update#AgentAccessGrant`, `pause#AgentAccessGrant`, `unpause#AgentAccessGrant`, `revoke#AgentAccessGrant`, `list#AgentAccessGrants`, `get#AgentUsage`.
+- CLI access: `create#CliAccessGrant`, `update#CliAccessGrant`, `pause#CliAccessGrant`, `unpause#CliAccessGrant`, `revoke#CliAccessGrant`, `list#CliAccessGrants`, `list#CliAccessRequests`, `approve#CliAccessRequest`, `decline#CliAccessRequest`.
+- Agent tickets: `list#AllBrainChangeTickets`, `update#BrainChangeTicket`.
+- Knowledge base: `search#Knowledge`, `get#KnowledgeEntry`, `get#KnowledgeForReview`, `get#KnowledgeIdentifiers`, `store#KnowledgeEntry`, `retire#KnowledgeEntry`.
+
 ## Contract version 3
 
-Darpan 1.5.0. Current.
+Darpan 1.5.0 to 2.1.12.
 
 ### Added in 2.1.2
 

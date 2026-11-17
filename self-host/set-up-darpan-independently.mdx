@@ -25,7 +25,7 @@ Install these first:
 | npm | Comes with Node.js | `npm -v` |
 
 <Warning>
-Darpan runs on **Moqui 4 + Spark 3.5 + Drools 8**, which require **JDK 21**. The backend will not start on Java 17. Install Temurin 21 and make it the active JDK before running any Gradle command:
+Darpan runs on **Moqui 4 + Spark 4.2 + Drools 10**, which require **JDK 21**. The backend will not start on Java 17. Install Temurin 21 and make it the active JDK before running any Gradle command:
 
 ```bash
 # macOS (Homebrew)
@@ -66,7 +66,7 @@ Moqui 4 uses the **embedded Bitronix** transaction manager. The old `moqui-atomi
 
 ## Set the JDK 21 runtime flags
 
-The backend JVM needs a set of `--add-opens` flags (the canonical Spark 3.5 / JDK 21 list) plus a couple of agent and native-access flags. Spark fails without them. Export them in the shell you will use for every backend command (`load`, `run`, and `npm run dev:stack`). Neither `./gradlew run` nor `npm run dev:stack` sets them for you:
+The backend JVM needs a set of `--add-opens` flags (the Spark 4 / JDK 21 list) plus Netty, agent and native-access flags. Spark fails without them. Export them in the shell you will use for every backend command (`load`, `run`, and `npm run dev:stack`). Neither `./gradlew run` nor `npm run dev:stack` sets them for you:
 
 ```bash
 export JAVA_TOOL_OPTIONS="\
@@ -79,11 +79,14 @@ export JAVA_TOOL_OPTIONS="\
 --add-opens=java.base/java.util=ALL-UNNAMED \
 --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
 --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED \
 --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
 --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
 --add-opens=java.base/sun.security.action=ALL-UNNAMED \
 --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
 --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+-Dio.netty.tryReflectionSetAccessible=true \
+-Dio.netty.allocator.type=pooled \
 -XX:+EnableDynamicAgentLoading \
 --enable-native-access=ALL-UNNAMED"
 ```
@@ -101,7 +104,7 @@ git clone --branch master https://github.com/drpn-ai/moqui-framework.git darpan-
 cd darpan-backend
 ```
 
-Use the `drpn-ai/moqui-framework` fork, not upstream `moqui/moqui-framework`. The fork is upstream Moqui 4 plus the embedded Bitronix transaction manager and a sign-in fix: without that fix, a sign-in can wait on itself for a database lock until the lock times out.
+Use the `drpn-ai/moqui-framework` fork, not upstream `moqui/moqui-framework`. The fork is upstream Moqui 4 plus the embedded Bitronix transaction manager, a sign-in fix (without it, a sign-in can wait on itself for a database lock until the lock times out), PBKDF2 password hashing, and the closure of password-only sign-in on service calls. Darpan 3.1.0 needs the fork's current `master`.
 
 <Note>
 The production images also apply a small `build.gradle` patch, `docker/buildGradle.patch` in [darpan-docker-config](https://github.com/drpn-ai/darpan-docker-config), which adds a Spark export flag to every Gradle-forked JVM. Local development does not need it as long as `JAVA_TOOL_OPTIONS` is exported.
@@ -132,7 +135,7 @@ cd ../..
 
 `moqui-sftp` is needed by the Darpan component build and test classpath. The five Darpan components provide the core backend, Shopify integration, NetSuite integration, HotWax integration, and database sources. Without `database-darpan`, the database source that the seed data registers fails at extraction.
 
-The hosted images also carry `moqui-gql`, a GraphQL component that is not a supported public API yet. It is optional locally. If you clone it, build its jar before the first load, because nothing else in the build triggers it and the backend fails at startup without it:
+The hosted images also carry `moqui-gql`, the component that serves the [GraphQL API](/graphql/overview). It is optional locally. If you clone it, build its jar before the first load, because nothing else in the build triggers it and the backend fails at startup without it:
 
 ```bash
 git clone --branch main https://github.com/drpn-ai/moqui-gql.git runtime/component/moqui-gql
@@ -140,7 +143,7 @@ git clone --branch main https://github.com/drpn-ai/moqui-gql.git runtime/compone
 ```
 
 <Tip>
-`main` is current development. To run the released version instead, check out the release tags: `darpan` `v2.0.0`, `darpan-hotwax` `v0.9.0`, `shopify-darpan` `v0.7.0`, `netsuite-darpan` `v0.3.0`, `database-darpan` `v0.2.1`, and `darpan-ui` `v3.0.0`. Check them out together: 2.0.0 components do not run against 1.5.x ones.
+`main` is current development. To run the released version instead, check out the 3.1.0 release tags: `darpan` `v3.1.0`, `darpan-hotwax` `v1.1.0`, `shopify-darpan` `v0.10.0`, `netsuite-darpan` `v0.6.0`, `database-darpan` `v0.4.0`, `moqui-gql` `v1.1.0`, and `darpan-ui` `v4.1.0`. Check them out together: the components of one release are built and tested as a set.
 </Tip>
 
 ## Load local setup data
@@ -213,13 +216,9 @@ Open the UI:
 http://localhost:5173/login
 ```
 
-If no local admin user exists yet, open the backend login page:
+`./gradlew load` loads the framework's demo data, which includes a demo administrator, `john.doe`, in the `ADMIN` group. Its password is in `runtime/base-component/webroot/data/WebrootSecurityDemoData.xml`. Sign in with it, then create your own users from the admin app or with `admin.UserAdminServices.create#UserAccount`. New passwords need at least 12 characters.
 
-```text
-http://localhost:8080/Login
-```
-
-Moqui shows an initial administrator setup form when the database has no user accounts. Create the local admin user there, then return to `http://localhost:5173/login` and sign in with the same username and password.
+The backend's own `/Login` page answers 404 from Darpan 3.1.0, and the backend refuses a password sent as HTTP Basic or as `authUsername`/`authPassword` (401). Every sign-in goes through the app, which calls `facade.AuthFacadeServices.login#Session`. Two-factor sign-in is optional for every role on a new database; to try it locally, set it up under **User Settings**. Passkeys work on `localhost` without configuration, because the relying party defaults to the host of the app's first allowed origin.
 
 Do not use local development credentials in hosted or shared environments.
 
@@ -228,7 +227,7 @@ Do not use local development credentials in hosted or shared environments.
 After sign-in, confirm these checks:
 
 - The Darpan UI opens at `http://localhost:5173`.
-- The backend login page opens at `http://localhost:8080/Login`.
+- `http://localhost:8080/status` answers from the backend.
 - The app can sign in without a `No active authenticated session` loop.
 - **Ask Darpan** opens with `Cmd/Ctrl+K` or by clicking Tara (the red panda in the corner).
 - **Open User Settings** loads from the local backend.

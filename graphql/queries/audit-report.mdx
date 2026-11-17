@@ -35,7 +35,7 @@ query MorningReport {
       summary
       sources { system read records reason affects }
     }
-    summary { open pending newToday fixedToday }
+    summary { open newToday fixedToday }
     categories {
       id
       label
@@ -43,7 +43,7 @@ query MorningReport {
         id
         text
         status
-        counts { open pending }
+        counts { open newToday }
         findings { id headline state firstFound ageDays records { system recordType id } }
       }
     }
@@ -78,8 +78,7 @@ query MorningReport {
         ]
       },
       "summary": {
-        "open": 0,
-        "pending": 1,
+        "open": 1,
         "newToday": 1,
         "fixedToday": 0
       },
@@ -93,14 +92,14 @@ query MorningReport {
               "text": "Every invoice and credit memo carries the Shopify order id (the Etail id).",
               "status": "ran",
               "counts": {
-                "open": 0,
-                "pending": 1
+                "open": 1,
+                "newToday": 1
               },
               "findings": [
                 {
                   "id": "F-20790",
                   "headline": "Invoice INV-552310 has no Etail id",
-                  "state": "pending",
+                  "state": "open",
                   "firstFound": "2026-10-08",
                   "ageDays": 0,
                   "records": [

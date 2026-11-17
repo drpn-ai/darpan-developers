@@ -20,7 +20,7 @@ description: "A finding as findings(query:) lists it: the report's finding summa
 | `next` | [`String`](/graphql/scalars/string) | The CLI command that shows the full finding, e.g. `darpan findings show F-20761`. |
 | `period` | [`String`](/graphql/scalars/string) | The period whose run found it, e.g. `2026-10`. |
 | `records` | [`[FindingRecord!]!`](/graphql/objects/finding-record) | The records it names: one entry per system, record type and id. |
-| `state` | [`String`](/graphql/scalars/string) | `open`, `pending` or `fixed`, as of the last check. |
+| `state` | [`String`](/graphql/scalars/string) | `open` or `fixed`, as of the last check. |
 | `statement` | [`String`](/graphql/scalars/string) | The id of the statement it breaks, e.g. `R2`. |
 
 ## Returned by

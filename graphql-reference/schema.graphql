@@ -119,18 +119,16 @@ type AuditReportInfo {
 
 "Counts across the whole tenant, and the oldest open finding."
 type AuditSummary {
-  "The same four counts (`open`, `pending`, `newToday`, `fixedToday`) for each category; all four categories are present."
+  "The same three counts (`open`, `newToday`, `fixedToday`) for each category; all four categories are present."
   byCategory: [CategoryCounts!]!
   "Findings that became `fixed` on `report.date`."
   fixedToday: Int
-  "Findings first found on `report.date`, whether open or pending."
+  "Findings first found on `report.date` and still open."
   newToday: Int
   "The open finding with the earliest `firstFound`."
   oldestOpen: OldestOpen
   "Findings in state `open`."
   open: Int
-  "Findings in state `pending`, still inside their check's grace age."
-  pending: Int
 }
 
 "The tenant the report belongs to."
@@ -147,13 +145,13 @@ type AuditTenant {
 type AuditWindow {
   "The first day the checks read: the period's first day, so every open finding of the period is examined again each morning (DAR-BE-091)."
   from: String
-  "The last day the checks read, inclusive: `date` itself while the period is current (\"on the 14th it reconciles 1-14\"), the period's last day once it has ended. Records from that morning are usually inside their check's grace age, so they show as `pending`."
+  "The last day the checks read, inclusive: `date` itself while the period is current (\"on the 14th it reconciles 1-14\"), the period's last day once it has ended."
   thru: String
 }
 
 "One of the four categories (orders, refundsAndCredits, returns, exchangesAndWarranty), with its statements."
 type Category {
-  "`open`, `pending`, `newToday` and `fixedToday` for this category."
+  "`open`, `newToday` and `fixedToday` for this category."
   counts: FindingCounts
   "The category: orders, refundsAndCredits, returns or exchangesAndWarranty."
   id: String
@@ -168,18 +166,16 @@ type Category {
   statements: [Statement!]!
 }
 
-"The four finding counts for one category."
+"The three finding counts for one category."
 type CategoryCounts {
   "The category: orders, refundsAndCredits, returns or exchangesAndWarranty."
   category: String
   "Findings that became `fixed` on `report.date`."
   fixedToday: Int
-  "Findings first found on `report.date`, whether open or pending."
+  "Findings first found on `report.date` and still open."
   newToday: Int
   "Findings in state `open`."
   open: Int
-  "Findings in state `pending`, still inside their check's grace age."
-  pending: Int
 }
 
 "The category of the statement a finding breaks."
@@ -290,16 +286,14 @@ type Finding {
   status: FindingStatus
 }
 
-"Findings by state for a category or statement: open, pending, new today and fixed today."
+"Findings by state for a category or statement: open, new today and fixed today."
 type FindingCounts {
   "Findings that became `fixed` on `report.date`."
   fixedToday: Int
-  "Findings first found on `report.date`, whether open or pending."
+  "Findings first found on `report.date` and still open."
   newToday: Int
   "Findings in state `open`."
   open: Int
-  "Findings in state `pending`, still inside their check's grace age."
-  pending: Int
 }
 
 "One state change or sighting of a finding."
@@ -336,7 +330,7 @@ type FindingListItem {
   period: String
   "The records it names: one entry per system, record type and id."
   records: [FindingRecord!]!
-  "`open`, `pending` or `fixed`, as of the last check."
+  "`open` or `fixed`, as of the last check."
   state: String
   "The id of the statement it breaks, e.g. `R2`."
   statement: String
@@ -386,8 +380,6 @@ type FindingStatus {
   lastChecked: String
   "The latest morning a check still reported it."
   lastSeen: String
-  "The first morning it counts as open if it is still reported."
-  pendingUntil: String
   "Where the finding stands now."
   state: String
   "Mornings on which a check reported it, counting the first."
@@ -410,7 +402,7 @@ type FindingSummary {
   next: String
   "The records it names: one entry per system, record type and id."
   records: [FindingRecord!]!
-  "`open`, `pending` or `fixed` (fixed today)."
+  "`open` or `fixed` (fixed today)."
   state: String
 }
 
@@ -602,7 +594,7 @@ type Statement {
   checks: [StatementCheck!]!
   "Ledger counts for this statement; never null, even when its check did not run today."
   counts: FindingCounts
-  "Open, pending and fixed-today findings, oldest first, at most 50."
+  "Open and fixed-today findings, oldest first, at most 50."
   findings: [FindingSummary!]!
   "How many findings were left out by the 50 cap; `0` when all are shown."
   findingsOmitted: Int
@@ -622,8 +614,6 @@ type Statement {
 type StatementCheck {
   "Records compared on each side."
   compared: [SystemCount!]!
-  "Days a new finding stays `pending` before it counts as open; `0` means none."
-  graceDays: Int
   "The check's id."
   id: String
   "What the check compares, in a few words."

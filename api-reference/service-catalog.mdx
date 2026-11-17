@@ -3,32 +3,75 @@ title: "Service catalog"
 description: "Verified backend facade services exposed through Darpan JSON-RPC."
 ---
 
-Every method below is called as the JSON-RPC `method` value. The generated contract builds this list from the services marked for remote calls in `service/facade/` and `service/admin/` of the Darpan backend component, plus `service/facade/` of the integration components. `facade.*` methods are the public API. `admin.*` methods are operator-only and listed under [Administration](#administration); they are not part of the public API.
+Every method below is called as the JSON-RPC `method` value. The generated contract builds this list from the services marked for remote calls in `service/facade/` and `service/admin/` of the Darpan backend component, plus `service/facade/` and `service/admin/` of the integration components. `facade.*` methods are the public API. `admin.*` methods are operator-only and listed under [Administration](#administration); they are not part of the public API.
 
-This catalog matches Darpan 2.1.0 (contract version 3).
+This catalog matches Darpan 3.1.0 (contract version 4).
 
-All methods require an authenticated session unless noted. Eight methods accept anonymous calls, so a caller can establish or end a session or reset a forgotten password: `login#Session`, `logout#Session`, `get#SessionInfo`, `change#ExpiredPassword`, `request#PasswordReset`, `verify#PasswordResetCode`, `complete#PasswordReset`, and `get#PasswordResetStatus`.
+All methods require an authenticated session unless noted. Sixteen methods accept anonymous calls, so a caller can sign in, finish a two-factor step, end a session or reset a forgotten password: `login#Session`, `logout#Session`, `get#SessionInfo`, `change#ExpiredPassword`, `request#PasswordReset`, `verify#PasswordResetCode`, `complete#PasswordReset`, `get#PasswordResetStatus`, `verify#SignInCode`, `begin#TwoFactorSetup`, `confirm#TwoFactorSetup`, `begin#PasskeySignIn`, `begin#PasskeyRegistration` and `finish#PasskeyRegistration` in `facade.AuthFacadeServices`, and `start#CliLogin` and `poll#CliLogin` in `facade.CliAuthFacadeServices`. Without a session, the six two-factor methods act only for the account named by a challenge token that `login#Session` returned.
 
 ## Auth (`facade.AuthFacadeServices`)
 
 | Method | Purpose |
 | --- | --- |
-| `login#Session` | Create an authenticated session from username/password and return the login-key token. Anonymous. |
+| `login#Session` | Check a username and password. For an account with no two-factor step, create a session and return the login-key token (`authToken`) and `sessionInfo`. For an account with two-factor on, or required by its role and not set up, return `twoFactorRequired` or `twoFactorSetupRequired` with a `challengeToken`, `challengeExpiresInSeconds` (300), `twoFactorMethods` (`app`, `passkey`) and `passkeysAvailable`, and no session: `ok` is true and `authenticated` is false, so decide on `authenticated`. Anonymous. |
 | `logout#Session` | Revoke the token on the current request and end that session only. Anonymous-safe. |
 | `logout#AllSessions` | Revoke every login key for the current user, signing them out on every device. |
-| `get#SessionInfo` | Return current session, user, and active-tenant context. Anonymous-safe. |
+| `get#SessionInfo` | Return current session, user, and active-tenant context, including `twoFactorEnabled` and, while two-factor is due and not on, `twoFactorDueDate`. A login key past its idle or absolute limit, or issued before the account's last two-factor change, restores no session. Anonymous-safe. |
 | `save#ActiveTenant` | Switch the caller's active tenant. The choice is stored on the user, not the session, so it applies to every session and tab of that user. The tenant key is the tenant's user group id (`companyUserGroupId` on tenant-owned records). |
 | `save#UserSettings` | Save per-user settings, including display name and preferred display timezone (IANA id; empty string clears the preference). Returns refreshed session metadata. |
 | `verify#OwnPassword` | Re-verify the current user's password. |
-| `change#OwnPassword` | Change the current user's password. |
+| `change#OwnPassword` | Change the current user's password. Requires the current password; a wrong one counts as a failed login. The new password needs at least 12 characters. Every login key of the user ends on success. |
 | `change#ExpiredPassword` | Change the password of an account that cannot sign in until it is changed, without a session. Requires the account's current password. Anonymous. Issues no token: sign in again afterwards. |
-| `request#PasswordReset` | Email a 6-digit reset code to the email on file for a username or email address. The reply is the same in content and timing whether or not a code was sent (no such account, disabled, no email on file, over the hourly limit), so it does not reveal which accounts exist. The code expires in 15 minutes; a new request replaces it. Anonymous. |
+| `request#PasswordReset` | Email a 6-digit reset code to the email on file for a username or email address, and report what happened in `outcome` (`sent`, `noAccount`, `locked`, `noEmail`, `overLimit` or `sendFailed`), with the masked address when sent. Limits: 3 codes an hour per account and 20 an hour per client IP; requests with no usable client IP share one limit. The code expires in 15 minutes; a new request replaces it. Anonymous. |
 | `verify#PasswordResetCode` | Check a reset code without using it up. Five wrong guesses end the code; wrong guesses do not count as failed logins. Every failure returns the same error. Anonymous. |
-| `complete#PasswordReset` | Set a new password with a reset code, then sign the account out on every device and email it that the password changed. Password-policy failures are reported in full. A disabled account is refused and stays disabled. Anonymous. Issues no token: sign in again afterwards. |
+| `complete#PasswordReset` | Set a new password (at least 12 characters) with a reset code, then sign the account out on every device and email it that the password changed. Two-factor stays on; a two-factor code lock is cleared. Password-policy failures are reported in full. A disabled account is refused and stays disabled. Anonymous. Issues no token: sign in again afterwards. |
 | `get#PasswordResetStatus` | Whether this deployment can send reset email: true when the `SYSTEM` email server has an SMTP host and the reset-code email template is loaded. Anonymous. |
 | `save#RecoveryEmail` | Set the signed-in user's recovery email, where reset codes go. Requires the current password; a wrong one counts as a failed login. Refused when another account already uses the address. The new address, and the previous one when it changes, get a notice. Returns the address masked. |
+| `verify#SignInCode` | Finish a sign-in that `login#Session` answered with `twoFactorRequired`: send the `challengeToken` with a 6-digit authenticator `code`, a `recoveryCode`, or a `passkeyAssertion` over `begin#PasskeySignIn`'s options. Success returns what a password sign-in returns (`authToken`, `sessionInfo`); a used recovery code returns `recoveryCodesLeft` and emails the account. Anonymous. |
+| `begin#TwoFactorSetup` | Start adding an authenticator app: return a new secret, its `otpauthUri` and a QR code (`qrDataUri`), in this reply only, to confirm within 15 minutes. Accepts a setup `challengeToken` from `login#Session`, or a signed-in caller with `currentPassword` (no factor yet) or a current code or passkey assertion (two-factor on). Anonymous with a challenge token. |
+| `confirm#TwoFactorSetup` | Turn the authenticator app on with the first code it shows. Every other session and CLI key of the account ends and the caller receives a fresh `authToken`; with a setup challenge this is the sign-in. Returns 10 recovery codes, once, when no factor was on before. Anonymous with a challenge token. |
+| `get#TwoFactorStatus` | The caller's two-factor state: on or off, the authenticator app, each passkey (name, created, last used, synced), unused recovery codes, whether a role requires it and from when, and whether code entry is locked. Never returns the secret. |
+| `create#RecoveryCodes` | Replace the caller's recovery codes with 10 new ones, returned once. Needs a current authenticator code or a passkey assertion. |
+| `disable#TwoFactor` | Turn two-factor off (the app and every passkey) with a current code or passkey assertion; refused when a role of the caller requires it. Every session and CLI key ends and the reply carries a fresh `authToken` for the caller. With `appOnly` and a passkey left, removes only the app and ends no session. |
+| `begin#PasskeySignIn` | WebAuthn request options (`publicKeyOptions`, JSON text) for a sign-in challenge whose `twoFactorMethods` include `passkey`. Send the browser's assertion to `verify#SignInCode` with the same `challengeToken`. Anonymous. |
+| `begin#PasskeyRegistration` / `finish#PasskeyRegistration` | Register a passkey or security key. `begin` returns WebAuthn creation options, valid 5 minutes, after the same check `begin#TwoFactorSetup` makes; `finish` stores the browser's credential under a name (60 characters at most), emails the account, and returns `passkeyId`. Up to 10 per account; as the first factor it turns two-factor on as `confirm#TwoFactorSetup` does (sessions end, fresh `authToken`, 10 recovery codes); anonymous with a setup challenge token. |
+| `begin#PasskeyProof` | WebAuthn request options over the caller's passkeys for one action that asks for a fresh proof, such as `create#RecoveryCodes`, `disable#TwoFactor`, `delete#Passkey` or `facade.CliAuthFacadeServices.approve#CliLogin`. The resulting assertion is single-use and valid 5 minutes. |
+| `rename#Passkey` | Rename one of the caller's passkeys (60 characters at most). Needs no fresh proof. |
+| `delete#Passkey` | Remove one of the caller's passkeys with a current code or passkey assertion. Removing the last factor is refused when a role requires two-factor; otherwise it turns two-factor off as `disable#TwoFactor` does. |
 
 The password reset methods need the password reset email templates loaded and an email server configured on the deployment. Without both, no code is sent and `get#PasswordResetStatus` returns false.
+
+Two-factor sign-in runs in two calls. `login#Session` checks the password; when the account has two-factor on, it returns a `challengeToken` instead of a session, and `verify#SignInCode` exchanges that token and a code (or a passkey assertion from `begin#PasskeySignIn`) for the session. When a role requires two-factor and the account has none, `login#Session` returns `twoFactorSetupRequired`; the token then works only with `begin#TwoFactorSetup` and `confirm#TwoFactorSetup`, or `begin#PasskeyRegistration` and `finish#PasskeyRegistration`, and the confirming call signs the account in. A challenge token lives 300 seconds, is used once, and ends after five wrong answers.
+
+The sign-in and setup steps (`verify#SignInCode`, `begin#TwoFactorSetup`, `confirm#TwoFactorSetup`, `begin#PasskeySignIn`, `begin#PasskeyRegistration`, `finish#PasskeyRegistration`) answer a refusal as a completed call: `ok` false, the message in `errors`, `challengeEnded` where it applies, and a `reason` code: `CODE`, `PASSKEY`, `PROOF_NEEDED`, `PASSWORD`, `CHALLENGE_ENDED`, `SETUP_EXPIRED`, `PASSKEYS_UNAVAILABLE`, `PASSKEY_LIMIT`, `PASSKEY_EXISTS`, `ACCOUNT_CANNOT_SIGN_IN` or `SIGN_IN_FIRST`. Branch on `reason`, not on the message text. The other two-factor methods refuse with a JSON-RPC error.
+
+Authenticator codes are 6 digits on a 30-second step, accepted one step either side, and a code is accepted once. Each wrong authenticator or recovery code counts as a failed login toward the account lockout. Twenty wrong codes in 24 hours lock code entry until a password reset or an operator reset, and the account is emailed. Recovery codes are single-use; a password reset leaves two-factor on.
+
+Two-factor is optional for every account and can be required by role: `ADMIN`, `DARPAN_SUPER_ADMIN`, `DARPAN_ADMIN`, and tenant admin in any tenant. An operator sets the date a role requires it from; before that date, `sessionInfo.twoFactorDueDate` shows when it becomes due and sign-in still issues a session. Passkeys are offered only when the deployment has a WebAuthn relying party configured (`passkeysAvailable`).
+
+A web sign-in ends after 60 minutes with no request and at most 24 hours after sign-in; `authTokenExpiresInSeconds` reports the 24-hour limit. A CLI sign-in lasts 7 days for every role. Turning two-factor on or off ends the account's other sessions and CLI keys, and a CLI key of an account that a role now requires two-factor for, and that has none, is refused.
+
+## CLI sign-in (`facade.CliAuthFacadeServices`)
+
+The Darpan CLI signs in with a device code. The CLI starts and polls without a session, and the person approves the sign-in in the Darpan app while signed in as themselves. The key the CLI receives is marked as a CLI session, and the server holds it to an allowlist: getters that write nothing and return no credential, the run starters, the Scripts methods, and `logout#CliSession`. Every other method is refused to a CLI session.
+
+| Method | Purpose |
+| --- | --- |
+| `start#CliLogin` | Start a CLI sign-in. Returns the device code the CLI polls with and the user code (`XXXX-XXXX`) the person approves in the app; both expire in 10 minutes. At most 10 starts a minute from one address. Anonymous. |
+| `poll#CliLogin` | Ask whether a sign-in was approved: `PENDING`, `APPROVED`, `DENIED` or `EXPIRED`. The first poll after approval returns the login key and claims the request; any later poll answers `EXPIRED`. Anonymous. |
+| `get#CliLoginRequest` | What a waiting sign-in asks for, by user code: the computer name the CLI reported, its status and its expiry, so the person can check it before approving. |
+| `approve#CliLogin` / `deny#CliLogin` | Approve a waiting sign-in as the signed-in person, so the CLI's next poll gets a login key for them, or deny it, so no key is issued. Refused from a CLI session. Approval is also refused when the CLI is not on for the account, and needs a current two-factor code or a passkey assertion when the approver has two-factor on. |
+| `list#CliSessions` / `revoke#CliSession` | The signed-in person's own CLI sessions that still work, newest first, or end one of them; its key stops working at once. |
+| `logout#CliSession` | Sign the calling CLI out by revoking the CLI session whose key the request carries. Refused for a request that is not a CLI session. |
+
+### CLI access (`facade.CliAccessFacadeServices`)
+
+A Darpan admin turns the CLI on per user and tenant (see CLI access under [Administration](#administration)). Neither method is callable from a CLI session.
+
+| Method | Purpose |
+| --- | --- |
+| `get#MyCliAccess` | The signed-in person's CLI state in the active tenant (`LIVE`, `PAUSED`, `ENDED`, `NOT_GRANTED` or `DARPAN_ADMIN`), the grant's end, how long a CLI sign-in lasts there, and their latest request. |
+| `request#CliAccess` | Ask a Darpan admin to turn the CLI on for the signed-in person in the active tenant, with an optional reason (at most 500 characters). Asking again while a request is open updates its reason. Refused for a Darpan admin, when the CLI is already on there, or when the person is not a member of the tenant. |
 
 ## Settings (`facade.SettingsFacadeServices`)
 
@@ -148,6 +191,59 @@ An audit is a set of statements about the active tenant's data, each tested by c
 | `get#AuditProgress` | What an audit's checks are doing now: each automation with a run in progress or queued, the checks it feeds, its stage and progress, and whether it looks healthy, slow or stuck against its own last successful run. Cheap enough to poll while a play or the morning run is going. |
 | `retry#AuditCheck` | Retry from last read: re-runs one check that did not run on one morning, from the files that morning's run already read. Refused, with the reason, when the check is not the audit's, already ran, has no run that morning, or its reads did not finish. |
 
+## Audit agent (`facade.AgentTurnFacadeServices`)
+
+The audit agent answers questions about an audit and drafts changes to it. It works in the session's active tenant, fixed for the whole request. A person needs a live grant of AI access in that tenant, given by a Darpan admin, and edit access to the tenant. Ships in the `darpan-agent` component.
+
+| Method | Purpose |
+| --- | --- |
+| `send#AgentTurn` | Send one message about an audit (by `auditId` or `auditCode`), optionally with a finding open. Questions are answered; comments on causes and rules become one draft change for a person to approve, or a ticket for Darpan staff. Keys, secrets, emails and phone numbers are masked before anything is stored or sent. `outcome` reports a refusal, such as no live grant, the per-person hourly message limit (`RATE_LIMITED`) or the tenant's daily budget (`OVER_BUDGET`). |
+| `get#AgentStatus` | Whether the agent can run for the person now (`state`), their AI access in the tenant (`grantState`: `LIVE`, `NOT_GRANTED`, `EXPIRED` or `PAUSED`), and whether they may approve its changes (`canApprove`). |
+| `get#AgentConversation` | The person's own conversation: its messages and its proposals with their status now. Another person's or another tenant's conversation reads as not found. |
+
+### Proposed changes (`facade.AgentChangeFacadeServices`)
+
+The agent only drafts changes. A person with edit access on the active tenant plans, applies, rejects or reverts them. Another tenant's proposal reads as not found.
+
+| Method | Purpose |
+| --- | --- |
+| `plan#AuditChange` | Plan an open proposal again against the current config: the change runs through its real save, which is rolled back, and `planHash` covers the change and the config it was planned against. Ends `PLANNED`, or `INVALID` with the save's refusal. |
+| `apply#AuditChange` | Apply a planned proposal by its `planHash`, through the save the app uses, keeping a config version before and after. Refused for a `BLOCKED` proposal (record ids that did not come from the person, the finding or the config) and, for an exclusion, when an automation's filters differ from its run's. When the config changed since the plan, the proposal turns `STALE` and nothing is written. |
+| `reject#AuditChange` | Decline an open proposal, with an optional reason; it can no longer be applied. |
+| `revert#AuditChange` | Create a planned proposal that puts back what an applied proposal changed, applied like any other. Refused when that setting changed again after the apply, or when a revert is already open. |
+| `list#BrainChangeTickets` | The active tenant's tickets for Darpan staff (requests that need code, such as a new cause or a missing field), newest first, optionally in one status. |
+
+### Agent context (`facade.AgentReadFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#AgentAuditScope` | What an open finding's audit tells the agent: the audit's name and schedule, the finding's own statement and check, and the run that check reads. No other statement of the audit is returned. Another tenant's finding reads as not found. |
+
+## Config versions (`facade.TenantConfigFacadeServices`)
+
+The active tenant's audit config (audits, statements, checks, runs, queries, conclusion codes and connections) kept as numbered versions. Another tenant's version reads as not found.
+
+| Method | Purpose |
+| --- | --- |
+| `snapshot#TenantConfig` | Keep the current config as a new version when it changed since the latest one, with an optional reason. Needs edit access. |
+| `get#TenantConfigVersions` / `get#TenantConfigVersion` | The tenant's versions, newest first (at most 500), or one version with its pack, the whole-tenant transfer bundle. |
+| `preview#TenantConfigRestore` | What restoring a version would do, writing nothing: what the version holds is put back, statements added since are switched off, check links added since are removed, and runs added since are kept. Returns the plan and its `planHash`. |
+| `restore#TenantConfigVersion` | Apply exactly the previewed plan, by its `planHash`: the current config is kept as a version first, then the restore is written and kept as a version. One transaction. Refused when the plan has blocking items or no longer matches the config. Needs edit access. |
+
+## Scripts (`facade.TenantScriptFacadeServices`)
+
+A script is JEXL that a tenant writes and runs as data. A deployment runs a saved script on a schedule and posts its text to a chat space. Every read and write names the active tenant, so another tenant's script reads as not found. Changes and runs need edit access.
+
+| Method | Purpose |
+| --- | --- |
+| `list#TenantScripts` | The tenant's scripts, plus the `d:` function library and the size, unit and time limits, for the editor. |
+| `save#TenantScript` | Create or update a script (`EXPRESSION` or `SCRIPT` profile). The body must parse and run cleanly on its sample input; a script that does not is refused with the line and is not saved. |
+| `delete#TenantScript` | Delete a script. Its deployments are deleted with it. |
+| `run#TenantScript` | Run a saved script, or an unsaved draft body, on its sample input or on a run result file, and return what it gave back. Writes nothing. A script error is returned in the result (`run.error`), not as a service error. |
+| `list#TenantScriptDeployments` | The tenant's deployments, optionally for one script, with next and last run, and the tenant time zone every schedule is read in. |
+| `save#TenantScriptDeployment` / `delete#TenantScriptDeployment` | Create, update or delete a deployment. The schedule must be a Quartz cron, the chat space must be the tenant's and switched on, and a script that reads a run result needs its saved run. |
+| `run#TenantScriptDeployment` | Run a deployment now, as the schedule would. With `send` false (the default) the text comes back and nothing is posted or recorded; with `send` true it is posted and the outcome is stamped on the deployment. |
+
 ## Slack (`facade.SlackFacadeServices`)
 
 Connecting a Slack workspace to the active tenant. The bot token is never an output of any method here.
@@ -179,11 +275,29 @@ Which endpoints of a connected system a given source configuration may read.
 | `list#SourceConfigEndpoints` | Endpoints registered for a config type with their current enablement. The catalog comes from the connector registry; access rows supply only whether each is enabled. |
 | `store#SourceConfigEndpointAccess` | Replace a config's endpoint enablement. Endpoints omitted from the list are explicitly disabled. |
 
+## Data source definitions (`facade.DataSourceDefinitionFacadeServices`)
+
+A data source definition describes a GraphQL or REST JSON read that connectors run. Definitions are platform config that every tenant's runs read, so these methods are super-admin only and are not callable from a CLI session. A definition is never edited in place: a save makes a new `DRAFT` version of its family, and an `ACTIVE` version keeps its document. Saves and retirements are recorded in the admin audit log.
+
+| Method | Purpose |
+| --- | --- |
+| `validate#DataSourceDefinition` | Check a definition document for a protocol (`GRAPHQL` or `REST_JSON`) and list every problem. Saves nothing. |
+| `create#DataSourceDefinition` | Save a definition as a new `DRAFT` row: the first version of a new family (`definitionId`, stored as `<definitionId>_V1`), or the next version of an existing one (`basedOnId`), leaving earlier rows as they are. A document with any problem is refused with all of them. |
+| `retire#DataSourceDefinition` | Mark a definition `RETIRED`, kept for history. Refused while a connector still reads it; retiring a retired row changes nothing. |
+
 ## Search (`facade.SearchFacadeServices`)
 
 | Method | Purpose |
 | --- | --- |
 | `search#NavigationTargets` | Power Ask Darpan search over schemas, saved runs, run results, SFTP servers, and NetSuite auth/endpoint configurations. |
+
+## Agent queries (`facade.AgentFacadeServices`)
+
+A tenant user's agent, for example through the Darpan CLI, can send fresh read-only queries to the tenant's own NetSuite, HotWax OMS and Shopify systems through connections the active tenant stores. A connection shared from another tenant is refused. The query methods ship in the integration components (see below). Each call has a 60-second limit and a 5 MB response limit, credentials are never returned, a busy instance answers `THROTTLED` with `retryAfterSeconds`, and every attempt is logged for the tenant.
+
+| Method | Purpose |
+| --- | --- |
+| `list#AgentQueryLogs` | The fresh queries agents sent to the tenant's systems, newest first and paged, optionally by outcome (`OK`, `REFUSED`, `THROTTLED`, `ERROR` or `TIMEOUT`). Tenant admins only. |
 
 ## Integration components
 
@@ -191,10 +305,11 @@ Source-system facades ship in sibling Moqui components and follow the same JSON-
 
 | Component | Facade | Methods |
 | --- | --- | --- |
-| `shopify-darpan` | `facade.ShopifyFacadeServices` | `list#ShopifyAuthConfigs`, `get#ShopifyAuthConfig`, `save#ShopifyAuthConfig`, `delete#ShopifyAuthConfig` |
-| `darpan-hotwax` | `facade.HotWaxOmsFacadeServices` | `list#HotWaxOmsRestSourceConfigs`, `save#HotWaxOmsRestSourceConfig`, `delete#HotWaxOmsRestSourceConfig` |
+| `shopify-darpan` | `facade.ShopifyFacadeServices` | `begin#ShopifyInstall`, `list#ShopifyAuthConfigs`, `get#ShopifyAuthConfig`, `save#ShopifyAuthConfig`, `delete#ShopifyAuthConfig`, `get#ShopifyGraphqlSchema`, `run#ShopifyGraphqlAgentQuery`. `begin#ShopifyInstall` takes a store domain (`your-store.myshopify.com`) and returns the Shopify authorize URL for the Darpan custom app registered for that store and the active tenant, with a single-use state valid 10 minutes; it does not contact Shopify and needs run access. The install creates its own connection with no endpoint enabled; existing connections are not changed. |
+| `darpan-hotwax` | `facade.HotWaxOmsFacadeServices` | `list#HotWaxOmsRestSourceConfigs`, `save#HotWaxOmsRestSourceConfig`, `delete#HotWaxOmsRestSourceConfig`, `get#OmsGraphqlSchema`, `run#OmsGraphqlAgentQuery` |
 | `netsuite-darpan` | `facade.NetSuiteQueryFacadeServices` | `list#NsSuiteQlSourceQueries`, `get#NsSuiteQlSourceQuery`, `save#NsSuiteQlSourceQuery`, `get#NsSuiteQlQueryOptions`, `preview#NsSuiteQlSourceQuery`: NetSuite check definitions. See NetSuite queries below. |
 | `netsuite-darpan` | `facade.NetSuiteLifecycleFacadeServices` | `get#LifecycleOptions`, `get#LifecycleRuleOptions`: what the lifecycle builder may offer for one NetSuite account, read from the account itself. |
+| `darpan-agent` | `facade.AgentTurnFacadeServices` | `send#AgentTurn`, `get#AgentStatus`, `get#AgentConversation`: the audit agent. See Audit agent above. |
 
 ### NetSuite queries (`facade.NetSuiteQueryFacadeServices`)
 
@@ -206,6 +321,22 @@ A NetSuite check is a SuiteQL query definition that a run reads one NetSuite acc
 | `save#NsSuiteQlSourceQuery` | Create or update a NetSuite check. A save is validated by the extractor's own rules before it is written. |
 | `get#NsSuiteQlQueryOptions` | What the query editor offers: query templates, date columns, common record types, the fields and operators a match rule may use, and the active NetSuite accounts the tenant may read. |
 | `preview#NsSuiteQlSourceQuery` | Run a query as submitted against NetSuite for one day (default yesterday in the tenant's time zone) and return its first five rows as records, with the SuiteQL sent. Saves nothing. Validated as `save#NsSuiteQlSourceQuery` is; needs run access on the active tenant and an account the tenant may read. |
+| `list#NsAgentConnections` | The NetSuite connections the active tenant may query from an agent: id, description and sign-in kind only. No username, client id, certificate id, account host, key or token. |
+| `run#NsSuiteQlAgentQuery` | Run one fresh, read-only SuiteQL statement (`SELECT` or `WITH`) that an agent wrote, through a NetSuite connection the active tenant stores. Returns 200 rows by default and 2,000 at most, paged by offset. Needs run access. |
+
+### HotWax OMS agent queries (`facade.HotWaxOmsFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#OmsGraphqlSchema` | The HotWax OMS GraphQL schema an agent can ask about, trimmed to the types reachable from the Query root; mutations and subscriptions are left out. Read from the OMS once and kept for 24 hours per connection. Needs view access. |
+| `run#OmsGraphqlAgentQuery` | Run one fresh, read-only GraphQL query that an agent wrote, through a HotWax OMS connection the active tenant stores. Mutations, subscriptions and introspection are refused; the answer is returned as the OMS gave it, up to 5 MB. Needs run access. |
+
+### Shopify agent queries (`facade.ShopifyFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#ShopifyGraphqlSchema` | The Shopify Admin GraphQL schema an agent can ask about, trimmed to the types reachable from the Query root; mutations and subscriptions are left out. Read from Shopify once and kept for 24 hours per connection. Needs view access. |
+| `run#ShopifyGraphqlAgentQuery` | Run one fresh, read-only GraphQL query that an agent wrote, through a Shopify connection the active tenant stores. Mutations, subscriptions and introspection are refused; an answer over 5 MB is refused with advice to ask for less. Needs run access. |
 
 ## Administration
 
@@ -233,16 +364,27 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | `disable#UserAccount` | Disable a user and revoke their live login keys. Disabling yourself is refused. |
 | `enable#UserAccount` | Re-enable a disabled user. |
 | `reset#Password` | Set a temporary password, forced to change at next login, and revoke live login keys. |
-| `get#UserList` | Paged search over username, email and display name. |
-| `get#UserDetail` | One user with account state and active tenant memberships. |
+| `get#UserList` | Paged search over username, email and display name. `darpanAdminsOnly` limits it to users with a Darpan-wide role in force. Each user carries `darpanRoles` and `twoFactor` (`ON`, `OFF` or `REQUIRED_NOT_SET_UP`). |
+| `get#UserDetail` | One user with account state, Darpan-wide roles (`darpanRoles`), two-factor state (`twoFactor`, since when, required from when, whether the app is on, live passkey count) and active tenant memberships. Never a secret or credential id. |
+| `add#DarpanAdmin` / `remove#DarpanAdmin` | Start or end a user's `DARPAN_ADMIN` or `DARPAN_SUPER_ADMIN` role; `remove` without a role ends both. Ending a role end-dates the membership, and ending your own super admin is refused. Idempotent (`changed` is false when nothing changed); each change writes an admin audit row. |
+| `reset#TwoFactor` | End a user's two-factor (authenticator app, passkeys and recovery codes) and every session and CLI key, so a user whose role requires it sets it up again at the next sign-in. Needs a reason and the acting operator's own current code or passkey assertion; refused on one's own account. Writes an admin audit row and emails the user. |
 
 ### Membership (`admin.MembershipAdminServices`)
 
 | Method | Purpose |
 | --- | --- |
-| `add#TenantMember` | Add a user to a tenant with a tenant-scoped role. Both membership records are written together or not at all. |
+| `add#TenantMember` | Add a user to a tenant with a tenant-scoped role. Both membership records are written together or not at all. Queues the tenant welcome email unless `sendWelcome` is false or the account has no email address or is disabled; `welcomeQueued` says whether it was queued. |
 | `update#TenantMemberRole` | Change a member's tenant role by end-dating the old permission row and creating the new one. |
 | `remove#TenantMember` | Remove a user from a tenant by end-dating both membership records, and clear their active-tenant preference if it pointed there. |
+| `send#TenantWelcome` | Re-send the tenant welcome email to a current member: the tenant, their role, their username and where to sign in, never a password. Refused for a deactivated tenant, a disabled user, a user with no email address, or a user who is not a member. `ok` means queued, not delivered. |
+
+### Security (`admin.SecurityAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#TwoFactorPolicies` | Each role the two-factor policy covers (`ADMIN`, `DARPAN_SUPER_ADMIN`, `DARPAN_ADMIN`, and tenant admin in any tenant) with its required-from date, who last changed it, and which members are and are not enrolled, plus the count of enrolled super admins. |
+| `update#TwoFactorPolicy` | Require two-factor for a role from a date (a future date is a grace period) or make it optional again (`clear`). Needs the acting operator's own current code or passkey assertion; requiring it for `ADMIN` or `DARPAN_SUPER_ADMIN` is refused until at least two super admins have it on. Writes an admin audit row. |
+| `rotate#EncryptedFields` | Report which key each stored encrypted value (connection credentials, two-factor secrets) decrypts under, or with `dryRun` false re-encrypt them with the current key. Needs the acting operator's own current code or passkey assertion; a real run is refused unless an old key different from the current one is configured. Writes an admin audit row with counts, never values. |
 
 ### Migrations (`admin.MigrationAdminServices`)
 
@@ -256,6 +398,12 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | `dryRun#Migration` | Preview one named migration. |
 | `set#MigrationEnabled` | Park or unpark a migration. Parking lets the rest of a sweep proceed when one migration is broken, rather than stranding all of them. |
 
+### Retention (`admin.RetentionAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `dryRun#Retention` | Count the rows each table's retention period would delete now (`AUDIT_FINDING`, `RUN_RESULT`, `AGENT_MESSAGE`, `AGENT_QUERY_LOG`), per table and tenant, for every tenant or one, with the configured periods or preview periods passed in `periodDays`. Deletes nothing; deletion runs only from the scheduled retention job. |
+
 ### Schedule (`admin.ScheduleAdminServices`)
 
 | Method | Purpose |
@@ -267,9 +415,18 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | Method | Purpose |
 | --- | --- |
 | `get#TransferCatalog` | What a tenant can send: its audits, saved runs and connections. |
-| `export#ConfigBundle` | The bundle a target instance imports: the picked audits with every statement, check, run, query, conclusion code and connection they reach, plus picked runs and connections. Ids travel as references; secrets never travel in the bundle. |
+| `export#ConfigBundle` | The bundle a target instance imports: the picked audits with every statement, check, run, query, conclusion code and connection they reach, plus picked runs and connections. Ids travel as references; secrets never travel in the bundle. When the caller has two-factor on, needs `twoFactorCode` or `twoFactorPasskeyAssertion`. |
 | `import#ConfigBundle` | Plan a bundle into a target tenant (a dry run that writes nothing), or apply the previewed plan by its hash, in one transaction: all of it or none of it. |
-| `begin#SecretHandoff` | Start a credentials handoff on the target instance: a one-time key pair, valid for 30 minutes, that the source seals connection credentials to. Nothing is stored but an audit-log row. |
+| `begin#SecretHandoff` | Start a credentials handoff on the target instance: a one-time key pair, valid for 30 minutes, that the source seals connection credentials to. Nothing is stored but an audit-log row. When the caller has two-factor on, needs `twoFactorCode` or `twoFactorPasskeyAssertion`. |
+
+### Shopify apps (`admin.ShopifyAppAdminServices`)
+
+Served by the `shopify-darpan` component.
+
+| Method | Purpose |
+| --- | --- |
+| `list#ShopifyApps` | Every Shopify app Darpan owns, with distribution, store, tenant, client id, scopes, active flag and whether a client secret is stored. Never the client secret. |
+| `save#ShopifyApp` | Create or update a Darpan Shopify app: `CUSTOM` (one store, and the one tenant allowed to install it) or `PUBLIC`. A new app needs client id, client secret and scopes; on update an empty value keeps the stored one. One active custom app per store and one active public app. |
 
 ### Observe (`admin.ObserveAdminServices`)
 
@@ -277,6 +434,51 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | --- | --- |
 | `get#AdminSessionInfo` | Fence probe and admin route guard: returns the operator identity when the caller clears both the artifact fence and the super-admin gate. |
 | `get#LiveOperations` | What is running on this instance now, across every tenant: each in-flight reconciliation, automation and audit run with its stage, progress and health, the automation slots and overdue schedules, failures in the last 24 hours, the JVM's load, and the warnings that follow, critical first. |
+
+### AI access (`admin.AgentAccessAdminServices`)
+
+A user needs a grant to use the audit agent in a tenant: a time window and a required dollar limit. Each change is recorded in the admin audit log.
+
+| Method | Purpose |
+| --- | --- |
+| `list#AgentAccessGrants` | Grants across tenants with their spend and state, by tenant, user or status; revoked grants on request. |
+| `create#AgentAccessGrant` | Grant a tenant member AI access for a window (`thruDate` or `days`) and a limit in dollars, required and more than 0. The user's earlier grant in that tenant is revoked. |
+| `update#AgentAccessGrant` | Change a grant's end or limit. A limit can be changed but not removed; a grant that is then at its limit pauses. |
+| `pause#AgentAccessGrant` / `unpause#AgentAccessGrant` | Pause an active grant, or lift a pause, optionally with a higher limit or a later end. Unpausing is refused while spend is at or over the limit. |
+| `revoke#AgentAccessGrant` | Revoke a grant. The user has no AI access in that tenant until granted again. |
+| `get#AgentUsage` | AI spend for a user, a tenant or both over recent days: totals, by day, by role and model, and the grants. |
+
+### CLI access (`admin.CliAccessAdminServices`)
+
+Turning the Darpan CLI on for one user in one tenant. Not callable from a CLI session. Each change is recorded in the admin audit log.
+
+| Method | Purpose |
+| --- | --- |
+| `list#CliAccessGrants` | CLI grants across tenants with their state and the sign-in lifetime they give, by tenant, user or status. |
+| `create#CliAccessGrant` / `update#CliAccessGrant` | Turn the CLI on for a tenant member, with an optional end, or change a grant's end. Creating a grant revokes the user's earlier grant in that tenant. |
+| `pause#CliAccessGrant` / `unpause#CliAccessGrant` | Pause an active grant, so the user's CLI stops in that tenant on its next call, or lift a pause, optionally with a later end. Unpausing an ended grant is refused. |
+| `revoke#CliAccessGrant` | Revoke a grant. The user has no CLI in that tenant until granted again. |
+| `list#CliAccessRequests` | Users' requests across tenants, newest first; pending ones unless a status is given. |
+| `approve#CliAccessRequest` / `decline#CliAccessRequest` | Approve a pending request by creating a grant with the given end, or decline it with an optional note the user sees. Refused when the request is not pending; approval is also refused when the user is no longer a member. |
+
+### Agent tickets (`admin.AgentTicketAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `list#AllBrainChangeTickets` | Tickets the audit agent raised, across tenants, newest first; optionally for one tenant or one status. |
+| `update#BrainChangeTicket` | Move a ticket on: `RECEIVED` to `ACCEPTED` or `DECLINED`, `ACCEPTED` to `SHIPPED` or `DECLINED`. `DECLINED` needs a reason; `SHIPPED` needs the version it shipped in. |
+
+### Knowledge base (`admin.KnowledgeAdminServices`)
+
+The knowledge base has a product tier, shipped as files, and one tier per tenant. Each call names at most one tenant. Writes run only on an instance where direct writes are enabled (a local instance); other instances receive tenant entries by config transfer.
+
+| Method | Purpose |
+| --- | --- |
+| `search#Knowledge` | Keyword search over the product tier and, when a tenant is named, that tenant's entries, merged by score. 5 hits by default, 20 at most. |
+| `get#KnowledgeEntry` | One whole entry by key: the product tier first, then the named tenant's active entry. |
+| `get#KnowledgeForReview` | Entries due for review within a number of days, expired ones included: the product tier, plus the named tenant's. |
+| `get#KnowledgeIdentifiers` | Every tenant's identifiers that the leak check matches (tenant ids, labels, connection hosts, NetSuite accounts), for checking a product entry before it is committed. |
+| `store#KnowledgeEntry` / `retire#KnowledgeEntry` | Add or replace one tenant entry from its markdown text, or retire one, kept for history and never searched again. A store is refused, writing nothing, when the text names another tenant or holds customer personal data. |
 
 ## Per-method reference
 
