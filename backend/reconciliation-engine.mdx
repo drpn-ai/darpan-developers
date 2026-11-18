@@ -104,7 +104,7 @@ If a JVM crash or container restart kills a run mid-flight, its run-result row c
 reconciliation.ReconciliationAutomationServices.sweep#StuckReconciliationRuns
 ```
 
-It flips `ReconciliationRunResult` and `ReconciliationAutomationExecution` rows still in running or pending state, whose last update is older than a threshold (`staleMinutes`, default 120), to failed with an explanatory status message. The service is internal only (`allow-remote="false"`) and is not part of the JSON-RPC surface.
+It flips `ReconciliationRunResult` and `ReconciliationAutomationExecution` rows still in running or pending state, whose last update is older than the `darpan.reconciliation.runHealth.reaperStaleMinutes` setting (a Darpan operator edits it in the admin app), to failed with an explanatory status message. The service is internal only (`allow-remote="false"`) and is not part of the JSON-RPC surface.
 
 ## RuleSet compare flow
 
