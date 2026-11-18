@@ -144,6 +144,17 @@ An upgrade runs in this order: load the reference data with the new image, start
 
 Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists anything else that release needs before you deploy.
 
+### Upgrading to 3.2.0
+
+3.2.0 adds sign-in with a passkey alone, a two-factor requirement that can cover everyone, and browser approval for the darpan-admin CLI. The upgrade data is a delta on 3.1.0: four records (the tenant user role's description, the `EVERYONE` two-factor policy row, a reminder email template and the `send_TwoFactorReminders_daily` job). The `PasskeySignInChallenge` and `AuthSecret` tables and the `scopeId` field on the CLI sign-in tables are created on boot; nothing needs backfilling.
+
+1. **Deploy the backend before `darpan-ui` `v4.2.0`.** The passkey button calls the two new methods.
+2. **Build and deploy the set** from `darpan-docker-config` `v3.2.0`, then load the upgrade data with `loadDarpanUpgradeData`, as above.
+3. **Keep the scheduler on one node.** `send_TwoFactorReminders_daily` runs at 15:00 UTC on the scheduler node and does nothing while no policy has a date.
+4. **Before dating the `EVERYONE` policy,** enrol a second super admin (setting a date needs two super admins with two-factor on), read the list of people not yet enrolled, and move password-only service accounts to GraphQL API keys or enrol them. Policy dates are on the UTC calendar: `2026-12-02` starts at 00:00 UTC.
+
+To roll back to 3.1.0, roll back the whole set. The new tables, the policy row, the template and the job stay and are ignored; passkeys and enrolments are kept.
+
 ### Upgrading to 3.1.0
 
 3.1.0 adds two-factor and passkey sign-in, closes the password-only ways into the backend, and moves password hashing to PBKDF2. The upgrade data is a delta on 3.0.3: 90 records, among them the two scheduled cleanup jobs, the two-factor role policies and email templates, and 66 tenant `EntityFilter` rows that now fail closed when no tenant is active. New tables are created on boot.

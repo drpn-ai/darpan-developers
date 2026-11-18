@@ -56,12 +56,12 @@ The component's `MoquiConf.xml` sets these for every deployment:
 | Setting | Value |
 | --- | --- |
 | Web sign-in | Ends after 60 idle minutes (`session-config timeout="60"`, and the login key slides 60 minutes on with each request), and at most 24 hours after sign-in (`login-key expire-hours="24"`). `AuthSessionSupport.enforceWebSignInLifetime` signs out an expired one before the request runs. |
-| CLI sign-in | Lasts 7 days (`CliAccess.SIGN_IN_DAYS`). Revoking the sign-in, or disabling the user, ends it on the next call. |
+| CLI sign-in | Lasts 7 days (`CliAccess.SIGN_IN_DAYS`). Revoking the sign-in, or disabling the user, ends it on the next call. A darpan-admin sign-in (`scope` `ADMIN`) is approved in the browser by a super admin with two-factor on, using the code the terminal shows, and lasts 12 hours; only that session may call `admin.*` from a CLI. |
 | Signed out everywhere | A key issued before the user's `UserAccount.sessionsEndedDate` is refused. |
 | Passwords | At least 12 characters (`password min-length="12"`). The framework hashes new and changed passwords with PBKDF2-HMAC-SHA256 and re-hashes an older hash at the next sign-in. |
 | Password-only sign-in | Refused. `PasswordOnlyRouteFence` runs first in the webroot before-request hook: a request carrying an HTTP Basic `Authorization` header, or `authUsername`, `authPassword` or `authUserAccount` anywhere in its parameters or JSON body, is signed out and answered 401. The framework's `/Login`, `/SecondFactor` and `/ChangePassword` screens answer 404. Clients sign in through `facade.AuthFacadeServices.login#Session`, or use a GraphQL API key. |
 
-Two-factor sign-in is configured per role in `darpan.auth.TwoFactorRolePolicy` for `ADMIN`, `DARPAN_SUPER_ADMIN`, `DARPAN_ADMIN` and `DARPAN_TENANT_ADMIN`. Every role starts optional; `admin.SecurityAdminServices.update#TwoFactorPolicy` makes a role required from a date. Authenticator-app secrets are stored encrypted (`TwoFactorFactor`), recovery codes as salted SHA-256 hashes, and passkeys as webauthn4j attested credential data.
+Two-factor sign-in is configured per role in `darpan.auth.TwoFactorRolePolicy` for `ADMIN`, `DARPAN_SUPER_ADMIN`, `DARPAN_ADMIN` and `DARPAN_TENANT_ADMIN`. The role `EVERYONE` covers every person with a tenant membership or a Darpan role, and dating it needs two super admins with two-factor on. Every role starts optional; `admin.SecurityAdminServices.update#TwoFactorPolicy` makes a role required from a date, read on the UTC calendar. From the date, a person with no app or passkey is taken into setup at sign-in instead of being locked out. `send_TwoFactorReminders_daily` (15:00 UTC, scheduler node) emails people a dated policy covers who have not enrolled, at most one a day. Authenticator-app secrets are stored encrypted (`TwoFactorFactor`), recovery codes as salted SHA-256 hashes, and passkeys as webauthn4j attested credential data.
 
 ## Scheduled data cleanup
 

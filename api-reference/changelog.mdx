@@ -7,7 +7,7 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0 | 202 |
+| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0 | 204 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
@@ -21,6 +21,19 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 4
 
 Darpan 3.0.0. Current.
+
+### Added in 3.2.0
+
+The facade contract stays at version 4: no method, parameter or response field is removed, and 2 public methods are added (202 to 204).
+
+Sign-in with a passkey alone:
+
+- `facade.AuthFacadeServices.begin#PasskeyFirstSignIn`: WebAuthn request options and a `challengeToken` for a sign-in with no password. Anonymous, rate limited per address, and the same answer for a known and an unknown username.
+- `facade.AuthFacadeServices.finish#PasskeyFirstSignIn`: exchanges the token and the browser's assertion for a session, answering as `verify#SignInCode` does. Anonymous.
+
+Changed behaviour of existing methods:
+
+- `facade.CliAuthFacadeServices.start#CliLogin` takes an optional `scope`: `TENANT` (the default) or `ADMIN`. An `ADMIN` request is for the darpan-admin CLI; it lasts 12 hours and only a super admin with two-factor on may approve it.
 
 ### Added in 3.1.0
 

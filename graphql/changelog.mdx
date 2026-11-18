@@ -3,6 +3,10 @@ title: "Changelog"
 description: "Changes to the GraphQL API."
 ---
 
+## Darpan 3.2.0
+
+- No schema change. The reference pages stay as generated from the 3.1.0 schema.
+
 ## Darpan 3.1.0
 
 - Every API key expires. A key lasts at most 90 days from when it is created or rotated (`gql.apiKey.maxDays` on a self-hosted instance); a key created without an expiry date gets the maximum, and a later date is refused. Keys created earlier without an expiry date keep working until they are rotated or disabled. See [Authentication](/graphql/authentication#get-a-key).

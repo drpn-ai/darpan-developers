@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Darpan Facade API",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "x-darpan-contract-version": 4,
-    "description": "Public copy of the darpan v3.1.0 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
+    "description": "Public copy of the darpan v3.2.0 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
   },
   "servers": [
     {
@@ -99,6 +99,9 @@
                     "$ref": "#/components/schemas/VerifyAuditFindingRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/BeginPasskeyFirstSignInRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/BeginPasskeyProofRequest"
                   },
                   {
@@ -130,6 +133,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/DisableTwoFactorRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/FinishPasskeyFirstSignInRequest"
                   },
                   {
                     "$ref": "#/components/schemas/FinishPasskeyRegistrationRequest"
@@ -658,6 +664,7 @@
                     "facade.AuditFacadeServices.save#AuditCheck": "#/components/schemas/SaveAuditCheckRequest",
                     "facade.AuditFacadeServices.save#AuditSettings": "#/components/schemas/SaveAuditSettingsRequest",
                     "facade.AuditFacadeServices.verify#AuditFinding": "#/components/schemas/VerifyAuditFindingRequest",
+                    "facade.AuthFacadeServices.begin#PasskeyFirstSignIn": "#/components/schemas/BeginPasskeyFirstSignInRequest",
                     "facade.AuthFacadeServices.begin#PasskeyProof": "#/components/schemas/BeginPasskeyProofRequest",
                     "facade.AuthFacadeServices.begin#PasskeyRegistration": "#/components/schemas/BeginPasskeyRegistrationRequest",
                     "facade.AuthFacadeServices.begin#PasskeySignIn": "#/components/schemas/BeginPasskeySignInRequest",
@@ -669,6 +676,7 @@
                     "facade.AuthFacadeServices.create#RecoveryCodes": "#/components/schemas/CreateRecoveryCodesRequest",
                     "facade.AuthFacadeServices.delete#Passkey": "#/components/schemas/DeletePasskeyRequest",
                     "facade.AuthFacadeServices.disable#TwoFactor": "#/components/schemas/DisableTwoFactorRequest",
+                    "facade.AuthFacadeServices.finish#PasskeyFirstSignIn": "#/components/schemas/FinishPasskeyFirstSignInRequest",
                     "facade.AuthFacadeServices.finish#PasskeyRegistration": "#/components/schemas/FinishPasskeyRegistrationRequest",
                     "facade.AuthFacadeServices.get#PasswordResetStatus": "#/components/schemas/GetPasswordResetStatusRequest",
                     "facade.AuthFacadeServices.get#SessionInfo": "#/components/schemas/GetSessionInfoRequest",
@@ -927,6 +935,9 @@
                       "$ref": "#/components/schemas/VerifyAuditFindingResponse"
                     },
                     {
+                      "$ref": "#/components/schemas/BeginPasskeyFirstSignInResponse"
+                    },
+                    {
                       "$ref": "#/components/schemas/BeginPasskeyProofResponse"
                     },
                     {
@@ -958,6 +969,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/DisableTwoFactorResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FinishPasskeyFirstSignInResponse"
                     },
                     {
                       "$ref": "#/components/schemas/FinishPasskeyRegistrationResponse"
@@ -4095,6 +4109,115 @@
           "result"
         ]
       },
+      "BeginPasskeyFirstSignInParams": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Optional: the username or email typed first."
+          }
+        },
+        "description": "DAR-BE-301. Start a sign-in with a passkey alone (no password). Request options for\n            navigator.credentials.get() and a challengeToken for finish#PasskeyFirstSignIn. With a username, allowCredentials\n            lists that account's passkeys, and for a username that names no account with a passkey one decoy credential\n            (the same for the same username, which no authenticator holds); with no username it is empty and the browser\n            offers its own passkeys for this site. The answer never says whether the username exists. At most 10 begins a minute from one address (TOO_MANY_ATTEMPTS)."
+      },
+      "BeginPasskeyFirstSignInResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "True when the call completed without facade errors."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Informational messages."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Why it was refused."
+          },
+          "reason": {
+            "type": "string",
+            "description": "With ok false: why, as a code the client switches on (never\n                the message text): PASSKEYS_UNAVAILABLE or TOO_MANY_ATTEMPTS."
+          },
+          "challengeToken": {
+            "type": "string",
+            "description": "For finish#PasskeyFirstSignIn: held in page memory only, good for one finish."
+          },
+          "publicKeyOptions": {
+            "type": "string",
+            "description": "PublicKeyCredentialRequestOptionsJSON: {challenge, rpId, timeout, allowCredentials[{type, id,\n                    transports}], userVerification: \"required\"}."
+          },
+          "expiresInSeconds": {
+            "type": "integer",
+            "description": "Seconds the challengeToken lives: 300."
+          }
+        }
+      },
+      "BeginPasskeyFirstSignInRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuthFacadeServices.begin#PasskeyFirstSignIn",
+        "x-darpan-method": "facade.AuthFacadeServices.begin#PasskeyFirstSignIn",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuthFacadeServices.begin#PasskeyFirstSignIn"
+          },
+          "params": {
+            "$ref": "#/components/schemas/BeginPasskeyFirstSignInParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "BeginPasskeyFirstSignInResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuthFacadeServices.begin#PasskeyFirstSignIn. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/BeginPasskeyFirstSignInResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "BeginPasskeyProofParams": {
         "type": "object",
         "properties": {},
@@ -5640,6 +5763,263 @@
           },
           "result": {
             "$ref": "#/components/schemas/DisableTwoFactorResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "FinishPasskeyFirstSignInParams": {
+        "type": "object",
+        "properties": {
+          "challengeToken": {
+            "type": "string",
+            "description": "From begin#PasskeyFirstSignIn."
+          },
+          "passkeyAssertion": {
+            "type": "string",
+            "description": "JSON.stringify(credential.toJSON()) of the\n                navigator.credentials.get() result for begin#PasskeyFirstSignIn's publicKeyOptions."
+          }
+        },
+        "required": [
+          "challengeToken"
+        ],
+        "description": "DAR-BE-301. Finish a sign-in with a passkey alone: begin#PasskeyFirstSignIn's challengeToken and the\n            assertion. Success answers as a completed verify#SignInCode does (a session and its key). The token is used by\n            this call whatever happens: after any refusal, start again with begin#PasskeyFirstSignIn."
+      },
+      "FinishPasskeyFirstSignInResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "True when the call completed without facade errors."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Informational messages."
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Why it was refused."
+          },
+          "reason": {
+            "type": "string",
+            "description": "With ok false: why, as a code the client switches on (never\n                the message text): PASSKEY_REFUSED, ACCOUNT_CANNOT_SIGN_IN, PASSWORD_CHANGE_REQUIRED (the password must\n                be changed first: sign in with it) or PASSKEYS_UNAVAILABLE."
+          },
+          "authenticated": {
+            "type": "boolean",
+            "description": "True when a session was issued."
+          },
+          "authToken": {
+            "type": "string",
+            "description": "The login key darpan-ui sends in the `login_key` header (also set as the persistent-login cookie)."
+          },
+          "authTokenType": {
+            "type": "string",
+            "description": "`LOGIN_KEY`."
+          },
+          "authTokenHeaderName": {
+            "type": "string",
+            "description": "`login_key`."
+          },
+          "authTokenExpiresInSeconds": {
+            "type": "integer",
+            "description": "The sign-in's absolute lifetime in seconds, as login#Session."
+          },
+          "sessionInfo": {
+            "type": "object",
+            "properties": {
+              "userId": {
+                "type": "string"
+              },
+              "username": {
+                "type": "string"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "timeZone": {
+                "type": "string"
+              },
+              "userTimeZone": {
+                "type": "string"
+              },
+              "tenantTimeZone": {
+                "type": "string"
+              },
+              "lastLoginDate": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds"
+              },
+              "recoveryEmailMissing": {
+                "type": "boolean"
+              },
+              "emailAddressMasked": {
+                "type": "string"
+              },
+              "lastRun": {
+                "type": "object",
+                "properties": {
+                  "reconciliationRunResultId": {
+                    "type": "string"
+                  },
+                  "savedRunId": {
+                    "type": "string"
+                  },
+                  "savedRunType": {
+                    "type": "string"
+                  },
+                  "reconciliationRunId": {
+                    "type": "string"
+                  },
+                  "createdDate": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds"
+                  }
+                }
+              },
+              "scopeType": {
+                "type": "string"
+              },
+              "customerScopeId": {
+                "type": "string"
+              },
+              "activeTenantUserGroupId": {
+                "type": "string"
+              },
+              "activeTenantLabel": {
+                "type": "string"
+              },
+              "availableTenants": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "userGroupId": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "activeTenantPermissionGroupIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "canViewActiveTenantData": {
+                "type": "boolean"
+              },
+              "canRunActiveTenantReconciliation": {
+                "type": "boolean"
+              },
+              "canEditActiveTenantData": {
+                "type": "boolean"
+              },
+              "canManageDarpanCore": {
+                "type": "boolean"
+              },
+              "isSuperAdmin": {
+                "type": "boolean"
+              },
+              "twoFactorEnabled": {
+                "type": "boolean"
+              },
+              "twoFactorDueDate": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds"
+              }
+            },
+            "description": "As login#Session's sessionInfo."
+          }
+        }
+      },
+      "FinishPasskeyFirstSignInRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuthFacadeServices.finish#PasskeyFirstSignIn",
+        "x-darpan-method": "facade.AuthFacadeServices.finish#PasskeyFirstSignIn",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuthFacadeServices.finish#PasskeyFirstSignIn"
+          },
+          "params": {
+            "$ref": "#/components/schemas/FinishPasskeyFirstSignInParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "FinishPasskeyFirstSignInResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuthFacadeServices.finish#PasskeyFirstSignIn. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/FinishPasskeyFirstSignInResult"
           }
         },
         "required": [
@@ -8707,6 +9087,10 @@
             "type": "string",
             "description": "The computer the CLI says it runs on."
           },
+          "scope": {
+            "type": "string",
+            "description": "DAR-BE-295. TENANT or ADMIN (darpan-admin: a super admin approves it)."
+          },
           "status": {
             "type": "string",
             "description": "PENDING (waiting for approval), APPROVED, DENIED, or EXPIRED (expired or unknown code)."
@@ -9228,6 +9612,10 @@
           "hostLabel": {
             "type": "string",
             "description": "The computer the CLI runs on (its hostname), shown to the person before they approve."
+          },
+          "scope": {
+            "type": "string",
+            "description": "DAR-BE-295. TENANT (the default) or ADMIN: the darpan-admin CLI, which may call admin.* for 12 hours\n                    and which only a super admin may approve."
           }
         },
         "required": [
@@ -28322,6 +28710,7 @@
     "facade.AuditFacadeServices.save#AuditCheck": "SaveAuditCheck",
     "facade.AuditFacadeServices.save#AuditSettings": "SaveAuditSettings",
     "facade.AuditFacadeServices.verify#AuditFinding": "VerifyAuditFinding",
+    "facade.AuthFacadeServices.begin#PasskeyFirstSignIn": "BeginPasskeyFirstSignIn",
     "facade.AuthFacadeServices.begin#PasskeyProof": "BeginPasskeyProof",
     "facade.AuthFacadeServices.begin#PasskeyRegistration": "BeginPasskeyRegistration",
     "facade.AuthFacadeServices.begin#PasskeySignIn": "BeginPasskeySignIn",
@@ -28333,6 +28722,7 @@
     "facade.AuthFacadeServices.create#RecoveryCodes": "CreateRecoveryCodes",
     "facade.AuthFacadeServices.delete#Passkey": "DeletePasskey",
     "facade.AuthFacadeServices.disable#TwoFactor": "DisableTwoFactor",
+    "facade.AuthFacadeServices.finish#PasskeyFirstSignIn": "FinishPasskeyFirstSignIn",
     "facade.AuthFacadeServices.finish#PasskeyRegistration": "FinishPasskeyRegistration",
     "facade.AuthFacadeServices.get#PasswordResetStatus": "GetPasswordResetStatus",
     "facade.AuthFacadeServices.get#SessionInfo": "GetSessionInfo",
