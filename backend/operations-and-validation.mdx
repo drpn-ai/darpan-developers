@@ -67,11 +67,15 @@ Two-factor sign-in is configured per role in `darpan.auth.TwoFactorRolePolicy` f
 
 | Job | Schedule | What it does |
 | --- | --- | --- |
-| `purge_ReconciliationGeneratedFiles_daily` | 02:00 daily | Deletes generated result files older than 15 days. |
-| `purge_ReconciliationExtractFiles_daily` | 02:15 daily | Deletes raw source extract files 7 days after their run (`reconciliation.ReconciliationGenericServices.purge#ExtractFiles`, `retentionDays=7`). Result files and findings are not touched. |
+| `purge_ReconciliationGeneratedFiles_daily` | 02:00 daily | Deletes generated result files older than `darpan.purge.generatedOutput.days` (default 15). |
+| `purge_ReconciliationExtractFiles_daily` | 02:15 daily | Deletes raw source extract files `darpan.purge.extract.days` after their run (default 7; `reconciliation.ReconciliationGenericServices.purge#ExtractFiles`). Result files and findings are not touched. |
 | `run_DataRetention_daily` | 03:30 daily, seeded paused | Deletes audit findings, run results, AI transcripts and agent query logs older than their retention period (`retention.RetentionServices.run#Retention`), tenant by tenant in batches of `darpan.retention.batchSize` (default 500), each batch in its own transaction. |
 
-Each retention period is a system property: `darpan.retention.auditFinding.days`, `darpan.retention.runResult.days`, `darpan.retention.agentMessage.days` and `darpan.retention.agentQueryLog.days`. An unset period keeps that table forever, so resuming the paused job deletes nothing until a period is set. `admin.RetentionAdminServices.dryRun#Retention` counts what a run would delete, per table and tenant, and can preview periods that are not set yet.
+Retention periods are settings, not JVM properties: `darpan.retention.auditFinding.days`, `darpan.retention.runResult.days`, `darpan.retention.agentMessage.days` and `darpan.retention.agentQueryLog.days`. Edit them on the admin app's Schedule page (Retention section) or with `darpan-admin retention`. An unset period keeps that table forever, so resuming the paused job deletes nothing until a period is set. A tenant can override a period with a number of days, `forever` or `inherit`. Shortening a period while `run_DataRetention_daily` is running, and resuming the job, each need a preview first; `admin.RetentionAdminServices.dryRun#Retention` counts what a run would delete, per table and tenant, and can preview periods that are not set yet.
+
+The two purge periods are plain settings, edited from the same Schedule page or with `darpan-admin settings`; they need no preview. A `-D` system property with the same name is only a fallback: a setting row wins over it, and it wins over the default.
+
+A job's cron, pause state and parameters are edited on the Schedule page too (or with `darpan-admin job`). Those edits survive deploys; an edit made in Moqui Tools is reverted by the next seed load.
 
 ## When to run broader checks
 

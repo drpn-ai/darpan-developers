@@ -86,8 +86,9 @@ Some settings are JVM system properties. Add them to `JAVA_OPTS` as `-D<name>=<v
 | Property | Default | Purpose |
 | --- | --- | --- |
 | `gql.apiKey.maxDays` | `90` | The longest a GraphQL API key may last from creation or rotation. A missing, unparsable or non-positive value uses 90. |
-| `darpan.retention.auditFinding.days`, `darpan.retention.runResult.days`, `darpan.retention.agentMessage.days`, `darpan.retention.agentQueryLog.days` | Unset (keep forever) | Retention period for audit findings, run results, AI transcripts and agent query logs. Nothing is deleted until a period is set and the paused `run_DataRetention_daily` job is resumed. See [Scheduled data cleanup](/backend/operations-and-validation#scheduled-data-cleanup). |
 | `darpan.retention.batchSize` | `500` | Rows per retention batch; each batch is its own transaction. |
+
+Retention periods and purge days are not properties you set here. They are settings, edited from the admin app's Schedule page (Retention) or with `darpan-admin retention` and `darpan-admin settings`; a `-D` property of the same name is only a fallback below a setting row. See [Scheduled data cleanup](/backend/operations-and-validation#scheduled-data-cleanup).
 
 The database configuration is MySQL (`mysql8`). Database sources that point at private, loopback or metadata addresses are refused by default; to allow a private database host, add `-Ddatabase_source_allow_private_hosts=true` to `JAVA_OPTS`.
 
