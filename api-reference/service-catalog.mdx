@@ -385,7 +385,7 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | Method | Purpose |
 | --- | --- |
 | `get#TwoFactorPolicies` | Each role the two-factor policy covers (`ADMIN`, `DARPAN_SUPER_ADMIN`, `DARPAN_ADMIN`, and tenant admin in any tenant) with its required-from date, who last changed it, and which members are and are not enrolled, plus the count of enrolled super admins. |
-| `update#TwoFactorPolicy` | Require two-factor for a role from a date (a future date is a grace period) or make it optional again (`clear`). Needs the acting operator's own current code or passkey assertion; requiring it for `ADMIN` or `DARPAN_SUPER_ADMIN` is refused until at least two super admins have it on. Writes an admin audit row. |
+| `update#TwoFactorPolicy` | Require two-factor for a role from a date (a future date is a grace period) or make it optional again (`clear`). Needs the acting operator's own current code or passkey assertion; requiring it for `ADMIN`, `DARPAN_SUPER_ADMIN` or `EVERYONE` is refused unless the acting super admin keeps a second way back in (a passkey and an authenticator app, or unused recovery codes); clearing a date is never blocked, and `DARPAN_ADMIN` and `DARPAN_TENANT_ADMIN` are not subject to the rule. Writes an admin audit row. |
 | `rotate#EncryptedFields` | Report which key each stored encrypted value (connection credentials, two-factor secrets) decrypts under, or with `dryRun` false re-encrypt them with the current key. Needs the acting operator's own current code or passkey assertion; a real run is refused unless an old key different from the current one is configured. Writes an admin audit row with counts, never values. |
 
 ### Migrations (`admin.MigrationAdminServices`)

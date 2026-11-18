@@ -151,7 +151,7 @@ Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists any
 1. **Deploy the backend before `darpan-ui` `v4.2.0`.** The passkey button calls the two new methods.
 2. **Build and deploy the set** from `darpan-docker-config` `v3.2.0`, then load the upgrade data with `loadDarpanUpgradeData`, as above.
 3. **Keep the scheduler on one node.** `send_TwoFactorReminders_daily` runs at 15:00 UTC on the scheduler node and does nothing while no policy has a date.
-4. **Before dating the `EVERYONE` policy,** enrol a second super admin (setting a date needs two super admins with two-factor on), read the list of people not yet enrolled, and move password-only service accounts to GraphQL API keys or enrol them. Policy dates are on the UTC calendar: `2026-12-02` starts at 00:00 UTC.
+4. **Before dating the `EVERYONE` policy,** keep your own second way back in (setting a date for `DARPAN_SUPER_ADMIN`, `ADMIN` or `EVERYONE` needs the setter to have a passkey and an authenticator app, or unused recovery codes), read the list of people not yet enrolled, and move password-only service accounts to GraphQL API keys or enrol them. Policy dates are on the UTC calendar: `2026-12-02` starts at 00:00 UTC.
 
 To roll back to 3.1.0, roll back the whole set. The new tables, the policy row, the template and the job stay and are ignored; passkeys and enrolments are kept.
 
