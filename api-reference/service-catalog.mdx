@@ -5,7 +5,7 @@ description: "Verified backend facade services exposed through Darpan JSON-RPC."
 
 Every method below is called as the JSON-RPC `method` value. The generated contract builds this list from the services marked for remote calls in `service/facade/` and `service/admin/` of the Darpan backend component, plus `service/facade/` and `service/admin/` of the integration components. `facade.*` methods are the public API. `admin.*` methods are operator-only and listed under [Administration](#administration); they are not part of the public API.
 
-This catalog matches Darpan 3.1.0 (contract version 4).
+This catalog matches Darpan 3.3.0 (contract version 4).
 
 All methods require an authenticated session unless noted. Eighteen methods accept anonymous calls, so a caller can sign in, finish a two-factor step, end a session or reset a forgotten password: `login#Session`, `logout#Session`, `get#SessionInfo`, `change#ExpiredPassword`, `request#PasswordReset`, `verify#PasswordResetCode`, `complete#PasswordReset`, `get#PasswordResetStatus`, `verify#SignInCode`, `begin#TwoFactorSetup`, `confirm#TwoFactorSetup`, `begin#PasskeySignIn`, `begin#PasskeyFirstSignIn`, `finish#PasskeyFirstSignIn`, `begin#PasskeyRegistration` and `finish#PasskeyRegistration` in `facade.AuthFacadeServices`, and `start#CliLogin` and `poll#CliLogin` in `facade.CliAuthFacadeServices`. Without a session, the six two-factor methods act only for the account named by a challenge token that `login#Session` returned.
 
@@ -84,10 +84,19 @@ A Darpan admin turns the CLI on per user and tenant (see CLI access under [Admin
 | `get#TenantSettings` / `save#TenantSettings` | Read and save tenant-level settings such as timezone. |
 | `list#TenantChatSpaces` / `save#TenantChatSpace` / `delete#TenantChatSpace` | Manage the tenant's registry of named chat spaces (Google Chat or Slack). Webhook URLs are stored in clear text, and `list#TenantChatSpaces` returns them to any tenant member with view access. `delete` succeeds only for unreferenced spaces. |
 | `get#UserNotificationDefault` / `save#UserNotificationDefault` | Read and set the caller's own default chat space for the active tenant. Personal preference — no tenant write access required. |
+| `get#NotificationRoutes` | The active tenant's chat spaces and, for each thing that posts to chat, the one space it posts to: the streak messages, each audit's run update, each automation (paused ones too, archived ones not) and each deployed script. Personal notify-me subscriptions and default spaces are not listed. |
+| `set#NotificationRoute` | Move one thing that posts to chat to another of the active tenant's spaces, or to none. Writes only that source's space. The space must be the tenant's and switched on, and the source must be the tenant's. Needs edit access, and tenant admin rights for an audit's run update. A deployed script always posts somewhere: to stop it, turn its schedule off. |
+| `send#ChatSpaceTest` | Post one short test message to one of the active tenant's chat spaces, the way run notifications are delivered (Google Chat or Slack webhook, or the Slack bot). Answers ok, or why the space did not take it. Needs edit access. |
 | `test#SourceConnection` | Run a connectivity probe against a configured source. |
 | `list#SftpServers` / `save#SftpServer` | List and save SFTP server records. |
 | `list#NsAuthConfigs` / `save#NsAuthConfig` / `delete#NsAuthConfig` | List, save and delete NetSuite auth configurations. `delete` is owner-only, refused while the configuration is shared with another tenant, and refused while RESTlet endpoints, NetSuite checks or saved runs still use it, naming them. |
 | `list#NsRestletConfigs` / `save#NsRestletConfig` | List and save NetSuite RESTlet endpoint configurations. |
+
+## App content (`facade.AppContentFacadeServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#AppContent` | The mascot entries an admin has edited, hidden or created: every shipped entry with an edit and every admin entry, behind the app's built-in words. `version` is a stable hash of what is returned and changes whenever that changes (null when nothing is served). Needs a session. |
 
 ## Schemas (`facade.JsonSchemaFacadeServices`)
 
@@ -404,6 +413,8 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 
 | Method | Purpose |
 | --- | --- |
+| `get#RetentionPeriods` | The retention periods in force: per table the instance period (days, blank = keep forever, and whether it comes from a setting row, a JVM property or the default), every tenant's own period, the nightly purge days, the delete batch size, and whether the retention job is paused. |
+| `update#RetentionPeriods` | Set, for the instance or one tenant, how long each table keeps its rows: a whole number of days from 1 to 3650, `forever`, or (a tenant only) `inherit`. A tenant's own period wins for that tenant's rows only. Refused as a whole, nothing saved, on any invalid value. Shortening a period while the retention job runs needs `previewedRows` from a fresh preview. Writes an admin audit row. |
 | `dryRun#Retention` | Count the rows each table's retention period would delete now (`AUDIT_FINDING`, `RUN_RESULT`, `AGENT_MESSAGE`, `AGENT_QUERY_LOG`), per table and tenant, for every tenant or one, with the configured periods or preview periods passed in `periodDays`. Deletes nothing; deletion runs only from the scheduled retention job. |
 
 ### Schedule (`admin.ScheduleAdminServices`)
@@ -411,6 +422,56 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | Method | Purpose |
 | --- | --- |
 | `get#ScheduleBoard` | Every tenant's scheduled automations on one instance-wide timeline, in the order the scheduler will submit them. Only each automation's next fire is authoritative; later entries are projected. |
+| `get#ServiceJobs` | Every scheduled job: cron, pause state, shipped defaults, the smallest gap an edited cron may leave, whether it is Darpan's own (editable), who edited it and when, the next 3 runs, the last run, whether resuming it needs a preview, and its parameters with their defaults. Crons run in the server's time zone. |
+| `preview#JobSchedule` | Check a cron for a job without saving: the problem (empty when fine), the next 5 runs and the smallest gap between runs. Quartz cron, six fields, at most 120 characters, must run within 400 days. |
+| `update#ServiceJob` | Edit a Darpan job's cron, pause state and parameters in one call, refused as a whole when any part is wrong. Resuming a job that deletes data needs `previewedRows` from a fresh preview. A cron change never fires off-cycle. Edits survive deploys. Writes an admin audit row. |
+| `reset#ServiceJob` | Put a Darpan job back on its shipped defaults (cron, pause state and parameters), or only the named parameters; the job then follows the defaults on every later deploy. A job already on its defaults changes nothing. Writes an admin audit row. |
+
+### Settings (`admin.SettingAdminServices`)
+
+Tunables stored as settings: a setting row wins over a JVM property of the same name, which wins over the shipped default. Edits apply within 30 seconds, with no restart.
+
+| Method | Purpose |
+| --- | --- |
+| `get#Settings` / `get#Setting` | Every setting by area, or one: key, type, area, unit, description, default, range, the property value, the stored value, the value in force and where it comes from (`ROW`, `PROPERTY` or `DEFAULT`), and who last changed it. |
+| `update#Setting` | Save a production value for a setting. Refused, nothing saved, for an unknown key, a value of the wrong kind or out of range, or one that breaks a rule against another setting. Writes an admin audit row. |
+| `reset#Setting` | Delete the stored value so the setting follows its JVM property or default again. Writes an admin audit row when there was a value. |
+
+### Emails (`admin.EmailAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `get#EmailTemplates` | Every email Darpan sends: id, description, the subject sends use, and how many blocks carry a production edit. |
+| `get#EmailTemplate` | One email: its subject and the shipped subject, every block with its shipped words, the production edit and the variables an edit may use, and the sample the preview renders. |
+| `preview#EmailTemplate` | Render the email as a send does, with a draft subject and draft blocks in place of the stored words. The draft goes through the same rules as an edit and is never saved. |
+| `update#EmailTemplate` | Save edits to an email's subject and blocks, all or nothing. Refused, nothing saved, for empty text, markup, over 2,000 characters, a variable the email does not have, a web or email address, or an unknown block. Writes an admin audit row. |
+| `reset#EmailTemplate` | Put the shipped words back, for the named blocks, the subject, or the whole email. Writes an admin audit row. |
+
+### Mascot words (`admin.AppContentAdminServices`)
+
+| Method | Purpose |
+| --- | --- |
+| `list#AppContent` | Every mascot entry, full rows, with whether it is edited, retired (a shipped entry a later release dropped) or shadowed by a shipped entry. |
+| `get#AppContentVocabulary` | What an entry may be bound to: every route with its path and anchors, the condition kinds, and the limits the rules enforce. |
+| `create#AppContentEntry` | Make a new admin entry. Every rule runs; any problem, or `dryRun`, saves nothing, and `problems` says why. Writes an admin audit row. |
+| `update#AppContentEntry` | Edit an entry; a shipped entry takes only title, body, aliases and hidden. Same rules and `dryRun` as create. Writes an admin audit row naming each changed field. |
+| `reset#AppContentEntry` | Clear the edits on a shipped entry so it follows the release again. Writes an admin audit row. |
+| `delete#AppContentEntry` | Delete an admin entry, or a retired shipped entry. A live shipped entry is refused: hide or reset it instead. Writes an admin audit row. |
+
+### Agent config (`admin.AgentConfigAdminServices`)
+
+Served by the `darpan-agent` component. The agent's numbers (budgets, timeouts, retries, thresholds) are settings under the "Agent" areas; these methods edit everything else. Shipped defaults stay in the component; an edit is a row, and a reset deletes it. No fresh two-factor code is asked; every write is audited.
+
+| Method | Purpose |
+| --- | --- |
+| `get#AgentConfig` | Every prompt, role model, model price, per-tenant daily cap and agent text, with its default and whether it is edited. |
+| `get#AgentPrompt` | One prompt with its default and its newest 10 versions. |
+| `update#AgentPrompt` | Save a prompt. Refused for an empty prompt, one over 100,000 characters, or one that names a tenant. Every save keeps a version; the audit row records its length, not its text. |
+| `update#AgentRoleModel` | Point a role at a model. Refused for an unknown role, a malformed model id, or a model with no price. The next turn re-checks the model with the provider. |
+| `update#AgentModelPrice` | Add or edit a model's price in dollars per million tokens. A model without a price cannot be used. |
+| `update#AgentText` | Save a tool description, reply or notice. It must keep the default's `{tokens}`, be plain text and stay within its length cap. |
+| `update#AgentTenantDailyCap` | Set one tenant's daily dollar cap for the agent, inside the global cap's range. |
+| `reset#AgentConfigItem` | Delete an edit (a prompt, role model, price, text or tenant cap) so the item follows its shipped default. A price added by an admin cannot be reset while a role uses its model. |
 
 ### Config transfer (`admin.TransferAdminServices`)
 

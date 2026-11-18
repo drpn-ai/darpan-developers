@@ -7,7 +7,7 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1 | 204 |
+| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
@@ -21,6 +21,22 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 4
 
 Darpan 3.0.0. Current.
+
+### Added in 3.3.0
+
+The facade contract stays at version 4: no method, parameter or response field is removed, and 4 public methods are added (204 to 208).
+
+Mascot words:
+
+- `facade.AppContentFacadeServices.get#AppContent`: the mascot entries an admin has edited, hidden or created, with a `version` hash that changes whenever they change.
+
+Notifications by chat space:
+
+- `facade.SettingsFacadeServices.get#NotificationRoutes`: the active tenant's chat spaces and the one space each audit update, automation, deployed script and the streak messages post to.
+- `facade.SettingsFacadeServices.set#NotificationRoute`: move one of them to another space, or to none.
+- `facade.SettingsFacadeServices.send#ChatSpaceTest`: post a test message to one space.
+
+29 operator-only `admin.*` methods are added for settings, emails, scheduled jobs, retention periods, mascot words and the agent's configuration; see [Administration](/api-reference/service-catalog#administration).
 
 ### Added in 3.2.0
 
