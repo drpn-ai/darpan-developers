@@ -75,7 +75,7 @@ Retention periods are settings, not JVM properties: `darpan.retention.auditFindi
 
 The two purge periods are plain settings, edited from the same Schedule page or with `darpan-admin settings`; they need no preview. A `-D` system property with the same name is only a fallback: a setting row wins over it, and it wins over the default.
 
-A job's cron, pause state and parameters are edited on the Schedule page too (or with `darpan-admin job`). Those edits survive deploys; an edit made in Moqui Tools is reverted by the next seed load.
+A job's cron, pause state and parameters are edited on the Schedule page too (or with `darpan-admin job`). Those edits survive deploys; an edit made in Moqui Tools is reverted by the next seed load. A cron runs on the server's clock. Its gap between runs, checked against the job's minimum, counts the wall clock too, so a once-a-day job can be moved to any daily time on a server whose clock keeps daylight saving.
 
 ## When to run broader checks
 
