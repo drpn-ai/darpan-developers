@@ -37,7 +37,7 @@ Sync pulse:
 - `facade.SyncPulseFacadeServices.list#SyncPairs`, `get#SyncPair`, `save#SyncPair`, `delete#SyncPair`: a light watch on a daily check, sampling every few minutes for orders the other system has not received.
 - `facade.SyncPulseFacadeServices.get#RunPulseFlags`: the records of a daily-check run the pulse had already flagged.
 
-{/* TODO-328: add `periodThruDate` on `get#SyncPair` here once DAR-BE-328 lands it on darpan main. */}
+- `facade.SyncPulseFacadeServices.get#SyncPair`: `syncPair.periodThruDate`, the overriding peak period's last day.
 
 Audit reads:
 

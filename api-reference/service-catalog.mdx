@@ -196,7 +196,7 @@ A sync pair attaches a light watch to an existing daily check: every few minutes
 | `delete#SyncPair` | Delete a sync pair with its peak period overrides, samples and tracked orders. |
 | `get#RunPulseFlags` | For one daily-check run, the records the pulse had already flagged past allowance before the run started and that were still open then, each with the time the pulse first flagged it. Empty, with no `syncPairId`, when the run's check has no pair. |
 
-{/* TODO-328: DAR-BE-328 adds `periodThruDate` to `get#SyncPair`'s `syncPair` (the overriding peak period's last day, tenant-local). Document it here once it is on darpan main. */}
+`get#SyncPair`'s `syncPair` also carries `periodThruDate`: the last day (a date, tenant-local) of the peak period that overrides the pair today, or empty when no period applies.
 
 ## Run conclusions (`facade.RunConclusionFacadeServices`)
 

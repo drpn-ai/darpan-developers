@@ -152,19 +152,8 @@ Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists any
 1. **Build the set** from `darpan-docker-config` at its 3.4.0 tag. It clones and builds `moqui-rules`; a `darpan` 3.4.0 ref does not build without it. Every connector component moves with `darpan`, because their extractors no longer filter.
 2. **Set `JAVA_OPTS`** on the container. The entrypoint now stops without it.
 3. **On MySQL, check two column types after the first boot.** `SOURCE_SYSTEM_CONNECTOR.KEEP_LINES_JSON` and `DATASET.KEPT_FIELDS_JSON` must be `LONGTEXT`. Moqui adds a missing column with the right type but never changes the type of an existing one, so a database that ran a pre-release 3.4.0 build may hold them narrower. Widen them with `ALTER TABLE SOURCE_SYSTEM_CONNECTOR MODIFY KEEP_LINES_JSON LONGTEXT` and `ALTER TABLE DATASET MODIFY KEPT_FIELDS_JSON LONGTEXT`. `SOURCE_SYSTEM_CONNECTOR.LOOKUP_MAX_IDS` is no longer read; it stays.
-4. **Load the upgrade data** with `loadDarpanUpgradeData`, as above. It carries each connector's built-in Keep lines; until they are loaded, a run side that Spark keeps fails with "Keep lines (keepLinesJson) are not loaded". It also carries the tenant filters and artifact group rows for the new entities, the sync pulse status values and the two new jobs.
-5. **Load moqui-rules' seed once.** It is type `seed`, so neither `DARPAN_LOAD_UPGRADE_DATA` nor the command above loads it:
-
-   ```bash
-   /moqui-framework/gradlew --no-daemon :runtime:component:darpan:loadDarpanUpgradeData \
-     -PmoquiConf=$CONF_FILE \
-     -PmoquiRuntime=/moqui-framework/runtime \
-     -PmoquiWar=/moqui-framework/moqui-plus-runtime.war \
-     -PupgradeDataLocation=component://moqui-rules/data/RuleSeedData.xml \
-     -Ptypes=seed
-   ```
-
-   Without it, generating a check's pair fact type fails on a foreign key to `FVT_TEXT`.
+4. **Load the upgrade data** with `loadDarpanUpgradeData`, as above. Loading by the `darpan-seed` type (the entrypoint's default) also loads each connector's built-in Keep lines, which `darpan-hotwax`, `netsuite-darpan` and `shopify-darpan` seed in their own `darpan-seed` files; until they are loaded, a run side that Spark keeps fails with "Keep lines (keepLinesJson) are not loaded". The upgrade data carries the tenant filters and artifact group rows for the new entities, the sync pulse status values and the new jobs.
+5. **moqui-rules' seed comes with the upgrade data.** Its `data/RuleSeedData.xml` is type `seed`, which `DARPAN_LOAD_UPGRADE_DATA` does not load, so the 3.4.0 upgrade data carries a verbatim copy of its rows. Without them, generating a check's pair fact type fails on a foreign key to `FVT_TEXT`.
 6. **Deploy `darpan-ui` after the backend.**
 
 What changes on its own after the deploy:
