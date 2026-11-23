@@ -7,13 +7,13 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 5 (current) | 3.4.0, 3.4.1 | 225 |
+| 5 (current) | 3.4.0, 3.4.1, 3.4.2 | 225 |
 | 4 | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
 
-Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2 and 3.4.1 added or removed no methods. There is no 3.0.1 release.
+Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2, 3.4.1 and 3.4.2 added or removed no methods. There is no 3.0.1 release.
 
 <Note>
 Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
@@ -22,6 +22,10 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 5
 
 Darpan 3.4.0. Current.
+
+### Darpan 3.4.2
+
+No method, parameter or field changed. `facade.ReconciliationFacadeServices.run#AutomationNow` (and every other call that starts a run under a requested tenant) now reads both sides in that tenant: a side read in parallel used the caller's saved tenant. The exchange presence step no longer records `deferredLookupCount`.
 
 ### Darpan 3.4.1
 
