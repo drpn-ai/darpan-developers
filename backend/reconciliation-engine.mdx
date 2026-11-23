@@ -15,6 +15,7 @@ UI workflow
   -> access and tenant checks
   -> saved run, RuleSet, mapping, or source records
   -> source data staging
+  -> Keep in Spark (records set aside, not compared)
   -> Spark dataset preparation
   -> base diff and optional rule execution
   -> verification passes
@@ -53,6 +54,40 @@ Separately, a run's compare definition takes one of two shapes:
 
 Darpan supports both. New run contracts center on `RuleSetCompareScope`; existing services and release history may still reference mappings.
 
+## Keep
+
+Keep decides which records of a side are compared and which are set aside. From Darpan 3.4.0 it runs in Spark after the read, on every run path: interactive runs, automations, retries, replays and the sync pulse. The extractors no longer filter.
+
+`darpan.reconciliation.source.KeepPlanSupport` places each side from its connector row (`SourceSystemConnector`):
+
+| Placement | When | What happens |
+| --- | --- | --- |
+| `SPARK` | The connector has a `filterParameterName` and no `dataSourceDefinitionId`. | The read gets no filters. Spark runs the connector's built-in Keep lines (`keepLinesJson`), then the tenant's source filters, in that order. |
+| `READ` | A data-defined endpoint (`dataSourceDefinitionId` set). | Its filter is a step of its own pipeline, so it still filters at the read. Spark runs nothing. |
+| `NONE` | No connector, or no `filterParameterName` (file uploads, databases). | No filters and no Keep. |
+
+Built-in Keep lines are data on the connector row, written by the system's own component; core holds no system name. A connector with no built-ins carries `[]`. A `SPARK` side fails, before anything is read, when its connector's `keepLinesJson` is not loaded, and when neither the read nor Spark can filter a side that has Keep rules (no key, or records that are not top-level).
+
+`darpan.reconciliation.source.KeepStepSupport` splits the side and writes the set-aside artifact beside the extract (`KeepArtifacts`): `<extract>.keep.json` (the summary, one entry per tenant rule with its counts), `<extract>.set-aside.rows` (one row per set-aside record) and, where the connector asks for it (`excludedRecordsSidecar`), the `.excluded.json` side file. The extract keeps every record; every reader of it skips what Keep set aside. The other side is then read by the kept keys only, and the conclude pass reads its set-aside counts from the summary.
+
+A Keep decision saved through moqui-rules (stage `CDS_KEEP_FILE_1` or `CDS_KEEP_FILE_2`) is checked first by `judge.JudgeConfigServices.check#KeepRuleLines`, run as a pre-service ECA on `moqui.rules.RuleServices.store#Rule` (`service/KeepRule.secas.xml`). A line Keep cannot run in Spark (an exists, piece or field-to-field line, an ask, a date or list field, a field of the other side) is refused and nothing is saved.
+
+## Kept copies
+
+A dataset (`darpan.dataset.Dataset`, one tenant, one system and connection) keeps a rolling copy of a source on disk, so a run can be served its window from the copy instead of reading the system live. `DatasetRead` records each refresh. A refresh reads what changed since the last read every day and the whole horizon weekly (`DRK_INCREMENTAL`, `DRK_FULL`), counting records that went missing. The copy keeps only the fields its checks read (`keptFieldsJson`).
+
+`darpan.dataset.KeptCopySupport` decides per side whether the copy covers the run's window, using the copy's own manifest. Served, the slice is written where the live extract would land; not served, the side reads live as before. Refreshes start from `scan_DueDatasets_30m`, seeded paused, and only active datasets are read.
+
+## Peak periods and the sync pulse
+
+A tenant names its busy days as peak periods (`darpan.peak.PeakPeriod`, with run-time moves in `PeakPeriodRunTime`). Settings are resolved at run time by one resolver, `darpan.peak.PeakPeriodSupport`; automations are never rewritten.
+
+- The scheduler holds a run that comes due inside the period's peak hours until they end, and starts a moved run at its set time on its date, in the tenant's zone.
+- `darpan.peak.PeakReadPolicy` gives each read the tenant's limits for its local today, cached for 60 seconds: a HotWax share of the normal read rate, and NetSuite reads one at a time (`NetSuiteReadGate`). A failed lookup reads as no limit.
+- An extract's page heartbeats touch its automation execution, so a phase slowed by a peak period is not reaped as stuck.
+
+A sync pair (`darpan.pulse.SyncPair`) attaches a light watch to an automation's daily check. `run_SyncPulse` runs every 5 minutes; each due pulse (`darpan.pulse.SyncPulseSupport`) reads the upstream side for a short window, asks the target side by key which of those records it holds, and writes one `SyncPulseSample` (`SPS_OK`, `SPS_FAILED` or `SPS_SKIPPED`). A record missing past the allowance gets one open `SyncPulseOrder`, closed when it arrives or when it leaves the check. A peak period can change a pair's allowance and cadence (`PeakPeriodSync`). The pulse reads through the check's own extractor dispatch and Keep, goes through run admission, and posts to chat only when the past-allowance count moves between zero and not zero. The daily check waits for the allowance before it reads a day.
+
 ## Scope modes, flowcharts and lifecycles
 
 A compare scope has a `scopeMode`. Null or `COMPARE` is the two-sided compare above. `EVALUATE` is single-sided: `evaluate#RuleSetCompareScope` reads one source and its rows are the findings, in the missing-diff row shape. The interactive path forks once, early, and `EXTRACT_FILE2` is never opened. An unknown mode, or a FILE_2 source on an `EVALUATE` scope, is refused.
@@ -86,13 +121,13 @@ Each stage writes one `ReconciliationRunStep` row with its own status, timing, a
 | 9 | `WRITE_OUTPUT` | Write the verified result artifact and the run-result summary. |
 | 10 | `NOTIFY` | Send run-completion alerts. |
 
-Verification runs before `WRITE_OUTPUT`, so the file a user downloads is the corrected one. Each pass has its own stage code and records the systems it rechecked in its own step metrics. A pass that declines to run records why.
+Verification runs before `WRITE_OUTPUT`, so the file a user downloads is the corrected one. Lookup and brain answers are captured into the run folder, so a replay answers them without calling any system; a capture never changes a conclusion. Each pass has its own stage code and records the systems it rechecked in its own step metrics. A pass that declines to run records why.
 
 Rows written before 2.0.0 carry a single `VERIFY` code. It keeps sequence 5, so old runs still sort into their original slot; their `WRITE_OUTPUT` and `NOTIFY` rows keep sequences 6 and 7. New runs never enter `VERIFY`. A consumer that reads `stageCode` or `stageSequence` must accept both sets.
 
 | Pass | What it rechecks |
 | --- | --- |
-| Missing-diff recheck | Rows reported missing on a side whose connector supports point lookups are looked up again in that system. Rows the lookup confirms present are removed and the counts adjusted, with an audit note. A failed or skipped lookup changes nothing. |
+| Missing-diff recheck | Rows reported missing on a side whose connector supports point lookups are looked up again in that system. Rows the lookup confirms present are removed and the counts adjusted, with an audit note. A failed or skipped lookup changes nothing. A lookup is a last resort: a side is looked up only when its missing rows are at most `lookupMaxShare` percent (default 5) of the records checked against it, and only when it is keyed on the id kind its connector's lookup answers (`lookupIdField`). Above the share, the run says the read or the pairing needs fixing and looks nothing up. |
 | Return presence | For returns runs between Shopify and HotWax OMS, regrades return and refund events reported missing on one side. An event younger than the sync grace period is pending, not missing. An event before the run window, a refund on a cancelled order, or an unrefunded Shopify return draft on an order that already has a booked OMS return is not reported as a gap. |
 | Exchange presence | For order runs between Shopify and HotWax OMS, checks that each Shopify exchange in the window was imported into OMS. Only lookup-confirmed absences become rows. |
 

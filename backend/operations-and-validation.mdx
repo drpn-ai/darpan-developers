@@ -18,8 +18,10 @@ Run the narrowest check that covers your change first, then widen.
 | Run only the tests your diff can break | `runtime/component/darpan/scripts/focused-test.sh [base-ref]` |
 | Run one backend test class | `./gradlew :runtime:component:darpan:test --tests <TestClass>` |
 | Run the classes that do not boot Moqui (fast) | `./gradlew :runtime:component:darpan:unitTest` |
-| Run the classes that boot Moqui | `./gradlew :runtime:component:darpan:smokeTest` |
-| Run the full suite as the two pools above | `./gradlew :runtime:component:darpan:testAll` |
+| Run the classes that boot Moqui, one JVM each | `./gradlew :runtime:component:darpan:smokeTest` |
+| Run the `@SharedMoqui` classes, several to a JVM | `./gradlew :runtime:component:darpan:smokeSharedTest` |
+| Run the full suite as the three pools above | `./gradlew :runtime:component:darpan:testAll` |
+| Run the moqui-rules suite | `./gradlew :runtime:component:moqui-rules:test` |
 | Run the full suite, one JVM per class | `./gradlew :runtime:component:darpan:test` |
 | Run the MySQL-only tests (needs a local `darpan_test` MySQL database) | `./gradlew :runtime:component:darpan:mysqlTest` |
 | Compile the Darpan backend component | `./gradlew :runtime:component:darpan:compileGroovy` |
@@ -30,7 +32,15 @@ Run the narrowest check that covers your change first, then widen.
 
 `focused-test.sh` picks test classes from the files changed since the base ref (default `origin/main`) and falls back to the full suite for anything it cannot map. Pass `-n` as the second argument to print the selection without running it. It is a faster inner loop, not a substitute for the full suite before you push.
 
-Tests tagged `mysql` cover InnoDB locking behaviour that the default H2 test database cannot reproduce. They are excluded from `test`, `unitTest`, and `smokeTest`.
+Tests tagged `mysql` cover InnoDB locking behaviour that the default H2 test database cannot reproduce. They are excluded from `test`, `unitTest`, `smokeTest` and `smokeSharedTest`.
+
+### Unit tests and shared Moqui
+
+Prefer a unit test through seams, with no Moqui. Boot Moqui only to test entity, service or XML wiring. A Moqui-booting class in `smokeTest` gets a JVM of its own. A class marked `@SharedMoqui` runs in `smokeSharedTest` instead: one Moqui and one Bitronix per JVM, and between classes the harness waits for the class's own threads to finish, drops and restores the empty schema, clears caches and resets every static seam. A class that leaves work running fails at its end, with a thread dump that names it.
+
+A class may opt in only if it boots through `ReconciliationSmokeTestSupport` (directly, through a base class, or through a helper it uses), restores in `@AfterAll` any seam it swaps, sets no `System` property of its own, asserts no elapsed-time bound, is not tagged `mysql`, and starts no Spark session. New Moqui-booting classes should meet these and opt in. `focused-test.sh` routes a shared class to `smokeSharedTest`.
+
+Every mutable static in `src/main` has a `static void resetForTests()` that puts it back to its default. `StaticSeamResetGuardTests` fails when a new one does not, or when a reset leaves out one of its class's statics.
 
 ## Runtime baseline
 
@@ -41,13 +51,14 @@ Tests tagged `mysql` cover InnoDB locking behaviour that the default H2 test dat
 | Build | Gradle 9 |
 | Comparison | Apache Spark SQL 4.2.1 (Scala 2.13, ANSI mode on); every embedded `SparkSession` sets `spark.ui.enabled=false` |
 | Rules | Drools 10.2.0 (`drools-engine`, `drools-mvel`, `drools-xml-support`, `kie-api`), with MVEL 2.5.2.Final |
+| Rules component | `moqui-rules` 0.2.0, on Drools 10.2.0's executable model. `darpan` compiles against it (`compileOnly`), and Spark loads its value checks at run time, so the component must be in the runtime with its jar built. |
 | Passkeys | webauthn4j-core 0.30.3 (with jackson-dataformat-cbor), Apache-2.0 |
 | MySQL driver | Connector/J 9.7.0; deployments use the `mysql8` database configuration |
 | PostgreSQL driver | 42.7.7 |
 
 Spark on JDK 21 needs a set of `--add-opens` JVM flags, plus `-Dio.netty.tryReflectionSetAccessible=true`, `-XX:+EnableDynamicAgentLoading` and `--enable-native-access=ALL-UNNAMED`. The component's test tasks pass them, and the production entrypoint exports them through `JAVA_TOOL_OPTIONS`. A local server needs the same flags; without them a compare fails at runtime. Spark 4 and Drools 10 share ANTLR 4.13, so do not pin ANTLR to make them agree.
 
-Production images are built from a separate, private deployment repository (`darpan-docker-config`). Its production entrypoint refuses to start unless the database connection (`Moqui_DB_HOST`, `Moqui_DB_USER`, `Moqui_DB_PASSWORD`, `Moqui_DB_NAME`), `entity_ds_crypt_pass`, and `JWT_KEY` are set. `entity_ds_crypt_pass_old` is optional and used only during a key rotation.
+Production images are built from a separate deployment repository, [`darpan-docker-config`](https://github.com/drpn-ai/darpan-docker-config). Its production entrypoint refuses to start unless the database connection (`Moqui_DB_HOST`, `Moqui_DB_USER`, `Moqui_DB_PASSWORD`, `Moqui_DB_NAME`), `entity_ds_crypt_pass`, `JWT_KEY` and `JAVA_OPTS` are set. `entity_ds_crypt_pass_old` is optional and used only during a key rotation.
 
 ## Sign-in and session settings
 
@@ -68,14 +79,21 @@ Two-factor sign-in is configured per role in `darpan.auth.TwoFactorRolePolicy` f
 | Job | Schedule | What it does |
 | --- | --- | --- |
 | `purge_ReconciliationGeneratedFiles_daily` | 02:00 daily | Deletes generated result files older than `darpan.purge.generatedOutput.days` (default 15). |
-| `purge_ReconciliationExtractFiles_daily` | 02:15 daily | Deletes raw source extract files `darpan.purge.extract.days` after their run (default 7; `reconciliation.ReconciliationGenericServices.purge#ExtractFiles`). Result files and findings are not touched. |
-| `run_DataRetention_daily` | 03:30 daily, seeded paused | Deletes audit findings, run results, AI transcripts and agent query logs older than their retention period (`retention.RetentionServices.run#Retention`), tenant by tenant in batches of `darpan.retention.batchSize` (default 500), each batch in its own transaction. |
+| `purge_ReconciliationExtractFiles_daily` | 02:15 daily | Deletes raw source extract files `darpan.purge.extract.days` after their run (default 7; `reconciliation.ReconciliationGenericServices.purge#ExtractFiles`), for automation runs, interactive runs (`fileN-api` folders) and the lookup answers a run captured for replay (`lookups/`). Result files and findings are not touched. |
+| `run_DataRetention_daily` | 03:30 daily, seeded paused | Deletes audit findings, run results, AI transcripts, agent query logs and sync pulse samples older than their retention period (`retention.RetentionServices.run#Retention`), tenant by tenant in batches of `darpan.retention.batchSize` (default 500), each batch in its own transaction. |
 
-Retention periods are settings, not JVM properties: `darpan.retention.auditFinding.days`, `darpan.retention.runResult.days`, `darpan.retention.agentMessage.days` and `darpan.retention.agentQueryLog.days`. Edit them on the admin app's Schedule page (Retention section) or with `darpan-admin retention`. An unset period keeps that table forever, so resuming the paused job deletes nothing until a period is set. A tenant can override a period with a number of days, `forever` or `inherit`. Shortening a period while `run_DataRetention_daily` is running, and resuming the job, each need a preview first; `admin.RetentionAdminServices.dryRun#Retention` counts what a run would delete, per table and tenant, and can preview periods that are not set yet.
+Retention periods are settings, not JVM properties: `darpan.retention.auditFinding.days`, `darpan.retention.runResult.days`, `darpan.retention.agentMessage.days`, `darpan.retention.agentQueryLog.days` and `darpan.retention.syncPulseSample.days`. Edit them on the admin app's Schedule page (Retention section) or with `darpan-admin retention`. An unset period keeps that table forever, so resuming the paused job deletes nothing until a period is set. Sync pulse samples are the exception: their period defaults to 30 days, and the instance cannot set it to forever. They are deleted only while the job runs, so resume it on an instance that has sync pairs. A tenant can override a period with a number of days, `forever` or `inherit`. Shortening a period while `run_DataRetention_daily` is running, and resuming the job, each need a preview first; `admin.RetentionAdminServices.dryRun#Retention` counts what a run would delete, per table and tenant, and can preview periods that are not set yet.
 
 The two purge periods are plain settings, edited from the same Schedule page or with `darpan-admin settings`; they need no preview. A `-D` system property with the same name is only a fallback: a setting row wins over it, and it wins over the default.
 
 A job's cron, pause state and parameters are edited on the Schedule page too (or with `darpan-admin job`). Those edits survive deploys; an edit made in Moqui Tools is reverted by the next seed load. A cron runs on the server's clock. Its gap between runs, checked against the job's minimum, counts the wall clock too, so a once-a-day job can be moved to any daily time on a server whose clock keeps daylight saving.
+
+## Other scheduled jobs
+
+| Job | Schedule | What it does |
+| --- | --- | --- |
+| `run_SyncPulse` | Every 5 minutes, at 2:30 past | Samples every due sync pair (`pulse.SyncPulseServices.run#DuePulses`). Seeded running; it does nothing until a pair has a pulse cadence. Each pulse takes a run slot, so a pulse refused a slot is recorded as skipped, not queued. |
+| `scan_DueDatasets_30m` | Every 30 minutes, seeded paused | Starts the due refreshes of the kept copies (`dataset.DatasetServices.scan#DueDatasets`), each as its dataset's tenant. Only active datasets are read. |
 
 ## When to run broader checks
 

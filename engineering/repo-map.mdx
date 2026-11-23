@@ -34,10 +34,11 @@ Because a connector contributes registry data, adding an endpoint or a rules-boa
 | --- | --- |
 | `drpn-ai/moqui-framework` | The Moqui 4 framework fork the backend builds against. It carries fixes Darpan needs ahead of upstream. |
 | `drpn-ai/moqui-gql` | The GraphQL component included in the backend images. It serves Darpan's read-only [GraphQL API](/graphql/overview). |
+| `drpn-ai/moqui-rules` | Decisions as data on Drools, a Moqui component with no Darpan code. Darpan builds against it from 3.4.0, and the backend images and CI clone it. See [moqui-rules and the judge](/backend/rules-and-schemas#moqui-rules-and-the-judge). |
 | `drpn-ai/darpan-docs` | Product docs and release notes at [docs.drpn.ai](https://docs.drpn.ai). |
 | `drpn-ai/darpan-developers` | This site: the GraphQL API, self-hosting, and engineering. |
 | `darpan-admin-ui` | The operator admin app for tenants, users, memberships, and migrations. Private. |
-| `darpan-docker-config` | Dockerfiles, entrypoint, and production configuration for the backend images. Private. |
+| `drpn-ai/darpan-docker-config` | Dockerfiles, entrypoint, and production configuration for the backend images. |
 
 ## High-signal paths
 

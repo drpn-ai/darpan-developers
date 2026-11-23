@@ -86,6 +86,8 @@ Entity filters: the `DARPAN_ACTIVE_COMPANY_SCOPE` entity filter set, in `data/Se
 | `findOneOwnedByTenant(ec, entityName, pkField, pkValue, tenantId)` | One row by complete primary key, returned only when it belongs to the named tenant. |
 | `findGlobalUnscoped(ec, entityName, reason)` | A deliberate tenant-neutral read, such as enums or system sweeps. The reason string is required and logged. |
 
+The moqui-rules entities (`rules.*`) are under the same filter, through the `companyUserGroupId` field Darpan adds to each. Because a filter does not cover a write by primary key, or any write with authorization disabled, an entity ECA guards every create, update and delete of a `rules.*` row as well: the row is stamped with the active tenant, or with its parent's, and a write to another tenant's row is refused as not found. See [moqui-rules and the judge](/backend/rules-and-schemas#moqui-rules-and-the-judge).
+
 One Moqui behaviour to know: when a find specifies the complete primary key, `one()` takes the primary-key lookup path, and other conditions on the same find are not applied. A tenant condition next to a full primary key does not restrict the result. Use `findOneOwnedByTenant`, or compare `companyUserGroupId` on the returned row.
 
 Tests guard these rules:

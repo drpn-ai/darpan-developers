@@ -16,7 +16,7 @@ RuleSet reconciliation is centered on these entities:
 | `RuleSetCompareScope` | The compare context for a run, including source and matching configuration. |
 | `RuleSetCompareSource` | A source participating in the compare scope. |
 | `RuleSetCompareSourceKeyField` | One ordered field of a composite primary key for a compare source. When rows exist for a source, its fields are combined in `sequenceNum` order into one `compare_id`, replacing the single primary ID expression. |
-| `RuleSetCompareSourceFilter` | One exclusion filter for a compare source. Records whose field value matches one of the filter values are dropped by the source getter at extraction time, before rules run. |
+| `RuleSetCompareSourceFilter` | One exclusion filter for a compare source. Records whose field value matches one of the filter values are set aside by [Keep](/backend/reconciliation-engine#keep) in Spark after the read, before rules run. Only a data-defined source still applies it at the read. |
 
 All six live in `entity/RuleEntities.xml` under the `darpan.rule` package.
 
@@ -62,6 +62,23 @@ reconciliation.ReconciliationRuleEngineServices.sweep#RuleChildTenantStamps
 Rule logic is validated twice: when `save#Rule` stores it, and again at compile time, so a rule row that reached the database by another path is checked before Drools sees it. Raw DRL `rule … end` blocks authored by a tenant are rejected at compile time. Platform rules loaded from seed data and field-comparison rules, whose DRL the server regenerates, still compile. An environment can allow tenant raw DRL only by setting the `darpan.rules.allowRawDrl` system property to `true`; it is off by default.
 
 Execution services are file type agnostic. Callers parse CSV, JSON, or other source payloads into compare-ready data facts before invoking the RuleSet engine.
+
+## moqui-rules and the judge
+
+`moqui-rules` ([`drpn-ai/moqui-rules`](https://github.com/drpn-ai/moqui-rules)) is a separate Moqui component, version 0.2.0, that holds decisions as data: fact types, rule sets (decisions), rules, conditions, pieces and outcomes, in `rules.*` entities on `RULES_` tables, built on Drools 10.2.0's executable model. Its services are `moqui.rules.*`. It knows nothing of Darpan.
+
+Inside Darpan every moqui-rules row belongs to one tenant. `entity/RulesTenantEntities.xml` adds `companyUserGroupId` to each `rules.*` entity, each one is in the `DARPAN_ACTIVE_COMPANY_SCOPE` filter and the `DARPAN_APP` artifact group, and `entity/RulesTenant.eecas.xml` runs `script/rules/RulesTenantGuard.xml` before every write: a root row is stamped with the active tenant, a child row copies its parent's tenant, and no write reaches another tenant's row. The rule-type tables (`RuleConditionType`, `RuleActionType`) are shared.
+
+Darpan uses moqui-rules for [Keep](/backend/reconciliation-engine#keep) decisions, and for the judge, a new path for audit checks that runs beside today's:
+
+| Entity (`darpan.judge`) | Purpose |
+| --- | --- |
+| `DecisionOutcome` | What an outcome of a decision means (`JudgeOutcomeKind`: `JOK_FINDING`, `JOK_EXPECTED`, `JOK_HIDDEN`, `JOK_SET_ASIDE`) and its fix text. |
+| `CheckDecision` | A check's decision at one stage (`CheckDecisionStage`: `CDS_MUST_HOLD`, `CDS_EXPLAINS`, `CDS_KEEP_FILE_1`, `CDS_KEEP_FILE_2`). |
+| `CheckParameterSet`, `CheckParameter` | Named parameter values a check's decisions read. |
+| `CheckAsk` | A lookup a check declares, fetched once per batch. |
+
+The judge (`darpan.judge.JudgeSupport`) builds one pair fact per compare id (`PairFactSupport`): each side's presence (`KEPT`, `SET_ASIDE` or `ABSENT`), each side's fields, the check's parameters and its asks. The Must hold decision gives the failed promises; the Explains decision gives the first cause by priority, or `UNEXPLAINED`. `AuditStatement.claimRuleSetId` and `claimOutcomeId` name the promise a statement makes, `AuditCheck.pairFactTypeId` the check's generated fact type, and `AuditFinding.claimRuleSetId`, `claimRuleId`, `causeRuleSetId` and `causeRuleId` the rules behind a finding. In 3.4.0 the judge runs on replays of captured runs (`judge.JudgeReplayServices`), compared with today's findings; it does not yet record findings.
 
 ## JSON schema model
 
