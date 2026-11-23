@@ -1,6 +1,6 @@
 ---
 title: "Local development setup"
-description: "Recover from common local Darpan setup, JDK 21, and Spark startup failures."
+description: "Recover from common local Darpan setup, JDK 21, Spark startup and upgrade failures."
 ---
 
 Local setup breaks in predictable ways — almost always a JDK version mismatch, missing JVM flags, a missing runtime clone, or a port that didn't release cleanly. The table below covers the problems that come up most often.
@@ -16,6 +16,7 @@ Local setup breaks in predictable ways — almost always a JDK version mismatch,
 | `runtime directory not found` | Run `./gradlew getRuntime` from `darpan-backend` before loading data. |
 | Gradle cannot find `:runtime:component:moqui-sftp` | Clone `moqui-sftp` into `runtime/component`. |
 | The backend fails at startup loading the `moqui-gql` component | Build its jar before loading or running: `./gradlew :runtime:component:moqui-gql:jar`. |
+| Gradle cannot find `:runtime:component:moqui-rules` | Darpan 3.4.0 and later build against `moqui-rules`. Clone `drpn-ai/moqui-rules` into `runtime/component`, then build its jar: `./gradlew :runtime:component:moqui-rules:jar`. |
 | `Task 'loadDarpanSetup' not found` | Use `./gradlew load` for a fresh setup. `loadDarpanSetup` was removed. |
 | `npm install` or Vite fails on Node version | Use Node.js 20 or newer. |
 | Backend starts but UI API calls fail | Wait for Moqui boot to finish, then refresh the UI. |
@@ -27,3 +28,20 @@ Local setup breaks in predictable ways — almost always a JDK version mismatch,
 | Passkey setup fails, or the browser offers no passkey | The relying party must be the host the app is opened from. Locally it is `localhost`. On a deployed instance set `DARPAN_APP_BASE_URL` to the app's address, or set `DARPAN_WEBAUTHN_RP_ID` and `DARPAN_WEBAUTHN_ORIGINS` (see [Self-host in production](/self-host/production#configure-the-container)). |
 | Data load fails with a database lock | The local database is H2, which allows one process at a time. Stop `npm run dev:stack` or any running backend process before rerunning the load. |
 | Ports keep changing or Vite starts on a different port | Use `npm run dev:stack`; it targets `8080` and `5173` and clears old listeners. Export `JAVA_TOOL_OPTIONS` in the same shell first. |
+
+## Upgrade and runtime failures
+
+These come from Darpan 3.4.0, which runs Keep in Spark and adds the moqui-rules component. See Upgrading to 3.4.0 under [Upgrade](/self-host/production#upgrade).
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| The container exits at start with `JAVA_OPTS must be set (heap sizing, e.g. -XX:MaxRAMPercentage=75.0)` | The production image sets no JVM options of its own from 3.4.0. | Set `JAVA_OPTS` on the container, for example `-XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=75.0 -XX:MaxHeapSize=6g`. |
+| The image build fails configuring `darpan`: project `:runtime:component:moqui-rules` not found | The `darpan` ref needs `moqui-rules`, and the Dockerfile does not clone it. | Build from the `darpan-docker-config` tag of the same release; it clones and builds `moqui-rules`. |
+| A run with a `LIKE` or normalized Keep rule fails loading an `org.moqui.rules` class | The `moqui-rules` jar is not in the runtime. Spark loads its value checks at run time. | Build it with `./gradlew :runtime:component:moqui-rules:jar` and restart. |
+| A run fails with `<Side> (<SYSTEM>) cannot be filtered: the <SYSTEM> connector's Keep lines (keepLinesJson) are not loaded. Load the upgrade data, then run again.` | The 3.4.0 upgrade data is not loaded. The extractors no longer set records aside, so a side without its connector's built-in Keep lines would compare records it should not. | Load the upgrade data (`loadDarpanUpgradeData`), then run again. |
+| A run fails with `... cannot be filtered: its source no longer filters at read and it has no key, so Keep cannot run in Spark.` (or `its records are not top-level`) | The side has Keep rules, its extractor no longer filters, and Spark can keep only a side with a key on top-level records. | Give the side a key field in its compare scope, or point its record root at the top-level records array. |
+| The upgrade-data load or a dataset refresh fails with `Data too long for column 'KEEP_LINES_JSON'` or `'KEPT_FIELDS_JSON'` | The column was created narrower by a pre-release build. Moqui adds missing columns but never changes an existing column's type. | `ALTER TABLE SOURCE_SYSTEM_CONNECTOR MODIFY KEEP_LINES_JSON LONGTEXT` and `ALTER TABLE DATASET MODIFY KEPT_FIELDS_JSON LONGTEXT`, then load again. |
+| Generating a check's pair fact type fails on a foreign key to `FVT_TEXT` | moqui-rules' seed (`data/RuleSeedData.xml`, type `seed`) is not loaded. The upgrade-data load reads only `darpan-seed` files. | Load it once with `loadDarpanUpgradeData -PupgradeDataLocation=component://moqui-rules/data/RuleSeedData.xml -Ptypes=seed`. |
+| Saving a peak period or a sync pair answers that you are not authorized | The upgrade data's artifact group rows for the new entities are not loaded. | Load the upgrade data. |
+| Every sync pulse sample fails to save | The `SyncPulseSampleStatus` values are not loaded. | Load the upgrade data. |
+| Interactive run extracts older than 7 days are gone after the deploy | Expected. From 3.4.0 the extract purge also deletes interactive extracts and captured lookup answers after `darpan.purge.extract.days`. | None. Raise the setting first if you need them longer. |

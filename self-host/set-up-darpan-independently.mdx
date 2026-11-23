@@ -104,7 +104,7 @@ git clone --branch master https://github.com/drpn-ai/moqui-framework.git darpan-
 cd darpan-backend
 ```
 
-Use the `drpn-ai/moqui-framework` fork, not upstream `moqui/moqui-framework`. The fork is upstream Moqui 4 plus the embedded Bitronix transaction manager, a sign-in fix (without it, a sign-in can wait on itself for a database lock until the lock times out), PBKDF2 password hashing, and the closure of password-only sign-in on service calls. Darpan 3.1.0 needs the fork's current `master`.
+Use the `drpn-ai/moqui-framework` fork, not upstream `moqui/moqui-framework`. The fork is upstream Moqui 4 plus the embedded Bitronix transaction manager, a sign-in fix (without it, a sign-in can wait on itself for a database lock until the lock times out), PBKDF2 password hashing, and the closure of password-only sign-in on service calls. Darpan 3.1.0 and later need the fork's current `master`.
 
 <Note>
 The production images also apply a small `build.gradle` patch, `docker/buildGradle.patch` in [darpan-docker-config](https://github.com/drpn-ai/darpan-docker-config), which adds a Spark export flag to every Gradle-forked JVM. Local development does not need it as long as `JAVA_TOOL_OPTIONS` is exported.
@@ -130,10 +130,14 @@ git clone --branch main https://github.com/drpn-ai/shopify-darpan.git shopify-da
 git clone --branch main https://github.com/drpn-ai/netsuite-darpan.git netsuite-darpan
 git clone --branch main https://github.com/drpn-ai/darpan-hotwax.git darpan-hotwax
 git clone --branch main https://github.com/drpn-ai/database-darpan.git database-darpan
+git clone --branch main https://github.com/drpn-ai/moqui-rules.git moqui-rules
 cd ../..
+./gradlew :runtime:component:moqui-rules:jar
 ```
 
 `moqui-sftp` is needed by the Darpan component build and test classpath. The five Darpan components provide the core backend, Shopify integration, NetSuite integration, HotWax integration, and database sources. Without `database-darpan`, the database source that the seed data registers fails at extraction.
+
+`moqui-rules` holds decisions as data. From Darpan 3.4.0 the `darpan` build compiles against it and fails to configure without it, and Keep in Spark loads its classes at run time. Nothing else in the build triggers its jar, so build it once after cloning, and again after you pull it.
 
 The hosted images also carry `moqui-gql`, the component that serves the [GraphQL API](/graphql/overview). It is optional locally. If you clone it, build its jar before the first load, because nothing else in the build triggers it and the backend fails at startup without it:
 
@@ -143,7 +147,7 @@ git clone --branch main https://github.com/drpn-ai/moqui-gql.git runtime/compone
 ```
 
 <Tip>
-`main` is current development. To run the released version instead, check out the 3.1.0 release tags: `darpan` `v3.1.0`, `darpan-hotwax` `v1.1.0`, `shopify-darpan` `v0.10.0`, `netsuite-darpan` `v0.6.0`, `database-darpan` `v0.4.0`, `moqui-gql` `v1.1.0`, and `darpan-ui` `v4.1.0`. Check them out together: the components of one release are built and tested as a set.
+`main` is current development. To run a released version instead, check out the tags of one release together, as `docker/prod/Dockerfile` in [darpan-docker-config](https://github.com/drpn-ai/darpan-docker-config) pins them at that release's tag: the components of one release are built and tested as a set.
 </Tip>
 
 ## Load local setup data

@@ -6,7 +6,7 @@ description: "Build the Darpan backend image, configure it, load its data, and u
 Running Darpan for real users is mostly configuration, and the image enforces the parts that matter: it refuses to start without its secrets, exports the JVM flags Spark needs, and loads its own reference data. What is left is choosing the right image, setting a handful of environment variables, and running the first data load once. This page covers each in order.
 
 <Note>
-This page describes the released backend, `v3.1.0`, with the app `darpan-ui` `v4.1.0`. For a development stack on your own machine, see [Set up Darpan independently](/self-host/set-up-darpan-independently).
+This page describes the released backend, `v3.4.0`, with the `darpan-ui` release that ships with it. For a development stack on your own machine, see [Set up Darpan independently](/self-host/set-up-darpan-independently).
 </Note>
 
 ## Before you start
@@ -24,10 +24,10 @@ Build images only from the [darpan-docker-config](https://github.com/drpn-ai/dar
 
 | Dockerfile | Track | Components |
 | --- | --- | --- |
-| `docker/prod/Dockerfile` | Production | Pinned to release tags: `darpan` `v3.1.0`, `darpan-hotwax` `v1.1.0`, `shopify-darpan` `v0.10.0`, `netsuite-darpan` `v0.6.0`, `database-darpan` `v0.4.0`, `moqui-gql` `v1.1.0`, `darpan-agent` `v0.2.0`. |
+| `docker/prod/Dockerfile` | Production | Each component pinned to a release tag: `darpan`, `darpan-hotwax`, `shopify-darpan`, `netsuite-darpan`, `database-darpan`, `moqui-gql`, `darpan-agent` and, from 3.4.0, `moqui-rules`. The file names the tags of the release it was cut for. |
 | `docker/Dockerfile` | Test and CI | Every component at `main`. Use it to try unreleased work, not to serve users. |
 
-The components ship as a set. The pins in the production Dockerfile move together; changing one tag on its own can seed configuration that points at a service or field the other component does not have. Deploy all backend components and the app of one release together: `darpan-ui` `v4.1.0` calls the two-factor and passkey methods that 3.1.0 adds.
+The components ship as a set. The pins in the production Dockerfile move together; changing one tag on its own can seed configuration that points at a service or field the other component does not have. Deploy all backend components and the app of one release together, the backend first: the app calls the methods its release adds.
 
 Build from the repository root, so the Dockerfile's `COPY docker/...` paths resolve:
 
@@ -35,18 +35,19 @@ Build from the repository root, so the Dockerfile's `COPY docker/...` paths reso
 docker build -f docker/prod/Dockerfile \
   --build-arg BASE_IMAGE=<ubuntu-22.04-image>@sha256:<digest> \
   --build-arg REQUIRE_PINNED_BASE=1 \
-  -t darpan-backend:3.1.0 .
+  -t darpan-backend:3.4.0 .
 ```
 
 | Build argument | Why |
 | --- | --- |
 | `BASE_IMAGE` | The default base names a registry you may not be able to pull from. Supply an Ubuntu 22.04 image that includes `git`, as a full reference with a digest. The JDK 21 runtime is copied in from Temurin, so the base needs none. |
 | `REQUIRE_PINNED_BASE=1` | Fails the build unless `BASE_IMAGE` is digest-pinned. |
-| `MOQUI_FRAMEWORK_REF` | Defaults to the `master` branch of the `drpn-ai/moqui-framework` fork, which moves. For a byte-identical rebuild, pass an immutable commit. Darpan 3.1.0 needs a commit with PBKDF2 password hashing and the password-only sign-in closures. |
+| `MOQUI_FRAMEWORK_REF` | Defaults to the `master` branch of the `drpn-ai/moqui-framework` fork, which moves. For a byte-identical rebuild, pass an immutable commit. Darpan 3.1.0 and later need a commit with PBKDF2 password hashing and the password-only sign-in closures. |
+| `MOQUI_RULES_REF` | The `drpn-ai/moqui-rules` ref to clone. Keep the one the file names: `darpan` 3.4.0 does not build without moqui-rules, and the two move together. |
 
 The cloned repositories are public, so the build needs no credentials. If you build from private forks, pass a netrc file as a BuildKit secret (`--secret id=netrc,src=<file>`). Never pass credentials as build arguments; they would remain in the image history.
 
-During the build the image applies `docker/buildGradle.patch` to the framework build, builds the `moqui-gql` component's jar, and fails if the active Java is not 21. `moqui-gql` serves the [GraphQL API](/graphql/overview).
+During the build the image applies `docker/buildGradle.patch` to the framework build, builds the `moqui-gql`, `darpan-agent` and `moqui-rules` jars, and fails if the active Java is not 21. `moqui-gql` serves the [GraphQL API](/graphql/overview).
 
 ## Configure the container
 
@@ -62,6 +63,7 @@ The entrypoint stops with an error naming the variable if any required value is 
 | `Moqui_DB_NAME` | Database name. |
 | `entity_ds_crypt_pass` | Encryption key for stored secrets such as connection passwords and tokens. Unique per deployment; keep it safe, because data encrypted under it cannot be read without it. |
 | `JWT_KEY` | Signing key. Unique per deployment and strong. |
+| `JAVA_OPTS` | JVM options, including heap sizing, for example `-XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=75.0 -XX:MaxHeapSize=6g`. Required from 3.4.0: the image sets no JVM options of its own, and without it the JVM would quietly take a quarter of the container's memory. JSON log output is added by the entrypoint. |
 
 **Optional**
 
@@ -78,8 +80,7 @@ The entrypoint stops with an error naming the variable if any required value is 
 | `entity_ds_crypt_pass_old` | Same as `entity_ds_crypt_pass` | Set only while rotating the encryption key: the outgoing key goes here and the new key in `entity_ds_crypt_pass`, so values written under either can be read. |
 | `entity_ds_use_ssl` | `true` | TLS to MySQL. Set `false` only for a database that cannot terminate TLS. |
 | `entity_ds_allow_pubkey` | `false` | Public-key retrieval. Needed only for `caching_sha2_password` over a non-TLS connection. |
-| `DARPAN_LOAD_UPGRADE_DATA` | `Y` | Whether the container loads Darpan's reference data on start. See [Upgrade](#upgrade). |
-| `JAVA_OPTS` | Heap from 25% to 75% of the container memory limit, capped at 6 GB, plus JSON log output | JVM options. Setting it replaces the defaults, so carry over the heap and logging options you want to keep. |
+| `DARPAN_LOAD_UPGRADE_DATA` | `Y` | Whether the container loads Darpan's reference data on start: every data file of type `darpan-seed`. It never loads files of other types, such as moqui-rules' `seed` file. See [Upgrade](#upgrade). |
 
 Some settings are JVM system properties. Add them to `JAVA_OPTS` as `-D<name>=<value>`:
 
@@ -124,7 +125,7 @@ cd /moqui-framework
 ./gradlew loadProduction -Ptypes=seed,seed-initial,install,ext-seed,ext,darpan-seed-initial,darpan-seed
 ```
 
-Keep every type in the list. A data file whose type is not listed is skipped, and the load still reports success, so a missing type shows up later as missing configuration rather than as a load error.
+Keep every type in the list. A data file whose type is not listed is skipped, and the load still reports success, so a missing type shows up later as missing configuration rather than as a load error. The `seed` type also loads moqui-rules' `data/RuleSeedData.xml`.
 
 ## Upgrade
 
@@ -143,6 +144,37 @@ An upgrade runs in this order: load the reference data with the new image, start
 2. **One-time data migrations.** Once the new backend is running, run the pending migrations from the backend's **Migrations** screen at `/apps/darpan/Migrations`, signed in as a super-admin. A preview shows what would run. Migrations already applied are skipped, so a second run applies nothing.
 
 Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists anything else that release needs before you deploy.
+
+### Upgrading to 3.4.0
+
+3.4.0 runs Keep, the step that sets records aside, in Spark after every read instead of in each connector's extractor, and adds peak periods, the sync pulse, kept copies of a source and the moqui-rules component. The upgrade data is a delta on 3.3.2. New tables (`RULES_*`, `DATASET`, `DATASET_READ`, `PEAK_PERIOD`, `PEAK_PERIOD_RUN_TIME`, `SYNC_PAIR`, `PEAK_PERIOD_SYNC`, `SYNC_PULSE_SAMPLE`, `SYNC_PULSE_ORDER`, the judge tables) and new columns on existing tables are created on boot.
+
+1. **Build the set** from `darpan-docker-config` at its 3.4.0 tag. It clones and builds `moqui-rules`; a `darpan` 3.4.0 ref does not build without it. Every connector component moves with `darpan`, because their extractors no longer filter.
+2. **Set `JAVA_OPTS`** on the container. The entrypoint now stops without it.
+3. **On MySQL, check two column types after the first boot.** `SOURCE_SYSTEM_CONNECTOR.KEEP_LINES_JSON` and `DATASET.KEPT_FIELDS_JSON` must be `LONGTEXT`. Moqui adds a missing column with the right type but never changes the type of an existing one, so a database that ran a pre-release 3.4.0 build may hold them narrower. Widen them with `ALTER TABLE SOURCE_SYSTEM_CONNECTOR MODIFY KEEP_LINES_JSON LONGTEXT` and `ALTER TABLE DATASET MODIFY KEPT_FIELDS_JSON LONGTEXT`. `SOURCE_SYSTEM_CONNECTOR.LOOKUP_MAX_IDS` is no longer read; it stays.
+4. **Load the upgrade data** with `loadDarpanUpgradeData`, as above. It carries each connector's built-in Keep lines; until they are loaded, a run side that Spark keeps fails with "Keep lines (keepLinesJson) are not loaded". It also carries the tenant filters and artifact group rows for the new entities, the sync pulse status values and the two new jobs.
+5. **Load moqui-rules' seed once.** It is type `seed`, so neither `DARPAN_LOAD_UPGRADE_DATA` nor the command above loads it:
+
+   ```bash
+   /moqui-framework/gradlew --no-daemon :runtime:component:darpan:loadDarpanUpgradeData \
+     -PmoquiConf=$CONF_FILE \
+     -PmoquiRuntime=/moqui-framework/runtime \
+     -PmoquiWar=/moqui-framework/moqui-plus-runtime.war \
+     -PupgradeDataLocation=component://moqui-rules/data/RuleSeedData.xml \
+     -Ptypes=seed
+   ```
+
+   Without it, generating a check's pair fact type fails on a foreign key to `FVT_TEXT`.
+6. **Deploy `darpan-ui` after the backend.**
+
+What changes on its own after the deploy:
+
+- The first extract purge deletes every interactive extract (`fileN-api` folders) and captured lookup answer (`lookups/`) older than `darpan.purge.extract.days` (7), for every tenant. Before 3.4.0 the purge reached only automation extracts.
+- Stored source filters, on saved runs and on automations, are no longer sent to the extractors. Spark applies them after the read. A data-defined source still filters at the read.
+- `run_SyncPulse` is seeded running and does nothing until a tenant gives a sync pair a pulse cadence. Sync pulse samples are kept 30 days, but only while `run_DataRetention_daily` runs; it is seeded paused, so resume it on an instance with sync pairs.
+- `scan_DueDatasets_30m` is seeded paused. No dataset reads a source until it is resumed and a dataset is active.
+
+To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored.
 
 ### Upgrading to 3.2.0
 
