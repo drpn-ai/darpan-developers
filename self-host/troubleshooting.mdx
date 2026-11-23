@@ -17,6 +17,7 @@ Local setup breaks in predictable ways — almost always a JDK version mismatch,
 | Gradle cannot find `:runtime:component:moqui-sftp` | Clone `moqui-sftp` into `runtime/component`. |
 | The backend fails at startup loading the `moqui-gql` component | Build its jar before loading or running: `./gradlew :runtime:component:moqui-gql:jar`. |
 | Gradle cannot find `:runtime:component:moqui-rules` | Darpan 3.4.0 and later build against `moqui-rules`. Clone `drpn-ai/moqui-rules` into `runtime/component`, then build its jar: `./gradlew :runtime:component:moqui-rules:jar`. |
+| Gradle cannot find `:runtime:component:moqui-jexl`, or the server stops at start because `darpan` depends on `moqui-jexl` | Darpan 3.4.0 and later run tenant queries on `moqui-jexl`. Clone `drpn-ai/moqui-jexl` into `runtime/component`, then build its jar: `./gradlew :runtime:component:moqui-jexl:jar`. |
 | `Task 'loadDarpanSetup' not found` | Use `./gradlew load` for a fresh setup. `loadDarpanSetup` was removed. |
 | `npm install` or Vite fails on Node version | Use Node.js 20 or newer. |
 | Backend starts but UI API calls fail | Wait for Moqui boot to finish, then refresh the UI. |
@@ -31,12 +32,13 @@ Local setup breaks in predictable ways — almost always a JDK version mismatch,
 
 ## Upgrade and runtime failures
 
-These come from Darpan 3.4.0, which runs Keep in Spark and adds the moqui-rules component. See Upgrading to 3.4.0 under [Upgrade](/self-host/production#upgrade).
+These come from Darpan 3.4.0, which runs Keep in Spark and adds the moqui-rules and moqui-jexl components. See Upgrading to 3.4.0 under [Upgrade](/self-host/production#upgrade).
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | The container exits at start with `JAVA_OPTS must be set (heap sizing, e.g. -XX:MaxRAMPercentage=75.0)` | The production image sets no JVM options of its own from 3.4.0. | Set `JAVA_OPTS` on the container, for example `-XX:InitialRAMPercentage=25.0 -XX:MaxRAMPercentage=75.0 -XX:MaxHeapSize=6g`. |
 | The image build fails configuring `darpan`: project `:runtime:component:moqui-rules` not found | The `darpan` ref needs `moqui-rules`, and the Dockerfile does not clone it. | Build from the `darpan-docker-config` tag of the same release; it clones and builds `moqui-rules`. |
+| The image build fails cloning `moqui-jexl`: `Remote branch v0.2.2 not found` | The `MOQUI_JEXL_REF` tag is not on `drpn-ai/moqui-jexl` yet, or the Dockerfile names a tag the repository lacks. | Push the tag, or build from the `darpan-docker-config` tag of the same release, which names a published one. |
 | A run with a `LIKE` or normalized Keep rule fails loading an `org.moqui.rules` class | The `moqui-rules` jar is not in the runtime. Spark loads its value checks at run time. | Build it with `./gradlew :runtime:component:moqui-rules:jar` and restart. |
 | A run fails with `<Side> (<SYSTEM>) cannot be filtered: the <SYSTEM> connector's Keep lines (keepLinesJson) are not loaded. Load the upgrade data, then run again.` | The 3.4.0 upgrade data is not loaded. The extractors no longer set records aside, so a side without its connector's built-in Keep lines would compare records it should not. | Load the upgrade data (`loadDarpanUpgradeData`), then run again. |
 | A run fails with `... cannot be filtered: its source no longer filters at read and it has no key, so Keep cannot run in Spark.` (or `its records are not top-level`) | The side has Keep rules, its extractor no longer filters, and Spark can keep only a side with a key on top-level records. | Give the side a key field in its compare scope, or point its record root at the top-level records array. |
@@ -45,4 +47,8 @@ These come from Darpan 3.4.0, which runs Keep in Spark and adds the moqui-rules 
 | Saving, syncing or deleting an automation fails on a foreign key to `RECONCILIATION_AUTOMATION_SOURCE_FILTER` | The 3.4.0 migrations have not run. Automations no longer keep their own filters, but the retired table still holds rows, and its foreign key blocks the automation source rows that save, sync and delete recreate. Scheduled runs are unaffected. | Run the pending migrations (`run#PendingMigrations`, from the **Migrations** screen at `/apps/darpan/Migrations`). `AUTOMATION_FILTER_TABLE` drops the table; preview it with a dry run. |
 | Saving a peak period or a sync pair answers that you are not authorized | The upgrade data's artifact group rows for the new entities are not loaded. | Load the upgrade data. |
 | Every sync pulse sample fails to save | The `SyncPulseSampleStatus` values are not loaded. | Load the upgrade data. |
+| A tenant's old scheduled scripts stopped posting after the deploy | Their engine is gone. `TENANT_SCRIPTS_TO_QUERIES` copies them into query schedules, switched off. | Run the pending migrations. A tenant admin then switches each schedule on in the app's Queries page. |
+| Saving or running a query answers that you are not authorized, or a read source is refused | The upgrade data's `JEXL_*` artifact groups, read sources and grants are not loaded. moqui-jexl's own seed is type `seed`, which the upgrade-data load skips. | Load the 3.4.0 upgrade data, which carries a `darpan-seed` copy. |
+| Scheduled query emails are refused by the mail server, or arrive from the wrong address | `jexl_email_from` is unset or names an address the server may not send from. | Set `jexl_email_from` (environment variable or `-D` property) and restart. |
+| Query schedules never run on a node | `jexl_deployment_check_seconds` is `0`, or `scheduled_job_check_time` is `0` on that node, which holds them. | Run query schedules on the scheduler node. |
 | Interactive run extracts older than 7 days are gone after the deploy | Expected. From 3.4.0 the extract purge also deletes interactive extracts and captured lookup answers after `darpan.purge.extract.days`. | None. Raise the setting first if you need them longer. |

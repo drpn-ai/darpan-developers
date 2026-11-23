@@ -87,6 +87,7 @@ The seed registry currently declares twelve, in sequence:
 | `NS_AUTH_ACCOUNTS` | The NetSuite account onto each NetSuite auth config. |
 | `RETIRED_JOB_PARAMETERS` | Purge jobs' retention parameters into settings, and deletion of retired job parameters. |
 | `AUTOMATION_FILTER_TABLE` | Drops the retired automation filter table (`RECONCILIATION_AUTOMATION_SOURCE_FILTER`). From 3.4.0 automations read their run's filters; until the table is dropped, its foreign key fails automation save, sync and delete over old rows. Supports a dry run. |
+| `TENANT_SCRIPTS_TO_QUERIES` | Each retired tenant script into a query and each deployment into a schedule on moqui-jexl, switched off, and deletion of the retired `scan_TenantScriptDeployments_5m` job (3.4.0). No dry run; the old rows are kept and a second run skips what exists. See [Tenant queries](/backend/tenant-queries#migration-from-scripts). |
 
 `AUTOMATION_FILTERS` (sequence 30), which copied a rule set's filters into each automation, is retired in 3.4.0: the upgrade data parks it (`enabled` = `N`), because seed loads never delete a row.
 

@@ -131,13 +131,16 @@ git clone --branch main https://github.com/drpn-ai/netsuite-darpan.git netsuite-
 git clone --branch main https://github.com/drpn-ai/darpan-hotwax.git darpan-hotwax
 git clone --branch main https://github.com/drpn-ai/database-darpan.git database-darpan
 git clone --branch main https://github.com/drpn-ai/moqui-rules.git moqui-rules
+git clone --branch main https://github.com/drpn-ai/moqui-jexl.git moqui-jexl
 cd ../..
-./gradlew :runtime:component:moqui-rules:jar
+./gradlew :runtime:component:moqui-rules:jar :runtime:component:moqui-jexl:jar
 ```
 
 `moqui-sftp` is needed by the Darpan component build and test classpath. The five Darpan components provide the core backend, Shopify integration, NetSuite integration, HotWax integration, and database sources. Without `database-darpan`, the database source that the seed data registers fails at extraction.
 
 `moqui-rules` holds decisions as data. From Darpan 3.4.0 the `darpan` build compiles against it and fails to configure without it, and Keep in Spark loads its classes at run time. Nothing else in the build triggers its jar, so build it once after cloning, and again after you pull it.
+
+`moqui-jexl` runs tenant queries. From Darpan 3.4.0 the `darpan` build compiles against it and the server does not start without it. Build its jar the same way. `./gradlew load` loads its seed, and Darpan's own `darpan-seed` carries a copy for deploys.
 
 The hosted images also carry `moqui-gql`, the component that serves the [GraphQL API](/graphql/overview). It is optional locally. If you clone it, build its jar before the first load, because nothing else in the build triggers it and the backend fails at startup without it:
 

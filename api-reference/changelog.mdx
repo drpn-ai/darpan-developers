@@ -7,7 +7,7 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2, 3.4.0 | 222 |
+| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2, 3.4.0 | 225 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
@@ -24,7 +24,7 @@ Darpan 3.0.0. Current.
 
 ### Darpan 3.4.0
 
-The facade contract stays at version 4: no method is removed, and 14 public methods are added (208 to 222). One request field is dropped and is ignored when sent (see below). One response field of an operator-only method is renamed (see below).
+The generated contract stays at version 4. 25 public methods are added and the 8 tenant script methods are removed (208 to 225): queries replace scripts. One request field is dropped and is ignored when sent (see below). One response field of an operator-only method is renamed (see below).
 
 Peak periods:
 
@@ -43,12 +43,21 @@ Audit reads:
 
 - `facade.AuditFacadeServices.get#AuditReadReport`: what one play of an audit read, grouped by endpoint and connection, with flags where a read cost more than it needed.
 
+Queries (DAR-BE-334), on the moqui-jexl component:
+
+- `facade.TenantScriptFacadeServices.list#TenantQueries`, `save#TenantQuery`, `delete#TenantQuery`, `run#TenantQuery`: the active tenant's queries, a read over what its audits keep plus a JEXL script.
+- `facade.TenantScriptFacadeServices.list#TenantQuerySchedules`, `save#TenantQuerySchedule`, `delete#TenantQuerySchedule`, `run#TenantQuerySchedule`: daily schedules that email the answer and post its summary to a chat space. Saving, deleting and running one needs tenant admin; sending by hand, its owner.
+- `facade.TenantScriptFacadeServices.get#TenantQueryCatalog` and `create#TenantQueryProposal`: what a query may read, and a proposed query checked against it and run first.
+- `facade.AgentTurnFacadeServices.send#AgentQueryTurn`: the queries page's agent (`darpan-agent`), with the page's optional `readSpecJson` and `scriptBody`.
+- Removed: `facade.TenantScriptFacadeServices.list#TenantScripts`, `save#TenantScript`, `delete#TenantScript`, `run#TenantScript`, `list#TenantScriptDeployments`, `save#TenantScriptDeployment`, `delete#TenantScriptDeployment` and `run#TenantScriptDeployment`. A client that calls one gets method not found. The 3.4.0 migration `TENANT_SCRIPTS_TO_QUERIES` copies each script into a query and each deployment into a schedule, switched off.
+- `facade.SettingsFacadeServices.get#NotificationRoutes` lists a query schedule's chat delivery as the `SCRIPT` route (its `sourceId` is the schedule's id). `set#NotificationRoute` for `SCRIPT` moves that delivery, needs tenant admin, and still refuses no space.
+
 Changed behaviour of existing methods:
 
 - `facade.ReconciliationFacadeServices.list#Automations` adds `effectiveNextStart`, `peakPeriodName` and `peakHoursUntil` to each automation, and `facade.AuditFacadeServices.get#AuditSettings` and `save#AuditSettings` add `peakHoursUntil` to `settings`.
 - `facade.AuthFacadeServices.begin#PasskeyRegistration` may leave out the code or passkey assertion within 5 minutes of a sign-in that completed two-factor, on the session it made.
 - `facade.RunConclusionFacadeServices.save#RunConclusions` accepts the condition operator `LT`, less than one number.
-- A CLI session may now call `save#RunConclusions`, `create#RunConclusionCode` and `sync#Automation`, and the new peak period and sync pulse reads. The new saves and deletes are refused to it.
+- A CLI session may now call `save#RunConclusions`, `create#RunConclusionCode` and `sync#Automation`, the new peak period and sync pulse reads, and the ten query methods in place of the script ones. The new peak period and sync pulse saves and deletes, and `send#AgentQueryTurn`, are refused to it.
 - An automation keeps no filters of its own: every run of it reads its compare scope's filters. `facade.ReconciliationFacadeServices.save#Automation` drops `sources[].excludeFilters`; a client that still sends it is not refused, and nothing is written for it. `get#Automation` sources no longer carry `excludeFilters`. `sync#Automation` no longer copies filters, and `syncStatus.changedFields` never names one.
 - `facade.AgentChangeFacadeServices.apply#AuditChange` no longer refuses an exclusion with `AUTOMATION_DRIFT`. The exclusion writes the run's filter only.
 - `facade.TenantConfigFacadeServices.preview#TenantConfigRestore` blocks a version made before 3.4.0 with `AUTOMATION_FILTERS_DIFFER` when an automation's own filters in it differ from its run's. Equal ones are dropped.

@@ -23,12 +23,13 @@ screen/
 
 | Path | Purpose |
 | --- | --- |
-| `entity/` | Moqui entity definitions: `AuthEntities.xml` (tenant membership, config sharing, tenant settings), `JsonSchemaEntities.xml`, `MappingEntities.xml`, `RuleEntities.xml`, `ReconciliationEntities.xml` (runs, steps, automations, sources, chat spaces, connector registry), `MigrationEntities.xml`, `AdminEntities.xml` (admin audit log), `JudgeEntities.xml` (the judge's decisions and parameters), `DatasetEntities.xml` (kept copies), `PeakEntities.xml` (peak periods), `SyncPulseEntities.xml` (sync pairs, samples and tracked orders), and `RulesTenantEntities.xml` (the tenant stamp on moqui-rules entities). |
+| `entity/` | Moqui entity definitions: `AuthEntities.xml` (tenant membership, config sharing, tenant settings), `JsonSchemaEntities.xml`, `MappingEntities.xml`, `RuleEntities.xml`, `ReconciliationEntities.xml` (runs, steps, automations, sources, chat spaces, connector registry), `MigrationEntities.xml`, `AdminEntities.xml` (admin audit log), `JudgeEntities.xml` (the judge's decisions and parameters), `DatasetEntities.xml` (kept copies), `PeakEntities.xml` (peak periods), `SyncPulseEntities.xml` (sync pairs, samples and tracked orders), `RulesTenantEntities.xml` (the tenant stamp on moqui-rules entities), and `QueryEntities.xml` (the tenant stamp on moqui-jexl's `jexl.script` entities). |
 | `service/facade/` | JSON-RPC facade services used by the app (`facade.*`). |
 | `service/admin/` | Operator-only services used by the admin app (`admin.*`). |
 | `service/reconciliation/` | Internal reconciliation, rule engine, automation, and notification services. |
 | `service/jsonschema/`, `service/migration/` | Internal schema and data-migration services. |
 | `service/judge/`, `service/dataset/`, `service/pulse/` | Internal judge (pair facts, decisions, replay), kept-copy and sync pulse services. |
+| `service/query/` | `QueryHostServices`: tenant queries' read sources, deliveries, moqui-jexl hooks and the scripts migration. |
 | `screen/` | Moqui screens: the `darpan.xml` entrypoint (including the CSRF token and Slack OAuth callback endpoints), legacy backend screens, and the `Migrations` operator screen. |
 | `template/` | FreeMarker templates for the legacy backend screens. |
 | `theme-library/` | CSS and assets for the legacy backend screens only. The app's UI lives in `darpan-ui`. |
@@ -53,6 +54,7 @@ Other components install beside `darpan` in the same Moqui runtime:
 | `moqui-gql` | The read-only [GraphQL API](/graphql/overview): schema, per-tenant API keys with a maximum lifetime (`gql.apiKey.maxDays`), cost limits and throttling. |
 | `moqui-sftp` | SFTP transport for file sources. |
 | `moqui-rules` | Decisions as data (`rules.*` entities, `moqui.rules.*` services) on Drools 10.2.0. Required from 3.4.0: `darpan` compiles against it, Keep in Spark loads its value checks, and the image builds its jar. See [moqui-rules and the judge](/backend/rules-and-schemas#moqui-rules-and-the-judge). |
+| `moqui-jexl` | User scripts in a sandbox (`jexl.script.*` entities, `moqui.jexl.*` services): read step, limits, schedules and deliveries. Required from 3.4.0: `darpan` compiles against it and declares `depends-on` it, so the server does not start without it, and the image builds its jar. See [Tenant queries](/backend/tenant-queries). |
 
 ## Runtime stack
 
@@ -63,6 +65,7 @@ The component uses these runtime pieces:
 - Groovy helpers for dense processing
 - Apache Spark SQL for file and dataset comparison
 - Drools for RuleSet compilation and execution, and moqui-rules for Keep and judge decisions
+- moqui-jexl (Apache Commons JEXL) for tenant queries
 - webauthn4j for passkey and security-key sign-in
 - JSON Schema, JSONPath, and schema inference libraries
 - MySQL Connector/J and the PostgreSQL JDBC driver

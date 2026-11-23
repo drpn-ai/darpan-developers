@@ -88,6 +88,8 @@ Entity filters: the `DARPAN_ACTIVE_COMPANY_SCOPE` entity filter set, in `data/Se
 
 The moqui-rules entities (`rules.*`) are under the same filter, through the `companyUserGroupId` field Darpan adds to each. Because a filter does not cover a write by primary key, or any write with authorization disabled, an entity ECA guards every create, update and delete of a `rules.*` row as well: the row is stamped with the active tenant, or with its parent's, and a write to another tenant's row is refused as not found. See [moqui-rules and the judge](/backend/rules-and-schemas#moqui-rules-and-the-judge).
 
+moqui-jexl's `jexl.script.UserScript`, `UserScriptDeployment` and `UserScriptRun` are under the same filter through the `companyUserGroupId` field `entity/QueryEntities.xml` adds. moqui-jexl sets that field only through its `ownerFields`, never changes it on an existing row, and asks Darpan to approve it (the caller's active tenant only). A query's reads and deliveries run as its owner in a fresh context with no active tenant, so Darpan's sources take the tenant from the saved query, check the owner is a member, and read with explicit tenant conditions. See [Tenant queries](/backend/tenant-queries).
+
 One Moqui behaviour to know: when a find specifies the complete primary key, `one()` takes the primary-key lookup path, and other conditions on the same find are not applied. A tenant condition next to a full primary key does not restrict the result. Use `findOneOwnedByTenant`, or compare `companyUserGroupId` on the returned row.
 
 Tests guard these rules:

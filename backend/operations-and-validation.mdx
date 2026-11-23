@@ -22,6 +22,7 @@ Run the narrowest check that covers your change first, then widen.
 | Run the `@SharedMoqui` classes, several to a JVM | `./gradlew :runtime:component:darpan:smokeSharedTest` |
 | Run the full suite as the three pools above | `./gradlew :runtime:component:darpan:testAll` |
 | Run the moqui-rules suite | `./gradlew :runtime:component:moqui-rules:test` |
+| Run the moqui-jexl suite | `./gradlew :runtime:component:moqui-jexl:test` |
 | Run the full suite, one JVM per class | `./gradlew :runtime:component:darpan:test` |
 | Run the MySQL-only tests (needs a local `darpan_test` MySQL database) | `./gradlew :runtime:component:darpan:mysqlTest` |
 | Compile the Darpan backend component | `./gradlew :runtime:component:darpan:compileGroovy` |
@@ -52,6 +53,7 @@ Every mutable static in `src/main` has a `static void resetForTests()` that puts
 | Comparison | Apache Spark SQL 4.2.1 (Scala 2.13, ANSI mode on); every embedded `SparkSession` sets `spark.ui.enabled=false` |
 | Rules | Drools 10.2.0 (`drools-engine`, `drools-mvel`, `drools-xml-support`, `kie-api`), with MVEL 2.5.2.Final |
 | Rules component | `moqui-rules` 0.2.0, on Drools 10.2.0's executable model. `darpan` compiles against it (`compileOnly`), and Spark loads its value checks at run time, so the component must be in the runtime with its jar built. |
+| Query component | `moqui-jexl` 0.2.2, on Apache Commons JEXL 3.7.1 (Apache-2.0), which moved from `darpan`'s own dependencies to the component in 3.4.0. `darpan` compiles against it (`compileOnly`) and declares `depends-on`, so the component must be in the runtime with its jar built. |
 | Passkeys | webauthn4j-core 0.30.3 (with jackson-dataformat-cbor), Apache-2.0 |
 | MySQL driver | Connector/J 9.7.0; deployments use the `mysql8` database configuration |
 | PostgreSQL driver | 42.7.7 |

@@ -1,0 +1,94 @@
+---
+title: "Tenant queries"
+description: "How Darpan runs tenant queries on the moqui-jexl component: the jexl.script entities and Darpan's tenant extension, the read sources, deliveries, owner checks, settings and the 3.4.0 migration from scripts."
+---
+
+From 3.4.0 a tenant's query (before 3.4.0, a script) runs on [`moqui-jexl`](https://github.com/drpn-ai/moqui-jexl), a separate Moqui component with no Darpan code. moqui-jexl stores and runs scripts in a sandbox, reads their inputs, and schedules and delivers them. Darpan adds the tenant, three read sources over what audits keep, two deliveries, and the facade the app calls. Darpan's own engine (`darpan.script.*`) is deleted.
+
+## The component
+
+| Piece | What it is |
+| --- | --- |
+| Version | `moqui-jexl` 0.2.2 on Apache Commons JEXL 3.7.1. `darpan` compiles against it (`compileOnly`) and declares `depends-on name="moqui-jexl"` in `component.xml`, so the server does not start without it. The `commons-jexl3` dependency moved from `darpan` to `moqui-jexl`. |
+| Sandbox | `org.moqui.jexl.ScriptSupervisor`. A script sees `input` (plain values) and the `fn:` library (`ScriptLibrary`): no host objects, no method calls, no I/O, no clock. Every run has a work budget, a time limit, caps on text, list and number size, and a memory check. See [Query functions](/tenant-queries/functions). |
+| Profiles | `ScriptProfiles`: `EXPRESSION`, `SCRIPT`, and Darpan's `QUERY`, which every query uses. |
+| Lane | `ScriptLane`: a few threads, one run at a time per owner key (Darpan passes the tenant), a capped queue, holds while the server is busy, and stuck-run handling. |
+| Read step | A read spec (JSON, up to 10 inputs) names a source per input; `org.moqui.jexl.script.ReadConditions` applies `where`, `window`, `groupBy`, `measures` and `orderBy` in memory. Darpan lists no entities in `JEXL_READABLE`, so the built-in `entity` source reads nothing in Darpan. |
+| Scheduler | `ScriptDeploymentToolFactory` checks for due deployments every `jexl_deployment_check_seconds` (60) on the factory's scheduled executor, after a 120-second delay. It is not a `ServiceJob`. |
+| Screens | User Scripts in the Moqui Tools app. Darpan's users work through the app's Queries pages instead. |
+
+## Entities
+
+moqui-jexl's entities are in the `jexl.script` package, not `moqui.*`, so entity filters apply to them.
+
+| Entity | Purpose |
+| --- | --- |
+| `UserScript` | A query: `scriptName`, `scriptBody`, `scriptProfile` (`QUERY`), `readSpecJson`, `sampleInputJson`, `ownerUserId`, `isActive`. |
+| `UserScriptDeployment` | A schedule: `cronExpression`, `timeZone`, `ownerUserId` (required), `isActive`, next and last run with status and message. |
+| `UserScriptDeploymentDelivery` | One delivery of a schedule: `deliverySeqId`, `deliveryServiceName`, `parametersJson`, `isActive`, `lastOutcome`, `lastMessage`. |
+| `UserScriptRun` | One real run's record. Kept `jexl_run_retention_days` (30). |
+| `ScriptSource` | A registered read source: `sourceName` and the service that implements it. |
+
+`entity/QueryEntities.xml` adds `companyUserGroupId` (not null, indexed) to `UserScript` and `UserScriptDeployment`, and to `UserScriptRun`, which copies its deployment's. The filters `DARPAN_SCOPE_JEXL_SCRIPT`, `DARPAN_SCOPE_JEXL_DEPLOYMENT` and `DARPAN_SCOPE_JEXL_RUN` put the three in `DARPAN_ACTIVE_COMPANY_SCOPE`. The tenant is set through moqui-jexl's `ownerFields` on store: an existing row's owner fields never change, and `query.QueryHostServices.check#QueryOwnerFields` refuses a value other than the caller's active tenant. Every read in `darpan.query.TenantQuerySupport` also names the tenant.
+
+The retired `darpan.script.TenantScript` and `TenantScriptDeployment` definitions and their `DARPAN_SCOPE_TENANT_SCRIPT*` filters stay only for the migration to read. They are to be dropped once `TENANT_SCRIPTS_TO_QUERIES` has run on every instance.
+
+## Darpan's hooks
+
+`MoquiConf.xml` sets these default properties:
+
+| Setting | Darpan's value |
+| --- | --- |
+| `jexl_profiles`, `jexl_profile_QUERY_*` | `QUERY`, starting from `SCRIPT`: `maxReadRows` 20,000, `maxInputValues` 2,000,000, `maxCollectionSize` 20,000, `units` 5,000,000, `timeoutMs` 10,000. Other limits keep `SCRIPT`'s: source 64,000 characters, text 65,536, result 65,536 characters of JSON and 20,000 values. |
+| `jexl_busy_service` | `query.QueryHostServices.get#QueryBusyReason`: queries wait while reconciliation runs are queued or at their cap (`darpan.query.QueryLoad` over `RunAdmission`), and on an instance with `scheduled_job_check_time` `0`, since moqui-jexl's scheduler does not read that setting. moqui-jexl adds its own heap and CPU holds. |
+| `jexl_owner_key_service` | `get#QueryOwnerKey`: a deployment's lane key is its tenant, so one tenant's queries run one at a time. |
+| `jexl_owner_fields_service` | `check#QueryOwnerFields`: stores only for the caller's active tenant. |
+| `jexl_owner_check_service` | `check#QueryDeploymentOwner`, asked at every run: the owner must be a current member and a `DARPAN_TENANT_ADMIN` of the schedule's tenant, or a Darpan admin. A problem is `OWNER_LOST`, and the schedule switches off. |
+| `jexl_email_from` | `DARPAN_MAIL_FROM`, else `support@drpn.ai`. |
+| `jexl_email_templates` | `JEXL_SCRIPT_RESULT,DARPAN_QUERY_RESULT`. |
+
+moqui-jexl's own checks run first at every run: the owner must exist, not be terminated or disabled, and hold `JEXL_SCRIPT_SCHEDULE`. A temporary login lockout holds the run (`HELD`) instead.
+
+## Read sources
+
+Each source implements `moqui.jexl.ScriptServices.read#ScriptSource`, is a `jexl.script.ScriptSource` row (`data/QuerySeedData.xml`), and is in `JEXL_SOURCES`, granted to `DARPAN_USER`. moqui-jexl ships its artifact groups and the `JEXL_SCRIPT_RESULT` template as type `seed`, which a Darpan deploy does not load, so `data/MoquiJexlSeedData.xml` carries the same rows as `darpan-seed` (`MoquiJexlSeedDataMirrorTests` keeps them identical).
+
+| Source | Service | Reads |
+| --- | --- | --- |
+| `dataset` | `query.QueryHostServices.read#DatasetSource` (`DatasetQuerySource`) | A tenant's kept copy of a source read, streamed from its current version (`KeptCopyStore`). Every field the input names must be in `DatasetSupport.keptFields`; one that is not is `READ_ERROR` naming it. The window is on the dataset's `windowField`. |
+| `runResult` | `read#RunResultSource` (`RunResultQuerySource`) | The newest finished result of a saved run, through the result page's tenant-checked reader, paged. Each row is the difference's scalar values, its record's, and the record's data fields, flat. |
+| `auditFindings` | `read#AuditFindingSource` (`AuditFindingQuerySource`) | One row per `darpan.audit.AuditFinding` of the audit's statements, open ones unless `includeClosed`, with a fixed field list. The window is on `firstFoundDate`. |
+
+A read runs as the owner in a fresh execution context with no active tenant. `darpan.query.QuerySourceScope` takes the tenant from the saved query (`userScriptId`), or for an unsaved run from the `ownerKey` the facade passed (the active tenant), never from the read spec. It enters that tenant as the owner's requested tenant, refused unless the owner is a current member, then reads with explicit tenant conditions. A dataset, run or audit of another tenant is `READ_NOT_ALLOWED`. `QueryRows` stops at `maxRows + 1` (`READ_TOO_LARGE`) and when the lane interrupts the thread.
+
+## Deliveries
+
+Both implement `moqui.jexl.ScriptServices.deliver#UserScriptDeploymentResult`, are in `JEXL_SCRIPT_SCHEDULE`, run as the owner, and enter the query's tenant the same way. A schedule and its query must share a tenant.
+
+| Delivery | Parameters | Does |
+| --- | --- | --- |
+| `query.QueryHostServices.deliver#QueryEmail` | `toAddresses`, `ccAddresses` | Calls moqui-jexl's `deliver#ScriptEmail` with template `DARPAN_QUERY_RESULT` (screen `screen/email/QueryResult.xml`, words in `EmailCopyBlock` rows `intro`, `files`, `tooLarge`, `note`). Any address, at most 50 per schedule. On `OK` it writes one `darpan.admin.DataExportLog` row per file: resource type `SCRIPT_EMAIL`, the owner as user, and `recipients` (cut to fit 255 characters with a count of the rest). A log row that cannot be written is logged and never fails the delivery. Past `jexl_email_attachment_bytes` (20 MB) the email goes without its files (`TOO_LARGE`) and logs none. |
+| `query.QueryHostServices.deliver#QueryChat` | `chatSpaceId` | Posts the query's name and summary, and, when the schedule emails, which files go to how many people, through `TenantNotificationSupport.postToChatSpace`, which re-checks the space is the tenant's. Never files. |
+
+A query schedule's chat delivery is the `SCRIPT` route on the Notifications page (`get#NotificationRoutes`, `set#NotificationRoute`). Deleting a chat space that a schedule posts to is refused.
+
+## Facade
+
+`service/facade/TenantScriptFacadeServices.xml` keeps its file name and serves the query methods (`list#TenantQueries`, `save#TenantQuery`, `run#TenantQuery`, `list#TenantQuerySchedules`, `save#TenantQuerySchedule`, `run#TenantQuerySchedule`, `get#TenantQueryCatalog`, `create#TenantQueryProposal` and the deletes). Writing and running need tenant write access; schedules, and changing or deleting a query that has one, need `isTenantAdmin` (otherwise an editor's save would make them the owner in moqui-jexl and the owner check would switch it off). A preview (`run#TenantQuerySchedule` with `send` false) runs the saved query as the calling tenant admin; moqui-jexl's own preview is the owner's only. A draft of a saved query runs as written. Darpan grants `JEXL_SCRIPT_EDIT` and `JEXL_SCRIPT_SCHEDULE` to `DARPAN_USER` and enforces the per-tenant rule in the facade. `darpan-agent`'s `send#AgentQueryTurn` runs the `QUERY_AUTHOR` role (prompt `query-author.md`, data like the other prompts) with tools `get_query_catalog`, `propose_query` and `ask_human`. See the [service catalog](/api-reference/service-catalog).
+
+Config transfer and config versions carry queries (`SCRIPT` kind, natural key `scriptName`), their schedules by position, and each schedule's deliveries by position. A read's `savedRunId` and a delivery's `chatSpaceId` travel as refs, except a run the tenant does not have, which stays a plain id; owner, run state and delivery outcomes stay the target's. Every schedule of a query an import or restore creates or changes arrives switched off with no next run, because import and restore need only edit access. `TenantConfig.eecas.xml` records a change to the three config entities, never `UserScriptRun`.
+
+## Migration from scripts
+
+`TENANT_SCRIPTS_TO_QUERIES` (`query.QueryHostServices.migrate#TenantScriptsToQueries`, sequence 150, after `AUTOMATION_FILTER_TABLE`, no dry run) runs from the migration registry:
+
+- Each `TenantScript` becomes a `UserScript` with id `MIG_<tenantScriptId>`: same tenant, name and body, profile `QUERY`, owner its last editor. A script that read a run result gets a `runResult` read of its deployment's saved run (`fields` `bucket`, `key`), is switched off, and its description says to check it, because its input is now flat rows in `input.differences`.
+- Each `TenantScriptDeployment` becomes a `UserScriptDeployment` with id `MIG_<tenantScriptDeploymentId>`: same cron, the tenant's zone, owner its last editor, switched off, with one chat delivery to its chat space. A deployment with no user to own it is not migrated and is named in the result.
+- It deletes the retired `scan_TenantScriptDeployments_5m` job with its runs and parameters. A seed load never deletes it, and its service is gone.
+- Old rows are kept. A second run skips rows whose `MIG_` id exists.
+
+A migrated schedule runs only once a tenant admin switches it on and saves it, and so owns it.
+
+## Tests
+
+`darpan.query.*Tests`: `QueryHostSmokeTests`, `QuerySourcesSmokeTests`, `QueryDeliverySmokeTests`, `TenantQueryFacadeSmokeTests`, `QueryMigrationSmokeTests`, `QueryLoadAndDeliveryUnitTests`, `MoquiJexlSeedDataMirrorTests`, with config transfer, config version and notification route cases. Test JVMs set `jexl_hold_cpu_percent` and `jexl_hold_heap_percent` to `101` and `jexl_deployment_check_seconds` to `0`. `darpan-agent`'s `ProposeQueryTests`. moqui-jexl's own suite runs with `./gradlew :runtime:component:moqui-jexl:test`.

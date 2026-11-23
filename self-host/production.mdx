@@ -24,7 +24,7 @@ Build images only from the [darpan-docker-config](https://github.com/drpn-ai/dar
 
 | Dockerfile | Track | Components |
 | --- | --- | --- |
-| `docker/prod/Dockerfile` | Production | Each component pinned to a release tag: `darpan`, `darpan-hotwax`, `shopify-darpan`, `netsuite-darpan`, `database-darpan`, `moqui-gql`, `darpan-agent` and, from 3.4.0, `moqui-rules`. The file names the tags of the release it was cut for. |
+| `docker/prod/Dockerfile` | Production | Each component pinned to a release tag: `darpan`, `darpan-hotwax`, `shopify-darpan`, `netsuite-darpan`, `database-darpan`, `moqui-gql`, `darpan-agent` and, from 3.4.0, `moqui-rules` and `moqui-jexl`. The file names the tags of the release it was cut for. |
 | `docker/Dockerfile` | Test and CI | Every component at `main`. Use it to try unreleased work, not to serve users. |
 
 The components ship as a set. The pins in the production Dockerfile move together; changing one tag on its own can seed configuration that points at a service or field the other component does not have. Deploy all backend components and the app of one release together, the backend first: the app calls the methods its release adds.
@@ -44,10 +44,11 @@ docker build -f docker/prod/Dockerfile \
 | `REQUIRE_PINNED_BASE=1` | Fails the build unless `BASE_IMAGE` is digest-pinned. |
 | `MOQUI_FRAMEWORK_REF` | Defaults to the `master` branch of the `drpn-ai/moqui-framework` fork, which moves. For a byte-identical rebuild, pass an immutable commit. Darpan 3.1.0 and later need a commit with PBKDF2 password hashing and the password-only sign-in closures. |
 | `MOQUI_RULES_REF` | The `drpn-ai/moqui-rules` ref to clone. Keep the one the file names: `darpan` 3.4.0 does not build without moqui-rules, and the two move together. |
+| `MOQUI_JEXL_REF` | The `drpn-ai/moqui-jexl` tag to clone, `v0.2.2` for 3.4.0 in both Dockerfiles. Keep the one the file names: `darpan` 3.4.0 does not start without moqui-jexl. |
 
 The cloned repositories are public, so the build needs no credentials. If you build from private forks, pass a netrc file as a BuildKit secret (`--secret id=netrc,src=<file>`). Never pass credentials as build arguments; they would remain in the image history.
 
-During the build the image applies `docker/buildGradle.patch` to the framework build, builds the `moqui-gql`, `darpan-agent` and `moqui-rules` jars, and fails if the active Java is not 21. `moqui-gql` serves the [GraphQL API](/graphql/overview).
+During the build the image applies `docker/buildGradle.patch` to the framework build, builds the `moqui-gql`, `darpan-agent`, `moqui-rules` and `moqui-jexl` jars, and fails if the active Java is not 21. `moqui-gql` serves the [GraphQL API](/graphql/overview).
 
 ## Configure the container
 
@@ -80,6 +81,8 @@ The entrypoint stops with an error naming the variable if any required value is 
 | `entity_ds_crypt_pass_old` | Same as `entity_ds_crypt_pass` | Set only while rotating the encryption key: the outgoing key goes here and the new key in `entity_ds_crypt_pass`, so values written under either can be read. |
 | `entity_ds_use_ssl` | `true` | TLS to MySQL. Set `false` only for a database that cannot terminate TLS. |
 | `entity_ds_allow_pubkey` | `false` | Public-key retrieval. Needed only for `caching_sha2_password` over a non-TLS connection. |
+| `jexl_email_from` | `DARPAN_MAIL_FROM`, else `support@drpn.ai` | The From address of scheduled query emails. Set it to an address your mail server may send from. Also readable as a `-D` property. |
+| `jexl_deployment_check_seconds` | `60` | How often this node runs due query schedules. `0` turns query schedules off on the node. With `scheduled_job_check_time` `0` the node holds them anyway. |
 | `DARPAN_LOAD_UPGRADE_DATA` | `Y` | Whether the container loads Darpan's reference data on start: every data file of type `darpan-seed`. It never loads files of other types, such as moqui-rules' `seed` file. See [Upgrade](#upgrade). |
 
 Some settings are JVM system properties. Add them to `JAVA_OPTS` as `-D<name>=<value>`:
@@ -147,15 +150,16 @@ Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists any
 
 ### Upgrading to 3.4.0
 
-3.4.0 runs Keep, the step that sets records aside, in Spark after every read instead of in each connector's extractor, and adds peak periods, the sync pulse, kept copies of a source and the moqui-rules component. The upgrade data is a delta on 3.3.2. New tables (`RULES_*`, `DATASET`, `DATASET_READ`, `PEAK_PERIOD`, `PEAK_PERIOD_RUN_TIME`, `SYNC_PAIR`, `PEAK_PERIOD_SYNC`, `SYNC_PULSE_SAMPLE`, `SYNC_PULSE_ORDER`, the judge tables) and new columns on existing tables are created on boot.
+3.4.0 runs Keep, the step that sets records aside, in Spark after every read instead of in each connector's extractor, and adds peak periods, the sync pulse, kept copies of a source, the moqui-rules component, and tenant queries on the moqui-jexl component. The upgrade data is a delta on 3.3.2. New tables (`RULES_*`, the `jexl.script` tables (`USER_SCRIPT`, `USER_SCRIPT_DEPLOYMENT`, `USER_SCRIPT_DEPLOYMENT_DELIVERY`, `USER_SCRIPT_RUN`, `SCRIPT_SOURCE`), `DATASET`, `DATASET_READ`, `PEAK_PERIOD`, `PEAK_PERIOD_RUN_TIME`, `SYNC_PAIR`, `PEAK_PERIOD_SYNC`, `SYNC_PULSE_SAMPLE`, `SYNC_PULSE_ORDER`, the judge tables) and new columns on existing tables are created on boot.
 
-1. **Build the set** from `darpan-docker-config` at its 3.4.0 tag. It clones and builds `moqui-rules`; a `darpan` 3.4.0 ref does not build without it. Every connector component moves with `darpan`, because their extractors no longer filter.
+1. **Build the set** from `darpan-docker-config` at its 3.4.0 tag. It clones and builds `moqui-rules` and `moqui-jexl` (`MOQUI_JEXL_REF` `v0.2.2`); a `darpan` 3.4.0 ref does not build without moqui-rules and does not start without moqui-jexl. Every connector component moves with `darpan`, because their extractors no longer filter.
 2. **Set `JAVA_OPTS`** on the container. The entrypoint now stops without it.
 3. **On MySQL, check two column types after the first boot.** `SOURCE_SYSTEM_CONNECTOR.KEEP_LINES_JSON` and `DATASET.KEPT_FIELDS_JSON` must be `LONGTEXT`. Moqui adds a missing column with the right type but never changes the type of an existing one, so a database that ran a pre-release 3.4.0 build may hold them narrower. Widen them with `ALTER TABLE SOURCE_SYSTEM_CONNECTOR MODIFY KEEP_LINES_JSON LONGTEXT` and `ALTER TABLE DATASET MODIFY KEPT_FIELDS_JSON LONGTEXT`. `SOURCE_SYSTEM_CONNECTOR.LOOKUP_MAX_IDS` is no longer read; it stays.
-4. **Load the upgrade data** with `loadDarpanUpgradeData`, as above. Loading by the `darpan-seed` type (the entrypoint's default) also loads each connector's built-in Keep lines, which `darpan-hotwax`, `netsuite-darpan` and `shopify-darpan` seed in their own `darpan-seed` files; until they are loaded, a run side that Spark keeps fails with "Keep lines (keepLinesJson) are not loaded". The upgrade data carries the tenant filters and artifact group rows for the new entities, the sync pulse status values and the new jobs.
+4. **Load the upgrade data** with `loadDarpanUpgradeData`, as above. Loading by the `darpan-seed` type (the entrypoint's default) also loads each connector's built-in Keep lines, which `darpan-hotwax`, `netsuite-darpan` and `shopify-darpan` seed in their own `darpan-seed` files; until they are loaded, a run side that Spark keeps fails with "Keep lines (keepLinesJson) are not loaded". The upgrade data carries the tenant filters and artifact group rows for the new entities, the sync pulse status values and the new jobs. For queries the `darpan-seed` files carry the `jexl.script` tenant filters, the read sources, the `JEXL_*` artifact groups and their grants to `DARPAN_USER` (moqui-jexl's own seed is type `seed`, so Darpan carries a copy as `darpan-seed`), the `DARPAN_QUERY_RESULT` email template and its copy, and the `TENANT_SCRIPTS_TO_QUERIES` registry row.
 5. **moqui-rules' seed comes with the upgrade data.** Its `data/RuleSeedData.xml` is type `seed`, which `DARPAN_LOAD_UPGRADE_DATA` does not load, so the 3.4.0 upgrade data carries a verbatim copy of its rows. Without them, generating a check's pair fact type fails on a foreign key to `FVT_TEXT`.
-6. **Run the pending migrations right after the load** (`run#PendingMigrations`, from the **Migrations** screen as above). `AUTOMATION_FILTER_TABLE` drops `RECONCILIATION_AUTOMATION_SOURCE_FILTER`, the retired table of automations' own filter copies; a dry run counts its rows. Until it runs, saving, syncing or deleting an automation that still has rows there fails on that table's foreign key. Scheduled runs are unaffected. The upgrade data also parks the retired `AUTOMATION_FILTERS` migration.
-7. **Deploy `darpan-ui` after the backend.**
+6. **Run the pending migrations right after the load** (`run#PendingMigrations`, from the **Migrations** screen as above). `AUTOMATION_FILTER_TABLE` drops `RECONCILIATION_AUTOMATION_SOURCE_FILTER`, the retired table of automations' own filter copies; a dry run counts its rows. Until it runs, saving, syncing or deleting an automation that still has rows there fails on that table's foreign key. Scheduled runs are unaffected. The upgrade data also parks the retired `AUTOMATION_FILTERS` migration. `TENANT_SCRIPTS_TO_QUERIES` then copies every tenant script into a query and every deployment into a schedule, switched off, and deletes the retired `scan_TenantScriptDeployments_5m` job. It has no dry run, keeps the old rows, and skips what it already copied, so a second run is safe. Until it runs, no old scheduled script posts: its engine is gone.
+7. **Set `jexl_email_from`** to an address your mail server may send from, or scheduled query emails use the default (`DARPAN_MAIL_FROM`, else `support@drpn.ai`).
+8. **Deploy `darpan-ui` after the backend.**
 
 What changes on its own after the deploy:
 
@@ -164,8 +168,10 @@ What changes on its own after the deploy:
 - Automations keep no filters of their own. Every scheduled, audit and sync pulse run reads its compare scope's filters, so an edit on the run reaches the next scheduled run without a sync.
 - `run_SyncPulse` is seeded running and does nothing until a tenant gives a sync pair a pulse cadence. Sync pulse samples are kept 30 days, but only while `run_DataRetention_daily` runs; it is seeded paused, so resume it on an instance with sync pairs.
 - `scan_DueDatasets_30m` is seeded paused. No dataset reads a source until it is resumed and a dataset is active.
+- moqui-jexl's scheduler checks for due query schedules every 60 seconds on every node, starting two minutes after boot. It is not a service job: `jexl_deployment_check_seconds` `0` turns it off on a node. A node with `scheduled_job_check_time` `0` holds query schedules too.
+- Migrated query schedules stay off until a tenant admin switches each on. The old `darpan.script` tables stay until a later release drops them.
 
-To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored.
+To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored. The old scripts' rows are still there, but `TENANT_SCRIPTS_TO_QUERIES` deleted their five-minute job: the 3.3.2 seed load brings it back. Changes made to queries since are not carried back.
 
 ### Upgrading to 3.2.0
 

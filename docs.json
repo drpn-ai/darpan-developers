@@ -202,13 +202,13 @@
         ]
       },
       {
-        "tab": "Scripts",
+        "tab": "Queries",
         "icon": "code",
         "groups": [
           {
             "group": "Reference",
             "pages": [
-              "tenant-scripts/functions"
+              "tenant-queries/functions"
             ]
           }
         ]
@@ -239,6 +239,7 @@
               "backend/service-layer",
               "backend/reconciliation-engine",
               "backend/rules-and-schemas",
+              "backend/tenant-queries",
               "backend/data-access-and-tenancy",
               "backend/migrations",
               "backend/operations-and-validation"
@@ -285,6 +286,10 @@
     }
   },
   "redirects": [
+    {
+      "source": "/tenant-scripts/functions",
+      "destination": "/tenant-queries/functions"
+    },
     {
       "source": "/getting-started/set-up-darpan-independently",
       "destination": "/self-host/set-up-darpan-independently"
