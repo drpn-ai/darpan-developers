@@ -44,7 +44,7 @@ The retired `darpan.script.TenantScript` and `TenantScriptDeployment` definition
 | `jexl_owner_key_service` | `get#QueryOwnerKey`: a deployment's lane key is its tenant, so one tenant's queries run one at a time. |
 | `jexl_owner_fields_service` | `check#QueryOwnerFields`: stores only for the caller's active tenant. |
 | `jexl_owner_check_service` | `check#QueryDeploymentOwner`, asked at every run: the owner must be a current member and a `DARPAN_TENANT_ADMIN` of the schedule's tenant, or a Darpan admin. A problem is `OWNER_LOST`, and the schedule switches off. |
-| `jexl_email_from` | `DARPAN_MAIL_FROM`, else `support@drpn.ai`. |
+| `jexl_email_from` | Only moqui-jexl's built-in `JEXL_SCRIPT_RESULT` template, which Darpan does not use. Darpan's `DARPAN_QUERY_RESULT` email sends from `DARPAN_MAIL_FROM`, else `support@drpn.ai`. |
 | `jexl_email_templates` | `JEXL_SCRIPT_RESULT,DARPAN_QUERY_RESULT`. |
 
 moqui-jexl's own checks run first at every run: the owner must exist, not be terminated or disabled, and hold `JEXL_SCRIPT_SCHEDULE`. A temporary login lockout holds the run (`HELD`) instead.
