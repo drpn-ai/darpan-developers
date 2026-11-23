@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Darpan Facade API",
-    "version": "3.3.2",
+    "version": "3.4.0",
     "x-darpan-contract-version": 4,
-    "description": "Public copy of the darpan v3.3.2 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
+    "description": "Public copy of the darpan v3.4.0 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
   },
   "servers": [
     {
@@ -76,6 +76,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/GetAuditProgressRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GetAuditReadReportRequest"
                   },
                   {
                     "$ref": "#/components/schemas/GetAuditReportRequest"
@@ -301,6 +304,30 @@
                   },
                   {
                     "$ref": "#/components/schemas/SaveNsSuiteQlSourceQueryRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeletePeakPeriodRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeletePeakPeriodRunTimeRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeletePeakPeriodSyncRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GetPeakPeriodRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ListPeakPeriodsRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SavePeakPeriodRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SavePeakPeriodRunTimeRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SavePeakPeriodSyncRequest"
                   },
                   {
                     "$ref": "#/components/schemas/ArchiveAutomationRequest"
@@ -609,6 +636,21 @@
                     "$ref": "#/components/schemas/StoreSourceConfigEndpointAccessRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/DeleteSyncPairRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GetRunPulseFlagsRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GetSyncPairRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ListSyncPairsRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SaveSyncPairRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/GetTenantConfigVersionRequest"
                   },
                   {
@@ -669,6 +711,7 @@
                     "facade.AuditFacadeServices.get#AuditFinding": "#/components/schemas/GetAuditFindingRequest",
                     "facade.AuditFacadeServices.get#AuditFindingsByOrder": "#/components/schemas/GetAuditFindingsByOrderRequest",
                     "facade.AuditFacadeServices.get#AuditProgress": "#/components/schemas/GetAuditProgressRequest",
+                    "facade.AuditFacadeServices.get#AuditReadReport": "#/components/schemas/GetAuditReadReportRequest",
                     "facade.AuditFacadeServices.get#AuditReport": "#/components/schemas/GetAuditReportRequest",
                     "facade.AuditFacadeServices.get#AuditSettings": "#/components/schemas/GetAuditSettingsRequest",
                     "facade.AuditFacadeServices.get#Audits": "#/components/schemas/GetAuditsRequest",
@@ -744,6 +787,14 @@
                     "facade.NetSuiteQueryFacadeServices.preview#NsSuiteQlSourceQuery": "#/components/schemas/PreviewNsSuiteQlSourceQueryRequest",
                     "facade.NetSuiteQueryFacadeServices.run#NsSuiteQlAgentQuery": "#/components/schemas/RunNsSuiteQlAgentQueryRequest",
                     "facade.NetSuiteQueryFacadeServices.save#NsSuiteQlSourceQuery": "#/components/schemas/SaveNsSuiteQlSourceQueryRequest",
+                    "facade.PeakPeriodFacadeServices.delete#PeakPeriod": "#/components/schemas/DeletePeakPeriodRequest",
+                    "facade.PeakPeriodFacadeServices.delete#PeakPeriodRunTime": "#/components/schemas/DeletePeakPeriodRunTimeRequest",
+                    "facade.PeakPeriodFacadeServices.delete#PeakPeriodSync": "#/components/schemas/DeletePeakPeriodSyncRequest",
+                    "facade.PeakPeriodFacadeServices.get#PeakPeriod": "#/components/schemas/GetPeakPeriodRequest",
+                    "facade.PeakPeriodFacadeServices.list#PeakPeriods": "#/components/schemas/ListPeakPeriodsRequest",
+                    "facade.PeakPeriodFacadeServices.save#PeakPeriod": "#/components/schemas/SavePeakPeriodRequest",
+                    "facade.PeakPeriodFacadeServices.save#PeakPeriodRunTime": "#/components/schemas/SavePeakPeriodRunTimeRequest",
+                    "facade.PeakPeriodFacadeServices.save#PeakPeriodSync": "#/components/schemas/SavePeakPeriodSyncRequest",
                     "facade.ReconciliationFacadeServices.archive#Automation": "#/components/schemas/ArchiveAutomationRequest",
                     "facade.ReconciliationFacadeServices.archive#SavedRun": "#/components/schemas/ArchiveSavedRunRequest",
                     "facade.ReconciliationFacadeServices.cancel#ReconciliationRun": "#/components/schemas/CancelReconciliationRunRequest",
@@ -846,6 +897,11 @@
                     "facade.SlackFacadeServices.save#SlackBotToken": "#/components/schemas/SaveSlackBotTokenRequest",
                     "facade.SourceEndpointFacadeServices.list#SourceConfigEndpoints": "#/components/schemas/ListSourceConfigEndpointsRequest",
                     "facade.SourceEndpointFacadeServices.store#SourceConfigEndpointAccess": "#/components/schemas/StoreSourceConfigEndpointAccessRequest",
+                    "facade.SyncPulseFacadeServices.delete#SyncPair": "#/components/schemas/DeleteSyncPairRequest",
+                    "facade.SyncPulseFacadeServices.get#RunPulseFlags": "#/components/schemas/GetRunPulseFlagsRequest",
+                    "facade.SyncPulseFacadeServices.get#SyncPair": "#/components/schemas/GetSyncPairRequest",
+                    "facade.SyncPulseFacadeServices.list#SyncPairs": "#/components/schemas/ListSyncPairsRequest",
+                    "facade.SyncPulseFacadeServices.save#SyncPair": "#/components/schemas/SaveSyncPairRequest",
                     "facade.TenantConfigFacadeServices.get#TenantConfigVersion": "#/components/schemas/GetTenantConfigVersionRequest",
                     "facade.TenantConfigFacadeServices.get#TenantConfigVersions": "#/components/schemas/GetTenantConfigVersionsRequest",
                     "facade.TenantConfigFacadeServices.preview#TenantConfigRestore": "#/components/schemas/PreviewTenantConfigRestoreRequest",
@@ -928,6 +984,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/GetAuditProgressResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetAuditReadReportResponse"
                     },
                     {
                       "$ref": "#/components/schemas/GetAuditReportResponse"
@@ -1153,6 +1212,30 @@
                     },
                     {
                       "$ref": "#/components/schemas/SaveNsSuiteQlSourceQueryResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeletePeakPeriodResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeletePeakPeriodRunTimeResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeletePeakPeriodSyncResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetPeakPeriodResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ListPeakPeriodsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SavePeakPeriodResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SavePeakPeriodRunTimeResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SavePeakPeriodSyncResponse"
                     },
                     {
                       "$ref": "#/components/schemas/ArchiveAutomationResponse"
@@ -1459,6 +1542,21 @@
                     },
                     {
                       "$ref": "#/components/schemas/StoreSourceConfigEndpointAccessResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeleteSyncPairResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetRunPulseFlagsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetSyncPairResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ListSyncPairsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SaveSyncPairResponse"
                     },
                     {
                       "$ref": "#/components/schemas/GetTenantConfigVersionResponse"
@@ -3417,6 +3515,111 @@
           "result"
         ]
       },
+      "GetAuditReadReportParams": {
+        "type": "object",
+        "properties": {
+          "audit": {
+            "type": "string",
+            "description": "The audit's code, e.g. month-close."
+          },
+          "date": {
+            "type": "string",
+            "description": "The morning, YYYY-MM-DD; blank is the audit's latest play."
+          },
+          "period": {
+            "type": "string",
+            "description": "The period, e.g. 2026-11; blank is every period played that morning."
+          }
+        },
+        "required": [
+          "audit"
+        ],
+        "description": "What one play of an audit read: its reads grouped by endpoint and connection (reads, records, the\n            checks that read, each read's window, the call tally), the totals, and the flags where a read cost more than it\n            needed (DUPLICATE_READ, WHOLE_PERIOD_READ, LOOKUP_OVER_SHARE, LOOKUP_EVERY_PLAY, THROTTLED, CALLS_GREW; thresholds\n            are the Audit reads settings). Empty when the audit has not played (darpan.audit.AuditReadReport)."
+      },
+      "GetAuditReadReportResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "report": {
+            "type": "object",
+            "description": "{reportDate, period, totals, groups, flags}"
+          }
+        }
+      },
+      "GetAuditReadReportRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.get#AuditReadReport",
+        "x-darpan-method": "facade.AuditFacadeServices.get#AuditReadReport",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.get#AuditReadReport"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GetAuditReadReportParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "GetAuditReadReportResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.get#AuditReadReport. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/GetAuditReadReportResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "GetAuditReportParams": {
         "type": "object",
         "properties": {
@@ -3554,7 +3757,7 @@
           },
           "settings": {
             "type": "object",
-            "description": "{audit: {id, name, period}, playableFrom: YYYY-MM-DD (the earliest\n                day play can record today), schedule: {active, time HH:mm,\n                timeZone, mixed (some check's automation is off the audit's schedule; saving puts it on), automations,\n                checksWithoutRun}, statements: [{id, code, text, active, checks: [{id, label, savedRunId, runName}]}],\n                runEmail: {active, alsoSendTo: [address], members (how many accounts receive it by default: current tenant\n                members and Darpan admins), admins (how many of those are Darpan admins), chatSpaceId or null, canEdit (the caller\n                is a tenant admin; others see it read-only)} (DAR-BE-207:\n                the update emailed after each run to the members and admins, plus alsoSendTo)}"
+            "description": "{audit: {id, name, period}, peakHoursUntil: ISO instant (only while now is inside the tenant's peak hours; DAR-BE-328), playableFrom: YYYY-MM-DD (the earliest\n                day play can record today), schedule: {active, time HH:mm,\n                timeZone, mixed (some check's automation is off the audit's schedule; saving puts it on), automations,\n                checksWithoutRun}, statements: [{id, code, text, active, checks: [{id, label, savedRunId, runName}]}],\n                runEmail: {active, alsoSendTo: [address], members (how many accounts receive it by default: current tenant\n                members and Darpan admins), admins (how many of those are Darpan admins), chatSpaceId or null, canEdit (the caller\n                is a tenant admin; others see it read-only)} (DAR-BE-207:\n                the update emailed after each run to the members and admins, plus alsoSendTo)}"
           }
         }
       },
@@ -4112,7 +4315,7 @@
           },
           "settings": {
             "type": "object",
-            "description": "{audit: {id, name, period}, playableFrom: YYYY-MM-DD (the earliest\n                day play can record today), schedule: {active, time HH:mm,\n                timeZone, mixed, automations, checksWithoutRun}, statements: [{id, code, text, active, checks: [{id, label,\n                savedRunId, runName}]}], runEmail: {active, alsoSendTo, members, admins, chatSpaceId, canEdit}}"
+            "description": "{audit: {id, name, period}, peakHoursUntil: ISO instant (only while now is inside the tenant's peak hours; DAR-BE-328), playableFrom: YYYY-MM-DD (the earliest\n                day play can record today), schedule: {active, time HH:mm,\n                timeZone, mixed, automations, checksWithoutRun}, statements: [{id, code, text, active, checks: [{id, label,\n                savedRunId, runName}]}], runEmail: {active, alsoSendTo, members, admins, chatSpaceId, canEdit}}"
           }
         }
       },
@@ -4490,14 +4693,14 @@
           },
           "code": {
             "type": "string",
-            "description": "Signed in, two-factor on: a current code from the app."
+            "description": "Signed in, two-factor on: a current code from the app. Leave out within 5 minutes of a two-factor sign-in on this session."
           },
           "passkeyAssertion": {
             "type": "string",
-            "description": "Signed in, two-factor on: instead of code, a passkey assertion over begin#PasskeyProof's options."
+            "description": "Signed in, two-factor on: instead of code, a passkey assertion over begin#PasskeyProof's options. Leave out within 5 minutes of a two-factor sign-in on this session."
           }
         },
-        "description": "DAR-BE-270. Creation options for a new passkey. Either signed in (no two-factor yet: currentPassword;\n            with two-factor on: a code or a passkey assertion), or with a setup challengeToken from login#Session\n            (twoFactorSetupRequired). Finish within 5 minutes with finish#PasskeyRegistration. Up to 10 passkeys."
+        "description": "DAR-BE-270. Creation options for a new passkey. Either signed in (no two-factor yet: currentPassword;\n            with two-factor on: a code or a passkey assertion), or with a setup challengeToken from login#Session\n            (twoFactorSetupRequired). DAR-UI-132: within 5 minutes of a sign-in that completed two-factor\n            (verify#SignInCode, finish#PasskeyFirstSignIn), on the session it made, the code or passkey assertion may be\n            left out: that sign-in is the proof. For adding a passkey only. Finish within 5 minutes with\n            finish#PasskeyRegistration. Up to 10 passkeys."
       },
       "BeginPasskeyRegistrationResult": {
         "type": "object",
@@ -13442,6 +13645,964 @@
           "result"
         ]
       },
+      "DeletePeakPeriodParams": {
+        "type": "object",
+        "properties": {
+          "peakPeriodId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "peakPeriodId"
+        ],
+        "description": "Delete a peak period, its run times and its sync overrides."
+      },
+      "DeletePeakPeriodResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeletePeakPeriodRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.delete#PeakPeriod",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.delete#PeakPeriod",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.delete#PeakPeriod"
+          },
+          "params": {
+            "$ref": "#/components/schemas/DeletePeakPeriodParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "DeletePeakPeriodResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.delete#PeakPeriod. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/DeletePeakPeriodResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "DeletePeakPeriodRunTimeParams": {
+        "type": "object",
+        "properties": {
+          "runTimeId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "runTimeId"
+        ],
+        "description": "Delete one run-time move of a peak period."
+      },
+      "DeletePeakPeriodRunTimeResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeletePeakPeriodRunTimeRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.delete#PeakPeriodRunTime",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.delete#PeakPeriodRunTime",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.delete#PeakPeriodRunTime"
+          },
+          "params": {
+            "$ref": "#/components/schemas/DeletePeakPeriodRunTimeParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "DeletePeakPeriodRunTimeResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.delete#PeakPeriodRunTime. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/DeletePeakPeriodRunTimeResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "DeletePeakPeriodSyncParams": {
+        "type": "object",
+        "properties": {
+          "peakPeriodId": {
+            "type": "string"
+          },
+          "syncPairId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "peakPeriodId",
+          "syncPairId"
+        ],
+        "description": "Remove one sync pair's override for a peak period; a missing override is fine."
+      },
+      "DeletePeakPeriodSyncResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeletePeakPeriodSyncRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.delete#PeakPeriodSync",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.delete#PeakPeriodSync",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.delete#PeakPeriodSync"
+          },
+          "params": {
+            "$ref": "#/components/schemas/DeletePeakPeriodSyncParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "DeletePeakPeriodSyncResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.delete#PeakPeriodSync. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/DeletePeakPeriodSyncResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "GetPeakPeriodParams": {
+        "type": "object",
+        "properties": {
+          "peakPeriodId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "peakPeriodId"
+        ],
+        "description": "One peak period with its run-time moves, the runs its peak hours or a sync lag allowance hold, and the runs a move can name."
+      },
+      "GetPeakPeriodResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "peakPeriod": {
+            "type": "object",
+            "properties": {
+              "peakPeriodId": {
+                "type": "string"
+              },
+              "periodName": {
+                "type": "string"
+              },
+              "fromDate": {
+                "type": "string"
+              },
+              "thruDate": {
+                "type": "string"
+              },
+              "peakHoursStart": {
+                "type": "string"
+              },
+              "peakHoursEnd": {
+                "type": "string"
+              },
+              "hotwaxReadSharePct": {
+                "type": "integer"
+              },
+              "netsuiteSerial": {
+                "type": "string"
+              },
+              "isActive": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "timeZone": {
+                "type": "string"
+              },
+              "createdByUserId": {
+                "type": "string"
+              },
+              "lastUpdatedDate": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds"
+              }
+            }
+          },
+          "runTimes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runTimeId": {
+                  "type": "string"
+                },
+                "automationId": {
+                  "type": "string"
+                },
+                "auditId": {
+                  "type": "string"
+                },
+                "targetLabel": {
+                  "type": "string"
+                },
+                "onDate": {
+                  "type": "string"
+                },
+                "runTime": {
+                  "type": "string"
+                },
+                "normalTime": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "heldRuns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "targetLabel": {
+                  "type": "string"
+                },
+                "normalTime": {
+                  "type": "string"
+                },
+                "startsAt": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "automationId": {
+                  "type": "string"
+                },
+                "auditId": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "syncRows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "syncPairId": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "normalAllowanceMinutes": {
+                  "type": "integer"
+                },
+                "periodAllowanceMinutes": {
+                  "type": "integer"
+                },
+                "normalPulseMinutes": {
+                  "type": "integer"
+                },
+                "periodPulseMinutes": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "GetPeakPeriodRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.get#PeakPeriod",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.get#PeakPeriod",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.get#PeakPeriod"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GetPeakPeriodParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "GetPeakPeriodResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.get#PeakPeriod. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/GetPeakPeriodResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "ListPeakPeriodsParams": {
+        "type": "object",
+        "properties": {},
+        "description": "List the active tenant's peak periods with their state (upcoming, on, off, ended) in the tenant's local today."
+      },
+      "ListPeakPeriodsResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "peakPeriods": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "peakPeriodId": {
+                  "type": "string"
+                },
+                "periodName": {
+                  "type": "string"
+                },
+                "fromDate": {
+                  "type": "string"
+                },
+                "thruDate": {
+                  "type": "string"
+                },
+                "isActive": {
+                  "type": "string"
+                },
+                "state": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ListPeakPeriodsRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.list#PeakPeriods",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.list#PeakPeriods",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.list#PeakPeriods"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ListPeakPeriodsParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "ListPeakPeriodsResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.list#PeakPeriods. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/ListPeakPeriodsResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "SavePeakPeriodParams": {
+        "type": "object",
+        "properties": {
+          "peakPeriodId": {
+            "type": "string"
+          },
+          "periodName": {
+            "type": "string"
+          },
+          "fromDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "thruDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "peakHoursStart": {
+            "type": "string"
+          },
+          "peakHoursEnd": {
+            "type": "string"
+          },
+          "hotwaxReadSharePct": {
+            "type": "integer"
+          },
+          "netsuiteSerial": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "description": "Create or update one peak period for the active tenant. Peak hours are both set or both blank; active periods may not overlap. An omitted hotwaxReadSharePct clears the share, as omitted peak hours clear the hours; an omitted netsuiteSerial keeps the stored value."
+      },
+      "SavePeakPeriodResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "peakPeriodId": {
+            "type": "string"
+          }
+        }
+      },
+      "SavePeakPeriodRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.save#PeakPeriod",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.save#PeakPeriod",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.save#PeakPeriod"
+          },
+          "params": {
+            "$ref": "#/components/schemas/SavePeakPeriodParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "SavePeakPeriodResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.save#PeakPeriod. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/SavePeakPeriodResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "SavePeakPeriodRunTimeParams": {
+        "type": "object",
+        "properties": {
+          "runTimeId": {
+            "type": "string"
+          },
+          "peakPeriodId": {
+            "type": "string"
+          },
+          "automationId": {
+            "type": "string"
+          },
+          "auditId": {
+            "type": "string"
+          },
+          "onDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "runTime": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "peakPeriodId"
+        ],
+        "description": "Create or update one run-time move of a peak period: a run (an automation or an audit) starts at runTime on onDate, or on every day of the period when onDate is blank."
+      },
+      "SavePeakPeriodRunTimeResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "runTimeId": {
+            "type": "string"
+          }
+        }
+      },
+      "SavePeakPeriodRunTimeRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.save#PeakPeriodRunTime",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.save#PeakPeriodRunTime",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.save#PeakPeriodRunTime"
+          },
+          "params": {
+            "$ref": "#/components/schemas/SavePeakPeriodRunTimeParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "SavePeakPeriodRunTimeResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.save#PeakPeriodRunTime. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/SavePeakPeriodRunTimeResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "SavePeakPeriodSyncParams": {
+        "type": "object",
+        "properties": {
+          "peakPeriodId": {
+            "type": "string"
+          },
+          "syncPairId": {
+            "type": "string"
+          },
+          "allowanceMinutes": {
+            "type": "integer"
+          },
+          "pulseEveryMinutes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "peakPeriodId",
+          "syncPairId"
+        ],
+        "description": "Replace one sync pair's override for a peak period. Allowance (15 minutes to 48 hours) and pulse (0, 60, 120, 180, 240 or 360 minutes; 0 is off for the period) are each null for normal; an omitted value clears that field."
+      },
+      "SavePeakPeriodSyncResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SavePeakPeriodSyncRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.PeakPeriodFacadeServices.save#PeakPeriodSync",
+        "x-darpan-method": "facade.PeakPeriodFacadeServices.save#PeakPeriodSync",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.PeakPeriodFacadeServices.save#PeakPeriodSync"
+          },
+          "params": {
+            "$ref": "#/components/schemas/SavePeakPeriodSyncParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "SavePeakPeriodSyncResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.PeakPeriodFacadeServices.save#PeakPeriodSync. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/SavePeakPeriodSyncResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "ArchiveAutomationParams": {
         "type": "object",
         "properties": {
@@ -17662,6 +18823,32 @@
                     }
                   ],
                   "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds"
+                },
+                "effectiveNextStart": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds. DAR-BE-328: when the next run really starts (a peak-period move or hold); equals nextScheduledFireTime when none applies."
+                },
+                "peakPeriodName": {
+                  "type": "string",
+                  "description": "The peak period behind a differing effectiveNextStart."
+                },
+                "peakHoursUntil": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds. Set only while now is inside peak hours: when they end."
                 },
                 "relativeWindowTypeEnumId": {
                   "type": "string"
@@ -27947,6 +29134,671 @@
           "result"
         ]
       },
+      "DeleteSyncPairParams": {
+        "type": "object",
+        "properties": {
+          "syncPairId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "syncPairId"
+        ],
+        "description": "Delete a sync pair with its peak-period overrides, samples and tracked orders."
+      },
+      "DeleteSyncPairResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeleteSyncPairRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.SyncPulseFacadeServices.delete#SyncPair",
+        "x-darpan-method": "facade.SyncPulseFacadeServices.delete#SyncPair",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.SyncPulseFacadeServices.delete#SyncPair"
+          },
+          "params": {
+            "$ref": "#/components/schemas/DeleteSyncPairParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "DeleteSyncPairResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.SyncPulseFacadeServices.delete#SyncPair. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/DeleteSyncPairResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "GetRunPulseFlagsParams": {
+        "type": "object",
+        "properties": {
+          "reconciliationRunResultId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reconciliationRunResultId"
+        ],
+        "description": "The records of one daily-check run that the sync pulse had already flagged past allowance before the run started and that were still open then: recordKey to the ISO time the pulse first flagged it. syncPairId is the run's sync pair; null with no flags when the run's check has no pair."
+      },
+      "GetRunPulseFlagsResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "syncPairId": {
+            "type": "string"
+          },
+          "flags": {
+            "type": "object"
+          }
+        }
+      },
+      "GetRunPulseFlagsRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.SyncPulseFacadeServices.get#RunPulseFlags",
+        "x-darpan-method": "facade.SyncPulseFacadeServices.get#RunPulseFlags",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.SyncPulseFacadeServices.get#RunPulseFlags"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GetRunPulseFlagsParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "GetRunPulseFlagsResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.SyncPulseFacadeServices.get#RunPulseFlags. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/GetRunPulseFlagsResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "GetSyncPairParams": {
+        "type": "object",
+        "properties": {
+          "syncPairId": {
+            "type": "string"
+          }
+        },
+        "description": "One sync pair of the active tenant: its effective allowance and cadence today (and the pair's own values), today's samples and the open past-allowance orders, oldest first. Always returns the daily checks and chat spaces the pair form picks from; with no syncPairId that is all it returns."
+      },
+      "GetSyncPairResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "syncPair": {
+            "type": "object",
+            "properties": {
+              "syncPairId": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "automationId": {
+                "type": "string"
+              },
+              "automationName": {
+                "type": "string"
+              },
+              "upstreamSide": {
+                "type": "string"
+              },
+              "allowanceMinutes": {
+                "type": "string"
+              },
+              "pulseEveryMinutes": {
+                "type": "string"
+              },
+              "normalAllowanceMinutes": {
+                "type": "string"
+              },
+              "normalPulseEveryMinutes": {
+                "type": "string"
+              },
+              "periodName": {
+                "type": "string"
+              },
+              "chatSpaceId": {
+                "type": "string"
+              },
+              "hourlySummary": {
+                "type": "string"
+              },
+              "isActive": {
+                "type": "string"
+              },
+              "lastPulseStamp": {
+                "type": "string"
+              },
+              "lastPulseStatusEnumId": {
+                "type": "string"
+              },
+              "waitingCount": {
+                "type": "string"
+              },
+              "pastAllowanceCount": {
+                "type": "string"
+              }
+            }
+          },
+          "samplesToday": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sampleStamp": {
+                  "type": "string"
+                },
+                "waitingCount": {
+                  "type": "string"
+                },
+                "oldestWaitingMinutes": {
+                  "type": "string"
+                },
+                "pastAllowanceCount": {
+                  "type": "string"
+                },
+                "statusEnumId": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "pastOrders": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "recordKey": {
+                  "type": "string"
+                },
+                "orderName": {
+                  "type": "string"
+                },
+                "otherSystemId": {
+                  "type": "string"
+                },
+                "sourceCreatedStamp": {
+                  "type": "string"
+                },
+                "waitingMinutes": {
+                  "type": "string"
+                },
+                "reportedInRunId": {
+                  "type": "string"
+                },
+                "reportedInSavedRunId": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "automations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "automationId": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "upstreamOptions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "upstreamSide": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "chatSpaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "chatSpaceId": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "GetSyncPairRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.SyncPulseFacadeServices.get#SyncPair",
+        "x-darpan-method": "facade.SyncPulseFacadeServices.get#SyncPair",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.SyncPulseFacadeServices.get#SyncPair"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GetSyncPairParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "GetSyncPairResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.SyncPulseFacadeServices.get#SyncPair. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/GetSyncPairResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "ListSyncPairsParams": {
+        "type": "object",
+        "properties": {},
+        "description": "List the active tenant's sync pairs with the waiting and past-allowance counts from the latest sample and the open orders."
+      },
+      "ListSyncPairsResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "syncPairs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "syncPairId": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "automationId": {
+                  "type": "string"
+                },
+                "automationName": {
+                  "type": "string"
+                },
+                "allowanceMinutes": {
+                  "type": "string"
+                },
+                "pulseEveryMinutes": {
+                  "type": "string"
+                },
+                "isActive": {
+                  "type": "string"
+                },
+                "lastPulseStamp": {
+                  "type": "string"
+                },
+                "waitingCount": {
+                  "type": "string"
+                },
+                "pastAllowanceCount": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ListSyncPairsRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.SyncPulseFacadeServices.list#SyncPairs",
+        "x-darpan-method": "facade.SyncPulseFacadeServices.list#SyncPairs",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.SyncPulseFacadeServices.list#SyncPairs"
+          },
+          "params": {
+            "$ref": "#/components/schemas/ListSyncPairsParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "ListSyncPairsResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.SyncPulseFacadeServices.list#SyncPairs. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/ListSyncPairsResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "SaveSyncPairParams": {
+        "type": "object",
+        "properties": {
+          "syncPairId": {
+            "type": "string"
+          },
+          "automationId": {
+            "type": "string"
+          },
+          "upstreamSide": {
+            "type": "string"
+          },
+          "allowanceMinutes": {
+            "type": "integer"
+          },
+          "pulseEveryMinutes": {
+            "type": "integer"
+          },
+          "chatSpaceId": {
+            "type": "string"
+          },
+          "hourlySummary": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "description": "Create or update one sync pair of the active tenant. A blank pulseEveryMinutes is pulse off and a blank chatSpaceId is no chat space (both stored null, never the old value); isActive and hourlySummary keep the stored value when omitted. One pair per automation; a pulse needs HotWax orders upstream."
+      },
+      "SaveSyncPairResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "syncPairId": {
+            "type": "string"
+          }
+        }
+      },
+      "SaveSyncPairRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.SyncPulseFacadeServices.save#SyncPair",
+        "x-darpan-method": "facade.SyncPulseFacadeServices.save#SyncPair",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.SyncPulseFacadeServices.save#SyncPair"
+          },
+          "params": {
+            "$ref": "#/components/schemas/SaveSyncPairParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "SaveSyncPairResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.SyncPulseFacadeServices.save#SyncPair. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/SaveSyncPairResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "GetTenantConfigVersionParams": {
         "type": "object",
         "properties": {
@@ -29236,6 +31088,7 @@
     "facade.AuditFacadeServices.get#AuditFinding": "GetAuditFinding",
     "facade.AuditFacadeServices.get#AuditFindingsByOrder": "GetAuditFindingsByOrder",
     "facade.AuditFacadeServices.get#AuditProgress": "GetAuditProgress",
+    "facade.AuditFacadeServices.get#AuditReadReport": "GetAuditReadReport",
     "facade.AuditFacadeServices.get#AuditReport": "GetAuditReport",
     "facade.AuditFacadeServices.get#AuditSettings": "GetAuditSettings",
     "facade.AuditFacadeServices.get#Audits": "GetAudits",
@@ -29311,6 +31164,14 @@
     "facade.NetSuiteQueryFacadeServices.preview#NsSuiteQlSourceQuery": "PreviewNsSuiteQlSourceQuery",
     "facade.NetSuiteQueryFacadeServices.run#NsSuiteQlAgentQuery": "RunNsSuiteQlAgentQuery",
     "facade.NetSuiteQueryFacadeServices.save#NsSuiteQlSourceQuery": "SaveNsSuiteQlSourceQuery",
+    "facade.PeakPeriodFacadeServices.delete#PeakPeriod": "DeletePeakPeriod",
+    "facade.PeakPeriodFacadeServices.delete#PeakPeriodRunTime": "DeletePeakPeriodRunTime",
+    "facade.PeakPeriodFacadeServices.delete#PeakPeriodSync": "DeletePeakPeriodSync",
+    "facade.PeakPeriodFacadeServices.get#PeakPeriod": "GetPeakPeriod",
+    "facade.PeakPeriodFacadeServices.list#PeakPeriods": "ListPeakPeriods",
+    "facade.PeakPeriodFacadeServices.save#PeakPeriod": "SavePeakPeriod",
+    "facade.PeakPeriodFacadeServices.save#PeakPeriodRunTime": "SavePeakPeriodRunTime",
+    "facade.PeakPeriodFacadeServices.save#PeakPeriodSync": "SavePeakPeriodSync",
     "facade.ReconciliationFacadeServices.archive#Automation": "ArchiveAutomation",
     "facade.ReconciliationFacadeServices.archive#SavedRun": "ArchiveSavedRun",
     "facade.ReconciliationFacadeServices.cancel#ReconciliationRun": "CancelReconciliationRun",
@@ -29413,6 +31274,11 @@
     "facade.SlackFacadeServices.save#SlackBotToken": "SaveSlackBotToken",
     "facade.SourceEndpointFacadeServices.list#SourceConfigEndpoints": "ListSourceConfigEndpoints",
     "facade.SourceEndpointFacadeServices.store#SourceConfigEndpointAccess": "StoreSourceConfigEndpointAccess",
+    "facade.SyncPulseFacadeServices.delete#SyncPair": "DeleteSyncPair",
+    "facade.SyncPulseFacadeServices.get#RunPulseFlags": "GetRunPulseFlags",
+    "facade.SyncPulseFacadeServices.get#SyncPair": "GetSyncPair",
+    "facade.SyncPulseFacadeServices.list#SyncPairs": "ListSyncPairs",
+    "facade.SyncPulseFacadeServices.save#SyncPair": "SaveSyncPair",
     "facade.TenantConfigFacadeServices.get#TenantConfigVersion": "GetTenantConfigVersion",
     "facade.TenantConfigFacadeServices.get#TenantConfigVersions": "GetTenantConfigVersions",
     "facade.TenantConfigFacadeServices.preview#TenantConfigRestore": "PreviewTenantConfigRestore",

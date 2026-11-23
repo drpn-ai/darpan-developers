@@ -5,7 +5,7 @@ description: "Verified backend facade services exposed through Darpan JSON-RPC."
 
 Every method below is called as the JSON-RPC `method` value. The generated contract builds this list from the services marked for remote calls in `service/facade/` and `service/admin/` of the Darpan backend component, plus `service/facade/` and `service/admin/` of the integration components. `facade.*` methods are the public API. `admin.*` methods are operator-only and listed under [Administration](#administration); they are not part of the public API.
 
-This catalog matches Darpan 3.3.0 (contract version 4).
+This catalog matches Darpan 3.4.0 (contract version 4).
 
 All methods require an authenticated session unless noted. Eighteen methods accept anonymous calls, so a caller can sign in, finish a two-factor step, end a session or reset a forgotten password: `login#Session`, `logout#Session`, `get#SessionInfo`, `change#ExpiredPassword`, `request#PasswordReset`, `verify#PasswordResetCode`, `complete#PasswordReset`, `get#PasswordResetStatus`, `verify#SignInCode`, `begin#TwoFactorSetup`, `confirm#TwoFactorSetup`, `begin#PasskeySignIn`, `begin#PasskeyFirstSignIn`, `finish#PasskeyFirstSignIn`, `begin#PasskeyRegistration` and `finish#PasskeyRegistration` in `facade.AuthFacadeServices`, and `start#CliLogin` and `poll#CliLogin` in `facade.CliAuthFacadeServices`. Without a session, the six two-factor methods act only for the account named by a challenge token that `login#Session` returned.
 
@@ -36,7 +36,7 @@ All methods require an authenticated session unless noted. Eighteen methods acce
 | `begin#PasskeySignIn` | WebAuthn request options (`publicKeyOptions`, JSON text) for a sign-in challenge whose `twoFactorMethods` include `passkey`. Send the browser's assertion to `verify#SignInCode` with the same `challengeToken`. Anonymous. |
 | `begin#PasskeyFirstSignIn` | Start a sign-in with a passkey alone, no password. Optional `username`. Returns `publicKeyOptions` (WebAuthn request options, JSON text, user verification required), a `challengeToken` held in page memory and good for one finish, and `expiresInSeconds` (300). With a username, the options list that account's passkeys; for a username with no passkey they carry one decoy credential, so the answer never says whether the account exists. With no username the list is empty and the browser offers its own passkeys. At most 10 starts a minute from one address. Optional `scope`: `TENANT` (the default) or `ADMIN`, the darpan-admin CLI, which may call `admin.*` for 12 hours and which only a super admin may approve. Anonymous. |
 | `finish#PasskeyFirstSignIn` | Finish a passkey-alone sign-in: send the `challengeToken` and the browser's `passkeyAssertion`. Success answers as `verify#SignInCode` does (`authToken`, `sessionInfo`). The token is spent by the call whatever happens, so start again after a refusal. `reason` is `PASSKEY_REFUSED`, `ACCOUNT_CANNOT_SIGN_IN`, `PASSWORD_CHANGE_REQUIRED` (sign in with the password first) or `PASSKEYS_UNAVAILABLE`. Anonymous. |
-| `begin#PasskeyRegistration` / `finish#PasskeyRegistration` | Register a passkey or security key. `begin` returns WebAuthn creation options, valid 5 minutes, after the same check `begin#TwoFactorSetup` makes; `finish` stores the browser's credential under a name (60 characters at most), emails the account, and returns `passkeyId`. Up to 10 per account; as the first factor it turns two-factor on as `confirm#TwoFactorSetup` does (sessions end, fresh `authToken`, 10 recovery codes); anonymous with a setup challenge token. |
+| `begin#PasskeyRegistration` / `finish#PasskeyRegistration` | Register a passkey or security key. `begin` returns WebAuthn creation options, valid 5 minutes, after the same check `begin#TwoFactorSetup` makes, except that within 5 minutes of a sign-in that completed two-factor (`verify#SignInCode`, `finish#PasskeyFirstSignIn`) the session it made may leave out the code or passkey assertion; `finish` stores the browser's credential under a name (60 characters at most), emails the account, and returns `passkeyId`. Up to 10 per account; as the first factor it turns two-factor on as `confirm#TwoFactorSetup` does (sessions end, fresh `authToken`, 10 recovery codes); anonymous with a setup challenge token. |
 | `begin#PasskeyProof` | WebAuthn request options over the caller's passkeys for one action that asks for a fresh proof, such as `create#RecoveryCodes`, `disable#TwoFactor`, `delete#Passkey` or `facade.CliAuthFacadeServices.approve#CliLogin`. The resulting assertion is single-use and valid 5 minutes. |
 | `rename#Passkey` | Rename one of the caller's passkeys (60 characters at most). Needs no fresh proof. |
 | `delete#Passkey` | Remove one of the caller's passkeys with a current code or passkey assertion. Removing the last factor is refused when a role requires two-factor; otherwise it turns two-factor off as `disable#TwoFactor` does. |
@@ -55,7 +55,7 @@ A web sign-in ends after 60 minutes with no request and at most 24 hours after s
 
 ## CLI sign-in (`facade.CliAuthFacadeServices`)
 
-The Darpan CLI signs in with a device code. The CLI starts and polls without a session, and the person approves the sign-in in the Darpan app while signed in as themselves. The key the CLI receives is marked as a CLI session, and the server holds it to an allowlist: getters that write nothing and return no credential, the run starters, the Scripts methods, and `logout#CliSession`. Every other method is refused to a CLI session.
+The Darpan CLI signs in with a device code. The CLI starts and polls without a session, and the person approves the sign-in in the Darpan app while signed in as themselves. The key the CLI receives is marked as a CLI session, and the server holds it to an allowlist: getters that write nothing and return no credential, the run starters, the Scripts methods, `logout#CliSession`, and three edits that already need tenant write access: `facade.RunConclusionFacadeServices.save#RunConclusions` and `create#RunConclusionCode`, and `facade.ReconciliationFacadeServices.sync#Automation`. Every other method is refused to a CLI session, including the peak period and sync pair saves and deletes.
 
 | Method | Purpose |
 | --- | --- |
@@ -123,7 +123,7 @@ A Darpan admin turns the CLI on per user and tenant (see CLI access under [Admin
 | `run#GenericDiff` | Execute an ad hoc compare from uploaded or text payloads. |
 | `list#Mappings` / `get#Mapping` / `create#Mapping` / `save#Mapping` | Manage legacy reconciliation mappings. |
 | `save#DashboardPinnedMappings` / `save#DashboardPinnedSavedRuns` | Save dashboard pin preferences. |
-| `list#Automations` / `get#Automation` / `save#Automation` / `delete#Automation` | Manage automations. |
+| `list#Automations` / `get#Automation` / `save#Automation` / `delete#Automation` | Manage automations. Each listed automation carries `effectiveNextStart`, when its next run really starts after a peak period's move or hold (equal to `nextScheduledFireTime` when none applies), with `peakPeriodName` when they differ, and `peakHoursUntil` while the tenant is inside peak hours. |
 | `pause#Automation` / `resume#Automation` / `run#AutomationNow` | Control automation execution. |
 | `list#AutomationExecutions` | List automation execution history. |
 | `reprocess#AutomationExecution` | Re-run a failed or dead-lettered automation execution. |
@@ -171,6 +171,33 @@ A lifecycle follows records from a start record type through their stages, and r
 | `get#LifecyclePlan` | The places a start record type and an ordered list of stages would make, named as `save#LifecycleStages` names them. Saves nothing and does not call NetSuite. |
 | `save#LifecycleConclusions` | Replace a lifecycle's ordered list of conclusion rules. Each rule names a conclusion, the places it applies to (none means every place), and field conditions (`IN`, `NOT_IN`, `BLANK`, `NOT_BLANK`) that must all hold. At each place the first rule that holds names the record; a record no rule names stays Unexplained. An empty list clears the rules. Lifecycles built from stages only. |
 
+## Peak periods (`facade.PeakPeriodFacadeServices`)
+
+A peak period is a date range a tenant marks as busy, such as a sale. Inside it, Darpan holds scheduled runs out of the period's peak hours, starts the runs it moves at their set time, caps HotWax reads at a share of the normal rate, and can send NetSuite reads one at a time. Dates and hours are in the tenant's time zone. Writes need edit access on the active tenant.
+
+| Method | Purpose |
+| --- | --- |
+| `list#PeakPeriods` | The active tenant's peak periods, each with its state in the tenant's today: `upcoming`, `on`, `off` or `ended`. |
+| `get#PeakPeriod` | One peak period with its run-time moves, the runs its peak hours or a sync lag allowance hold, the runs a move can name, and its sync pair overrides. |
+| `save#PeakPeriod` | Create or update a peak period: name, first and last day, peak hours (`HH:mm`, both set or both blank), `hotwaxReadSharePct` and `netsuiteSerial`. Active periods may not overlap. An omitted share or omitted peak hours clear them; an omitted `netsuiteSerial` keeps the stored value. |
+| `delete#PeakPeriod` | Delete a peak period with its run-time moves and sync overrides. |
+| `save#PeakPeriodRunTime` / `delete#PeakPeriodRunTime` | Make a run (an automation or an audit) start at `runTime` on `onDate`, or on every day of the period when `onDate` is blank, or remove that move. |
+| `save#PeakPeriodSync` / `delete#PeakPeriodSync` | Replace or remove one sync pair's override for the period: the allowance (15 minutes to 48 hours) and the pulse (0, 60, 120, 180, 240 or 360 minutes; 0 is off for the period). Each blank value means the pair's normal one. A save refuses a pulse on a check the pulse cannot read. |
+
+## Sync pulse (`facade.SyncPulseFacadeServices`)
+
+A sync pair attaches a light watch to an existing daily check: every few minutes the pulse reads the check's upstream side for a short window, asks the other side by key which of those orders it holds, and records a sample. An order still missing past the pair's allowance is tracked until it arrives. The daily check also waits for the allowance before it reads a day. A pulse needs HotWax orders upstream. Writes need edit access on the active tenant.
+
+| Method | Purpose |
+| --- | --- |
+| `list#SyncPairs` | The active tenant's sync pairs, with the waiting and past-allowance counts from the latest sample and the open orders. |
+| `get#SyncPair` | One sync pair: its allowance and pulse in force today and its own values, today's samples, and the open past-allowance orders, oldest first. Always returns the daily checks and chat spaces the pair form picks from; with no `syncPairId` that is all it returns. |
+| `save#SyncPair` | Create or update a sync pair: the automation (one pair per automation), the upstream side, the allowance, the pulse cadence, a chat space and an hourly summary. A blank cadence is pulse off and a blank chat space is none; `isActive` and `hourlySummary` keep their stored values when omitted. |
+| `delete#SyncPair` | Delete a sync pair with its peak period overrides, samples and tracked orders. |
+| `get#RunPulseFlags` | For one daily-check run, the records the pulse had already flagged past allowance before the run started and that were still open then, each with the time the pulse first flagged it. Empty, with no `syncPairId`, when the run's check has no pair. |
+
+{/* TODO-328: DAR-BE-328 adds `periodThruDate` to `get#SyncPair`'s `syncPair` (the overriding peak period's last day, tenant-local). Document it here once it is on darpan main. */}
+
 ## Run conclusions (`facade.RunConclusionFacadeServices`)
 
 A saved run's conclusion tree names the differences the run finds, by conditions on either side's record. Another tenant's run reads as not found.
@@ -190,7 +217,7 @@ An audit is a set of statements about the active tenant's data, each tested by c
 | `get#Audits` | The active tenant's audits: id (the audit's code), name, and the period one report covers. |
 | `create#Audit` | Create an audit from a name and a period (`day`, `month` or `quarter`). Its id is the name in lower case with dashes, unique within the tenant; `new` is refused. Statements and checks are added afterwards. |
 | `add#AuditStatement` | Add a statement to an audit: the text that must be true, a category (`orders`, `refundsAndCredits`, `returns` or `exchangesAndWarranty`), and a weight (`firm`, or `derived` while awaiting the tenant's confirmation; default `derived`). It gets the next statement code, is placed last, and is active. |
-| `get#AuditSettings` / `save#AuditSettings` | Read or change an audit's name, its statements' text and on/off state, and the daily schedule (time and time zone) its checks run on. A save sends only the statements that changed, creates a paused automation for any check whose run has none, and returns the settings as saved. The read also returns each statement's checks and the earliest day `run#Audit` can record. |
+| `get#AuditSettings` / `save#AuditSettings` | Read or change an audit's name, its statements' text and on/off state, and the daily schedule (time and time zone) its checks run on. A save sends only the statements that changed, creates a paused automation for any check whose run has none, and returns the settings as saved. The read also returns each statement's checks, the earliest day `run#Audit` can record, and, while the tenant is inside a peak period's peak hours, `peakHoursUntil`. |
 | `get#AuditCheckOptions` | What the add-a-check editor offers for one audit: its statements, the tenant's saved runs with their rules and conclusions, the row types and fix systems a check may name, and the audit's existing checks. |
 | `save#AuditCheck` | Create or update a check and replace its links to the audit's statements; at least one link is required. All or nothing. Refused, with the reason, for a statement outside the audit, a run the tenant does not own, a rule not in that run, or a row type the check cannot record. A new check, or one whose run changed, has no automation until `run#Audit` or `save#AuditSettings` creates one. |
 | `run#Audit` | Run every check of the audit now over a range of days, first to last inclusive, in the tenant's time zone, recording findings as the scheduled run does. Submitted in the background, one automation per run; returns each submission. Refused before anything runs for days in the future, a backwards range, or a period that ended and was not extended. With `fullRead`, every system is read for the whole range; without it, each check reads the days since its last complete read and re-checks its older open findings by key. |
@@ -200,6 +227,7 @@ An audit is a set of statements about the active tenant's data, each tested by c
 | `verify#AuditFinding` | Re-check one finding's record now: its check runs for that record only, reading each system by key, and the finding is closed if the problem is gone or refreshed with today's cause. Submitted in the background; `get#AuditFinding` shows the result once `lastChecked` changes. Records no check run, so the check's health and next read are unchanged. Refused when the check has no automation yet. |
 | `get#AuditCheckExtracts` | The files each system's read wrote for one check, day and period: one row per side with the system, the record count, and the file's data-manager path. Empty when the check has no recorded run for that day and period. |
 | `get#AuditProgress` | What an audit's checks are doing now: each automation with a run in progress or queued, the checks it feeds, its stage and progress, and whether it looks healthy, slow or stuck against its own last successful run. Cheap enough to poll while a play or the morning run is going. |
+| `get#AuditReadReport` | What one play of an audit read, by audit code and optional morning and period: its reads grouped by endpoint and connection (reads, records, the checks that read, each read's window, the call tally), the totals, and flags where a read cost more than it needed (`DUPLICATE_READ`, `WHOLE_PERIOD_READ`, `LOOKUP_OVER_SHARE`, `LOOKUP_EVERY_PLAY`, `THROTTLED`, `CALLS_GREW`). The thresholds are the Audit reads settings. Empty when the audit has not played. |
 | `retry#AuditCheck` | Retry from last read: re-runs one check that did not run on one morning, from the files that morning's run already read. Refused, with the reason, when the check is not the audit's, already ran, has no run that morning, or its reads did not finish. |
 
 ## Audit agent (`facade.AgentTurnFacadeServices`)
@@ -370,11 +398,11 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 
 | Method | Purpose |
 | --- | --- |
-| `create#UserAccount` | Create a user with a temporary password, forced to change at first login. Credentials are shared out of band. |
+| `create#UserAccount` | Create a user with a temporary password, forced to change at first login. The temporary password is kept encrypted for the user's tenant welcome emails until they set their own or the keep period (`darpan.admin.tempPasswordKeepDays`) ends. |
 | `update#UserAccount` | Update a user's display name, email, or both. |
 | `disable#UserAccount` | Disable a user and revoke their live login keys. Disabling yourself is refused. |
 | `enable#UserAccount` | Re-enable a disabled user. |
-| `reset#Password` | Set a temporary password, forced to change at next login, and revoke live login keys. |
+| `reset#Password` | Set a temporary password, forced to change at next login, and revoke live login keys. The new temporary password replaces any kept one for the welcome emails. |
 | `get#UserList` | Paged search over username, email and display name. `darpanAdminsOnly` limits it to users with a Darpan-wide role in force. Each user carries `darpanRoles` and `twoFactor` (`ON`, `OFF` or `REQUIRED_NOT_SET_UP`). |
 | `get#UserDetail` | One user with account state, Darpan-wide roles (`darpanRoles`), two-factor state (`twoFactor`, since when, required from when, whether the app is on, live passkey count) and active tenant memberships. Never a secret or credential id. |
 | `add#DarpanAdmin` / `remove#DarpanAdmin` | Start or end a user's `DARPAN_ADMIN` or `DARPAN_SUPER_ADMIN` role; `remove` without a role ends both. Ending a role end-dates the membership, and ending your own super admin is refused. Idempotent (`changed` is false when nothing changed); each change writes an admin audit row. |
@@ -384,10 +412,10 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 
 | Method | Purpose |
 | --- | --- |
-| `add#TenantMember` | Add a user to a tenant with a tenant-scoped role. Both membership records are written together or not at all. Queues the tenant welcome email unless `sendWelcome` is false or the account has no email address or is disabled; `welcomeQueued` says whether it was queued. |
+| `add#TenantMember` | Add a user to a tenant with a tenant-scoped role. Both membership records are written together or not at all. Sends the tenant welcome email, with the temporary password while one is kept, unless `sendWelcome` is false or the account has no email address or is disabled. `welcomeSent` says whether the mail server accepted it and `welcomeWithPassword` whether it carried the password; a failed send does not fail the grant. |
 | `update#TenantMemberRole` | Change a member's tenant role by end-dating the old permission row and creating the new one. |
 | `remove#TenantMember` | Remove a user from a tenant by end-dating both membership records, and clear their active-tenant preference if it pointed there. |
-| `send#TenantWelcome` | Re-send the tenant welcome email to a current member: the tenant, their role, their username and where to sign in, never a password. Refused for a deactivated tenant, a disabled user, a user with no email address, or a user who is not a member. `ok` means queued, not delivered. |
+| `send#TenantWelcome` | Re-send the tenant welcome email to a current member: the tenant, their role, their username, where to sign in, and their temporary password while one is kept. Refused for a deactivated tenant, a disabled user, a user with no email address, or a user who is not a member. Waits for the mail server: a refused send is an error, and `ok` means accepted, not delivered. `withPassword` says whether it carried the password. |
 
 ### Security (`admin.SecurityAdminServices`)
 
@@ -414,8 +442,8 @@ Operator-only. The `admin.*` methods below are not part of the public API, and i
 | Method | Purpose |
 | --- | --- |
 | `get#RetentionPeriods` | The retention periods in force: per table the instance period (days, blank = keep forever, and whether it comes from a setting row, a JVM property or the default), every tenant's own period, the nightly purge days, the delete batch size, and whether the retention job is paused. |
-| `update#RetentionPeriods` | Set, for the instance or one tenant, how long each table keeps its rows: a whole number of days from 1 to 3650, `forever`, or (a tenant only) `inherit`. A tenant's own period wins for that tenant's rows only. Refused as a whole, nothing saved, on any invalid value. Shortening a period while the retention job runs needs `previewedRows` from a fresh preview. Writes an admin audit row. |
-| `dryRun#Retention` | Count the rows each table's retention period would delete now (`AUDIT_FINDING`, `RUN_RESULT`, `AGENT_MESSAGE`, `AGENT_QUERY_LOG`), per table and tenant, for every tenant or one, with the configured periods or preview periods passed in `periodDays`. Deletes nothing; deletion runs only from the scheduled retention job. |
+| `update#RetentionPeriods` | Set, for the instance or one tenant, how long each table keeps its rows: a whole number of days from 1 to 3650, `forever`, or (a tenant only) `inherit`. A tenant's own period wins for that tenant's rows only. Refused as a whole, nothing saved, on any invalid value, and on `forever` at instance level for a table with a default period (`SYNC_PULSE_SAMPLE`, 30 days; a tenant may still keep forever). Shortening a period while the retention job runs needs `previewedRows` from a fresh preview. Writes an admin audit row. |
+| `dryRun#Retention` | Count the rows each table's retention period would delete now (`AUDIT_FINDING`, `RUN_RESULT`, `AGENT_MESSAGE`, `AGENT_QUERY_LOG`, `SYNC_PULSE_SAMPLE`), per table and tenant, for every tenant or one, with the configured periods or preview periods passed in `periodDays`. Deletes nothing; deletion runs only from the scheduled retention job. |
 
 ### Schedule (`admin.ScheduleAdminServices`)
 
@@ -467,7 +495,7 @@ Served by the `darpan-agent` component. The agent's numbers (budgets, timeouts, 
 | `get#AgentConfig` | Every prompt, role model, model price, per-tenant daily cap and agent text, with its default and whether it is edited. |
 | `get#AgentPrompt` | One prompt with its default and its newest 10 versions. |
 | `update#AgentPrompt` | Save a prompt. Refused for an empty prompt, one over 100,000 characters, or one that names a tenant. Every save keeps a version; the audit row records its length, not its text. |
-| `update#AgentRoleModel` | Point a role at a model. Refused for an unknown role, a malformed model id, or a model with no price. The next turn re-checks the model with the provider. |
+| `update#AgentRoleModel` | Point a role (`ROUTER`, `INVESTIGATOR`, `AUTHOR`, `AUTHOR_ESCALATION`, `EMAIL_SMILE`, `AUDIT_RUN_WORDS` or `AUDIT_READ_REVIEW`) at a model. Refused for an unknown role, a malformed model id, or a model with no price. The next turn re-checks the model with the provider. |
 | `update#AgentModelPrice` | Add or edit a model's price in dollars per million tokens. A model without a price cannot be used. |
 | `update#AgentText` | Save a tool description, reply or notice. It must keep the default's `{tokens}`, be plain text and stay within its length cap. |
 | `update#AgentTenantDailyCap` | Set one tenant's daily dollar cap for the agent, inside the global cap's range. |

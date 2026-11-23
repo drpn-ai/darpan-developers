@@ -7,7 +7,7 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
+| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2, 3.4.0 | 222 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
@@ -21,6 +21,40 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 4
 
 Darpan 3.0.0. Current.
+
+### Darpan 3.4.0
+
+The facade contract stays at version 4: no method or parameter is removed, and 14 public methods are added (208 to 222). One response field of an operator-only method is renamed (see below).
+
+Peak periods:
+
+- `facade.PeakPeriodFacadeServices.list#PeakPeriods`, `get#PeakPeriod`, `save#PeakPeriod`, `delete#PeakPeriod`: the active tenant's busy date ranges, with peak hours, a HotWax read share and serial NetSuite reads.
+- `facade.PeakPeriodFacadeServices.save#PeakPeriodRunTime`, `delete#PeakPeriodRunTime`: start an automation or audit at a set time inside a period.
+- `facade.PeakPeriodFacadeServices.save#PeakPeriodSync`, `delete#PeakPeriodSync`: a sync pair's allowance and pulse for one period.
+
+Sync pulse:
+
+- `facade.SyncPulseFacadeServices.list#SyncPairs`, `get#SyncPair`, `save#SyncPair`, `delete#SyncPair`: a light watch on a daily check, sampling every few minutes for orders the other system has not received.
+- `facade.SyncPulseFacadeServices.get#RunPulseFlags`: the records of a daily-check run the pulse had already flagged.
+
+{/* TODO-328: add `periodThruDate` on `get#SyncPair` here once DAR-BE-328 lands it on darpan main. */}
+
+Audit reads:
+
+- `facade.AuditFacadeServices.get#AuditReadReport`: what one play of an audit read, grouped by endpoint and connection, with flags where a read cost more than it needed.
+
+Changed behaviour of existing methods:
+
+- `facade.ReconciliationFacadeServices.list#Automations` adds `effectiveNextStart`, `peakPeriodName` and `peakHoursUntil` to each automation, and `facade.AuditFacadeServices.get#AuditSettings` and `save#AuditSettings` add `peakHoursUntil` to `settings`.
+- `facade.AuthFacadeServices.begin#PasskeyRegistration` may leave out the code or passkey assertion within 5 minutes of a sign-in that completed two-factor, on the session it made.
+- `facade.RunConclusionFacadeServices.save#RunConclusions` accepts the condition operator `LT`, less than one number.
+- A CLI session may now call `save#RunConclusions`, `create#RunConclusionCode` and `sync#Automation`, and the new peak period and sync pulse reads. The new saves and deletes are refused to it.
+
+Operator-only `admin.*` changes, outside the public API:
+
+- `admin.MembershipAdminServices.add#TenantMember` returns `welcomeSent` and `welcomeWithPassword` in place of `welcomeQueued`, and waits for the mail server. `send#TenantWelcome` waits too, and returns `withPassword`. The welcome email carries the temporary password while one is kept.
+- `admin.RetentionAdminServices.update#RetentionPeriods` and `dryRun#Retention` take the table key `SYNC_PULSE_SAMPLE`.
+- `admin.AgentConfigAdminServices.update#AgentRoleModel` takes the role `AUDIT_READ_REVIEW`.
 
 ### Added in 3.3.0
 
