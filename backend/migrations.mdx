@@ -71,16 +71,24 @@ Failure detail is sanitized before it is stored, because it is read by an operat
 
 ## Registered migrations
 
-The seed registry currently declares six, in sequence:
+The seed registry currently declares twelve, in sequence:
 
 | Migration | What it translates |
 | --- | --- |
 | `TENANT_NOTIF_SETTINGS` | The single tenant webhook into the chat-space registry. |
 | `UNDECRYPTABLE_HOOKS` | Webhook values that cannot be decrypted under the current key. |
-| `AUTOMATION_FILTERS` | Automation exclusion filters into their current shape. |
 | `RULE_TENANT_STAMPS` | Tenant stamps onto rule rows that predate tenant scoping. |
 | `ENDPOINT_ACCESS` | The legacy read flag into explicit per-endpoint decisions. |
 | `RETIRED_FIELDS` | Removal of connector fields withdrawn from seed data. |
+| `AUTOMATION_STREAKS` | Each automation's run history into its stored clean-day streak. |
+| `STATEMENT_LINK_EXPECTED` | Each statement link's counted causes onto its run as expected outcomes. |
+| `AUDIT_SCHEDULE_OWNED` | Each audit's own schedule, from the automations its checks run through. |
+| `AUDIT_FINDINGS_NO_PENDING` | Pending audit findings into open ones. |
+| `NS_AUTH_ACCOUNTS` | The NetSuite account onto each NetSuite auth config. |
+| `RETIRED_JOB_PARAMETERS` | Purge jobs' retention parameters into settings, and deletion of retired job parameters. |
+| `AUTOMATION_FILTER_TABLE` | Drops the retired automation filter table (`RECONCILIATION_AUTOMATION_SOURCE_FILTER`). From 3.4.0 automations read their run's filters; until the table is dropped, its foreign key fails automation save, sync and delete over old rows. Supports a dry run. |
+
+`AUTOMATION_FILTERS` (sequence 30), which copied a rule set's filters into each automation, is retired in 3.4.0: the upgrade data parks it (`enabled` = `N`), because seed loads never delete a row.
 
 ## Adding a migration
 

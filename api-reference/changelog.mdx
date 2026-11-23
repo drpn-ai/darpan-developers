@@ -24,7 +24,7 @@ Darpan 3.0.0. Current.
 
 ### Darpan 3.4.0
 
-The facade contract stays at version 4: no method or parameter is removed, and 14 public methods are added (208 to 222). One response field of an operator-only method is renamed (see below).
+The facade contract stays at version 4: no method is removed, and 14 public methods are added (208 to 222). One request field is dropped and is ignored when sent (see below). One response field of an operator-only method is renamed (see below).
 
 Peak periods:
 
@@ -49,12 +49,16 @@ Changed behaviour of existing methods:
 - `facade.AuthFacadeServices.begin#PasskeyRegistration` may leave out the code or passkey assertion within 5 minutes of a sign-in that completed two-factor, on the session it made.
 - `facade.RunConclusionFacadeServices.save#RunConclusions` accepts the condition operator `LT`, less than one number.
 - A CLI session may now call `save#RunConclusions`, `create#RunConclusionCode` and `sync#Automation`, and the new peak period and sync pulse reads. The new saves and deletes are refused to it.
+- An automation keeps no filters of its own: every run of it reads its compare scope's filters. `facade.ReconciliationFacadeServices.save#Automation` drops `sources[].excludeFilters`; a client that still sends it is not refused, and nothing is written for it. `get#Automation` sources no longer carry `excludeFilters`. `sync#Automation` no longer copies filters, and `syncStatus.changedFields` never names one.
+- `facade.AgentChangeFacadeServices.apply#AuditChange` no longer refuses an exclusion with `AUTOMATION_DRIFT`. The exclusion writes the run's filter only.
+- `facade.TenantConfigFacadeServices.preview#TenantConfigRestore` blocks a version made before 3.4.0 with `AUTOMATION_FILTERS_DIFFER` when an automation's own filters in it differ from its run's. Equal ones are dropped.
 
 Operator-only `admin.*` changes, outside the public API:
 
 - `admin.MembershipAdminServices.add#TenantMember` returns `welcomeSent` and `welcomeWithPassword` in place of `welcomeQueued`, and waits for the mail server. `send#TenantWelcome` waits too, and returns `withPassword`. The welcome email carries the temporary password while one is kept.
 - `admin.RetentionAdminServices.update#RetentionPeriods` and `dryRun#Retention` take the table key `SYNC_PULSE_SAMPLE`.
 - `admin.AgentConfigAdminServices.update#AgentRoleModel` takes the role `AUDIT_READ_REVIEW`.
+- `admin.TransferAdminServices.import#ConfigBundle` blocks an older bundle with `AUTOMATION_FILTERS_DIFFER` on the same rule. A 3.4.0 export carries no automation filters.
 
 ### Added in 3.3.0
 

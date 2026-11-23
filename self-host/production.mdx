@@ -154,12 +154,14 @@ Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists any
 3. **On MySQL, check two column types after the first boot.** `SOURCE_SYSTEM_CONNECTOR.KEEP_LINES_JSON` and `DATASET.KEPT_FIELDS_JSON` must be `LONGTEXT`. Moqui adds a missing column with the right type but never changes the type of an existing one, so a database that ran a pre-release 3.4.0 build may hold them narrower. Widen them with `ALTER TABLE SOURCE_SYSTEM_CONNECTOR MODIFY KEEP_LINES_JSON LONGTEXT` and `ALTER TABLE DATASET MODIFY KEPT_FIELDS_JSON LONGTEXT`. `SOURCE_SYSTEM_CONNECTOR.LOOKUP_MAX_IDS` is no longer read; it stays.
 4. **Load the upgrade data** with `loadDarpanUpgradeData`, as above. Loading by the `darpan-seed` type (the entrypoint's default) also loads each connector's built-in Keep lines, which `darpan-hotwax`, `netsuite-darpan` and `shopify-darpan` seed in their own `darpan-seed` files; until they are loaded, a run side that Spark keeps fails with "Keep lines (keepLinesJson) are not loaded". The upgrade data carries the tenant filters and artifact group rows for the new entities, the sync pulse status values and the new jobs.
 5. **moqui-rules' seed comes with the upgrade data.** Its `data/RuleSeedData.xml` is type `seed`, which `DARPAN_LOAD_UPGRADE_DATA` does not load, so the 3.4.0 upgrade data carries a verbatim copy of its rows. Without them, generating a check's pair fact type fails on a foreign key to `FVT_TEXT`.
-6. **Deploy `darpan-ui` after the backend.**
+6. **Run the pending migrations right after the load** (`run#PendingMigrations`, from the **Migrations** screen as above). `AUTOMATION_FILTER_TABLE` drops `RECONCILIATION_AUTOMATION_SOURCE_FILTER`, the retired table of automations' own filter copies; a dry run counts its rows. Until it runs, saving, syncing or deleting an automation that still has rows there fails on that table's foreign key. Scheduled runs are unaffected. The upgrade data also parks the retired `AUTOMATION_FILTERS` migration.
+7. **Deploy `darpan-ui` after the backend.**
 
 What changes on its own after the deploy:
 
 - The first extract purge deletes every interactive extract (`fileN-api` folders) and captured lookup answer (`lookups/`) older than `darpan.purge.extract.days` (7), for every tenant. Before 3.4.0 the purge reached only automation extracts.
-- Stored source filters, on saved runs and on automations, are no longer sent to the extractors. Spark applies them after the read. A data-defined source still filters at the read.
+- Stored source filters are no longer sent to the extractors. Spark applies them after the read. A data-defined source still filters at the read.
+- Automations keep no filters of their own. Every scheduled, audit and sync pulse run reads its compare scope's filters, so an edit on the run reaches the next scheduled run without a sync.
 - `run_SyncPulse` is seeded running and does nothing until a tenant gives a sync pair a pulse cadence. Sync pulse samples are kept 30 days, but only while `run_DataRetention_daily` runs; it is seeded paused, so resume it on an instance with sync pairs.
 - `scan_DueDatasets_30m` is seeded paused. No dataset reads a source until it is resumed and a dataset is active.
 

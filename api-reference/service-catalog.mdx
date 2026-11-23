@@ -137,7 +137,7 @@ A Darpan admin turns the CLI on per user and tenant (see CLI access under [Admin
 | `get#ReconciliationRunStatus` | Live status and per-stage timeline for one run. Tenant-gated. |
 | `cancel#ReconciliationRun` | Request that a running reconciliation stop. Cooperative — the run ends at its next checkpoint, so it may still report as running briefly. |
 | `subscribe#RunNotification` / `unsubscribe#RunNotification` | Subscribe the caller to completion notification for one active run, snapshotting their default chat space, or remove that subscription. |
-| `sync#Automation` | Re-derive an automation's snapshot from its saved run. Overwrites compare scope, input mode, source definitions and exclusion filters; preserves name, schedule, window, chat space, active status and SFTP details. Never re-points the automation at a different run. |
+| `sync#Automation` | Re-derive an automation's snapshot from its saved run. Overwrites compare scope, input mode and source definitions. Filters are not copied: an automation's runs read its compare scope's filters. Preserves name, schedule, window, chat space, active status and SFTP details. Never re-points the automation at a different run. |
 | `disable#SavedRun` / `enable#SavedRun` | Turn a saved run off or back on. A disabled run stays readable and editable but cannot run, by hand or on a schedule. |
 | `archive#SavedRun` / `restore#SavedRun` | Take a saved run off Home and the runs list, or bring it back. Nothing is deleted; its results and history stay. The app archives lifecycles; restore is API only. |
 | `archive#Automation` / `restore#Automation` | Take an automation off the list and stop it firing, or bring it back with its execution history. Separate from `pause#Automation`, which leaves it on the list. |
@@ -247,7 +247,7 @@ The agent only drafts changes. A person with edit access on the active tenant pl
 | Method | Purpose |
 | --- | --- |
 | `plan#AuditChange` | Plan an open proposal again against the current config: the change runs through its real save, which is rolled back, and `planHash` covers the change and the config it was planned against. Ends `PLANNED`, or `INVALID` with the save's refusal. |
-| `apply#AuditChange` | Apply a planned proposal by its `planHash`, through the save the app uses, keeping a config version before and after. Refused for a `BLOCKED` proposal (record ids that did not come from the person, the finding or the config) and, for an exclusion, when an automation's filters differ from its run's. When the config changed since the plan, the proposal turns `STALE` and nothing is written. |
+| `apply#AuditChange` | Apply a planned proposal by its `planHash`, through the save the app uses, keeping a config version before and after. Refused for a `BLOCKED` proposal (record ids that did not come from the person, the finding or the config). An exclusion writes the run's filter only. When the config changed since the plan, the proposal turns `STALE` and nothing is written. |
 | `reject#AuditChange` | Decline an open proposal, with an optional reason; it can no longer be applied. |
 | `revert#AuditChange` | Create a planned proposal that puts back what an applied proposal changed, applied like any other. Refused when that setting changed again after the apply, or when a revert is already open. |
 | `list#BrainChangeTickets` | The active tenant's tickets for Darpan staff (requests that need code, such as a new cause or a missing field), newest first, optionally in one status. |
@@ -266,7 +266,7 @@ The active tenant's audit config (audits, statements, checks, runs, queries, con
 | --- | --- |
 | `snapshot#TenantConfig` | Keep the current config as a new version when it changed since the latest one, with an optional reason. Needs edit access. |
 | `get#TenantConfigVersions` / `get#TenantConfigVersion` | The tenant's versions, newest first (at most 500), or one version with its pack, the whole-tenant transfer bundle. |
-| `preview#TenantConfigRestore` | What restoring a version would do, writing nothing: what the version holds is put back, statements added since are switched off, check links added since are removed, and runs added since are kept. Returns the plan and its `planHash`. |
+| `preview#TenantConfigRestore` | What restoring a version would do, writing nothing: what the version holds is put back, statements added since are switched off, check links added since are removed, and runs added since are kept. Returns the plan and its `planHash`. A version made before 3.4.0 is blocked with `AUTOMATION_FILTERS_DIFFER` when an automation's own filters in it differ from its run's; equal ones are dropped. |
 | `restore#TenantConfigVersion` | Apply exactly the previewed plan, by its `planHash`: the current config is kept as a version first, then the restore is written and kept as a version. One transaction. Refused when the plan has blocking items or no longer matches the config. Needs edit access. |
 
 ## Scripts (`facade.TenantScriptFacadeServices`)
@@ -507,7 +507,7 @@ Served by the `darpan-agent` component. The agent's numbers (budgets, timeouts, 
 | --- | --- |
 | `get#TransferCatalog` | What a tenant can send: its audits, saved runs and connections. |
 | `export#ConfigBundle` | The bundle a target instance imports: the picked audits with every statement, check, run, query, conclusion code and connection they reach, plus picked runs and connections. Ids travel as references; secrets never travel in the bundle. When the caller has two-factor on, needs `twoFactorCode` or `twoFactorPasskeyAssertion`. |
-| `import#ConfigBundle` | Plan a bundle into a target tenant (a dry run that writes nothing), or apply the previewed plan by its hash, in one transaction: all of it or none of it. |
+| `import#ConfigBundle` | Plan a bundle into a target tenant (a dry run that writes nothing), or apply the previewed plan by its hash, in one transaction: all of it or none of it. A bundle made before 3.4.0 is blocked with `AUTOMATION_FILTERS_DIFFER` when an automation's own filters in it differ from its run's; equal ones are dropped. |
 | `begin#SecretHandoff` | Start a credentials handoff on the target instance: a one-time key pair, valid for 30 minutes, that the source seals connection credentials to. Nothing is stored but an audit-log row. When the caller has two-factor on, needs `twoFactorCode` or `twoFactorPasskeyAssertion`. |
 
 ### Shopify apps (`admin.ShopifyAppAdminServices`)

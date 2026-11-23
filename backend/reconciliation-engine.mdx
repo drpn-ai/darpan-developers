@@ -66,6 +66,8 @@ Keep decides which records of a side are compared and which are set aside. From 
 | `READ` | A data-defined endpoint (`dataSourceDefinitionId` set). | Its filter is a step of its own pipeline, so it still filters at the read. Spark runs nothing. |
 | `NONE` | No connector, or no `filterParameterName` (file uploads, databases). | No filters and no Keep. |
 
+The tenant's source filters are the compare scope's (`RuleSetCompareSourceFilter`), read by `KeepPlanSupport.tenantRuleRows` for one named tenant. An automation keeps no copy: `AutomationExecutionSupport.sideKeepOf` reads its compare scope's rows pinned to the automation's own tenant, so an interactive run and a scheduled one over the same scope keep the same records. `ReconciliationAutomationSourceFilter` is retired from 3.4.0.
+
 Built-in Keep lines are data on the connector row, written by the system's own component; core holds no system name. A connector with no built-ins carries `[]`. A `SPARK` side fails, before anything is read, when its connector's `keepLinesJson` is not loaded, and when neither the read nor Spark can filter a side that has Keep rules (no key, or records that are not top-level).
 
 `darpan.reconciliation.source.KeepStepSupport` splits the side and writes the set-aside artifact beside the extract (`KeepArtifacts`): `<extract>.keep.json` (the summary, one entry per tenant rule with its counts), `<extract>.set-aside.rows` (one row per set-aside record) and, where the connector asks for it (`excludedRecordsSidecar`), the `.excluded.json` side file. The extract keeps every record; every reader of it skips what Keep set aside. The other side is then read by the kept keys only, and the conclude pass reads its set-aside counts from the summary.
