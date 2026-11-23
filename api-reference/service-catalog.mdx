@@ -276,7 +276,8 @@ A query is a read over what the tenant's audits keep (a dataset's kept fields, a
 
 | Method | Purpose |
 | --- | --- |
-| `list#TenantQueries` | The tenant's queries by name, each with its read in words (`readText`), plus the `fn:` library and the `QUERY` limits for the editor. |
+| `list#TenantQueries` | The tenant's queries by name, each with its read in words (`readText`), plus the `fn:` library and the `QUERY` limits for the editor, and the caller's pinned queries for this tenant (`pinnedQueryIds`, in pin order; a deleted query drops out; 3.4.3). |
+| `save#TenantQueryPins` | Save the caller's pinned queries for the active tenant (`pinnedQueryIds`, in order). Keeps each id once and only the tenant's own queries: an unknown id or another tenant's is dropped, never an error. Returns the `pinnedQueryIds` kept. A personal preference, per user and per tenant, so view access is enough. Not on the CLI allowlist. 3.4.3. |
 | `save#TenantQuery` | Create or update a query (`tenantQueryId`, `queryName`, `description`, `readSpecJson`, `scriptBody`). Names are unique in the tenant. The script must parse and run on its sample input, and the read's sources must exist. Stored only for the caller's active tenant. A query with a schedule needs tenant admin to change, and saving it makes the caller the schedule's owner. |
 | `delete#TenantQuery` | Delete a query with its schedules and their deliveries. A query with a schedule needs tenant admin. |
 | `run#TenantQuery` | Run a saved query, or the read and script given (a draft of a saved query runs as written), on the tenant's data now. Nothing is sent. `result`: `summary`, `files` (`name`, `columns`, `rowCount`, up to 20 `previewRows`), `data`, `nothing`, `invalid`, `readCounts`, `units`, `elapsedMs`, `logs`, `error` (`kind`, `message`, `line`), `readText`. A read or script failure is in `result.error`, not a service error. |

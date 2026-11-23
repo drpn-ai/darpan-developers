@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Darpan Facade API",
-    "version": "3.4.2",
+    "version": "3.4.3",
     "x-darpan-contract-version": 5,
-    "description": "Public copy of the darpan v3.4.2 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
+    "description": "Public copy of the darpan v3.4.3 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
   },
   "servers": [
     {
@@ -696,6 +696,9 @@
                     "$ref": "#/components/schemas/SaveTenantQueryRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/SaveTenantQueryPinsRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/SaveTenantQueryScheduleRequest"
                   }
                 ],
@@ -926,6 +929,7 @@
                     "facade.TenantScriptFacadeServices.run#TenantQuery": "#/components/schemas/RunTenantQueryRequest",
                     "facade.TenantScriptFacadeServices.run#TenantQuerySchedule": "#/components/schemas/RunTenantQueryScheduleRequest",
                     "facade.TenantScriptFacadeServices.save#TenantQuery": "#/components/schemas/SaveTenantQueryRequest",
+                    "facade.TenantScriptFacadeServices.save#TenantQueryPins": "#/components/schemas/SaveTenantQueryPinsRequest",
                     "facade.TenantScriptFacadeServices.save#TenantQuerySchedule": "#/components/schemas/SaveTenantQueryScheduleRequest"
                   }
                 }
@@ -1614,6 +1618,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/SaveTenantQueryResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SaveTenantQueryPinsResponse"
                     },
                     {
                       "$ref": "#/components/schemas/SaveTenantQueryScheduleResponse"
@@ -30773,7 +30780,7 @@
       "ListTenantQueriesParams": {
         "type": "object",
         "properties": {},
-        "description": "The active tenant's queries by name, with the fn: library and the QUERY limits for the editor."
+        "description": "The active tenant's queries by name, with the fn: library and the QUERY limits for the editor, and the\n            signed-in user's pinned queries for this tenant (pin order; a deleted query drops out)."
       },
       "ListTenantQueriesResult": {
         "type": "object",
@@ -30803,6 +30810,12 @@
           },
           "limits": {
             "type": "object"
+          },
+          "pinnedQueryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -31277,6 +31290,104 @@
           "result"
         ]
       },
+      "SaveTenantQueryPinsParams": {
+        "type": "object",
+        "properties": {
+          "pinnedQueryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "DAR-UI-138. Pin the signed-in user's queries for the active tenant (a personal preference, so view access\n            is enough). Keeps the order given, once each, and only the active tenant's queries: an unknown id or another\n            tenant's is dropped, never an error. Stored per user and per tenant, so pins in one tenant leave the others alone."
+      },
+      "SaveTenantQueryPinsResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pinnedQueryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SaveTenantQueryPinsRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.TenantScriptFacadeServices.save#TenantQueryPins",
+        "x-darpan-method": "facade.TenantScriptFacadeServices.save#TenantQueryPins",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.TenantScriptFacadeServices.save#TenantQueryPins"
+          },
+          "params": {
+            "$ref": "#/components/schemas/SaveTenantQueryPinsParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "SaveTenantQueryPinsResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.TenantScriptFacadeServices.save#TenantQueryPins. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/SaveTenantQueryPinsResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "SaveTenantQueryScheduleParams": {
         "type": "object",
         "properties": {
@@ -31620,6 +31731,7 @@
     "facade.TenantScriptFacadeServices.run#TenantQuery": "RunTenantQuery",
     "facade.TenantScriptFacadeServices.run#TenantQuerySchedule": "RunTenantQuerySchedule",
     "facade.TenantScriptFacadeServices.save#TenantQuery": "SaveTenantQuery",
+    "facade.TenantScriptFacadeServices.save#TenantQueryPins": "SaveTenantQueryPins",
     "facade.TenantScriptFacadeServices.save#TenantQuerySchedule": "SaveTenantQuerySchedule"
   }
 }
