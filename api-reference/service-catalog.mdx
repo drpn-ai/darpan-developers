@@ -5,7 +5,7 @@ description: "Verified backend facade services exposed through Darpan JSON-RPC."
 
 Every method below is called as the JSON-RPC `method` value. The generated contract builds this list from the services marked for remote calls in `service/facade/` and `service/admin/` of the Darpan backend component, plus `service/facade/` and `service/admin/` of the integration components. `facade.*` methods are the public API. `admin.*` methods are operator-only and listed under [Administration](#administration); they are not part of the public API.
 
-This catalog matches Darpan 3.4.0 (contract version 4).
+This catalog matches Darpan 3.4.0 (contract version 5).
 
 All methods require an authenticated session unless noted. Eighteen methods accept anonymous calls, so a caller can sign in, finish a two-factor step, end a session or reset a forgotten password: `login#Session`, `logout#Session`, `get#SessionInfo`, `change#ExpiredPassword`, `request#PasswordReset`, `verify#PasswordResetCode`, `complete#PasswordReset`, `get#PasswordResetStatus`, `verify#SignInCode`, `begin#TwoFactorSetup`, `confirm#TwoFactorSetup`, `begin#PasskeySignIn`, `begin#PasskeyFirstSignIn`, `finish#PasskeyFirstSignIn`, `begin#PasskeyRegistration` and `finish#PasskeyRegistration` in `facade.AuthFacadeServices`, and `start#CliLogin` and `poll#CliLogin` in `facade.CliAuthFacadeServices`. Without a session, the six two-factor methods act only for the account named by a challenge token that `login#Session` returned.
 

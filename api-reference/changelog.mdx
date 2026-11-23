@@ -18,13 +18,13 @@ Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1 and 3.
 Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
 </Note>
 
-## Contract version 4
+## Contract version 5
 
-Darpan 3.0.0. Current.
+Darpan 3.4.0. Current.
 
 ### Darpan 3.4.0
 
-The generated contract stays at version 4. 25 public methods are added and the 8 tenant script methods are removed (208 to 225): queries replace scripts. One request field is dropped and is ignored when sent (see below). One response field of an operator-only method is renamed (see below).
+The generated contract moves to version 5 because methods are removed: the 8 tenant script methods (`facade.TenantScriptFacadeServices` list, save, delete and run for scripts and their deployments) are gone; queries replace scripts. 25 public methods are added (208 to 225). One request field is dropped and is ignored when sent (see below). One response field of an operator-only method is renamed (see below).
 
 Peak periods:
 
@@ -68,6 +68,10 @@ Operator-only `admin.*` changes, outside the public API:
 - `admin.RetentionAdminServices.update#RetentionPeriods` and `dryRun#Retention` take the table key `SYNC_PULSE_SAMPLE`.
 - `admin.AgentConfigAdminServices.update#AgentRoleModel` takes the role `AUDIT_READ_REVIEW`.
 - `admin.TransferAdminServices.import#ConfigBundle` blocks an older bundle with `AUTOMATION_FILTERS_DIFFER` on the same rule. A 3.4.0 export carries no automation filters.
+
+## Contract version 4
+
+Darpan 3.0.0 to 3.3.2.
 
 ### Added in 3.3.0
 
