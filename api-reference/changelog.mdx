@@ -7,12 +7,13 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 4 (current) | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2, 3.4.0 | 225 |
+| 5 (current) | 3.4.0, 3.4.1 | 225 |
+| 4 | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
 
-Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1 and 3.3.2 added or removed no methods. There is no 3.0.1 release.
+Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2 and 3.4.1 added or removed no methods. There is no 3.0.1 release.
 
 <Note>
 Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
@@ -21,6 +22,14 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 5
 
 Darpan 3.4.0. Current.
+
+### Darpan 3.4.1
+
+An automation keeps its own filters again (3.4.0 had it read its run's live):
+
+- `facade.ReconciliationFacadeServices.save#Automation` takes `sources[].excludeFilters` again; a source that leaves it out keeps the filters it has. `get#Automation` sources carry `excludeFilters`. `sync#Automation` copies the run's filters, and `syncStatus.changedFields` names `FILE_1.excludeFilters` or `FILE_2.excludeFilters` when they differ.
+- `facade.AgentChangeFacadeServices.apply#AuditChange` syncs each automation of the run after an exclusion, and refuses with `AUTOMATION_DRIFT` when one already differs from its run, filters included.
+- `facade.TenantConfigFacadeServices.preview#TenantConfigRestore` and `admin.TransferAdminServices.import#ConfigBundle` no longer block with `AUTOMATION_FILTERS_DIFFER`. A version or bundle carries each automation's filters; one saved on 3.4.0 carries none, and each automation takes its run's.
 
 ### Darpan 3.4.0
 

@@ -66,7 +66,7 @@ Keep decides which records of a side are compared and which are set aside. From 
 | `READ` | A data-defined endpoint (`dataSourceDefinitionId` set). | Its filter is a step of its own pipeline, so it still filters at the read. Spark runs nothing. |
 | `NONE` | No connector, or no `filterParameterName` (file uploads, databases). | No filters and no Keep. |
 
-The tenant's source filters are the compare scope's (`RuleSetCompareSourceFilter`), read by `KeepPlanSupport.tenantRuleRows` for one named tenant. An automation keeps no copy: `AutomationExecutionSupport.sideKeepOf` reads its compare scope's rows pinned to the automation's own tenant, so an interactive run and a scheduled one over the same scope keep the same records. `ReconciliationAutomationSourceFilter` is retired from 3.4.0.
+An interactive run's source filters are the compare scope's (`RuleSetCompareSourceFilter`), read by `KeepPlanSupport.tenantRuleRows` for one named tenant. An automation runs on its own copy (`ReconciliationAutomationSourceFilter`, taken at create and at `sync#Automation`): `AutomationExecutionSupport.sideKeepOf` reads those rows pinned to the automation's tenant, so a filter edit on the run reaches a scheduled run only through a sync. The key fields and record root are the compare scope's on both paths, as the compare ingests the side.
 
 Built-in Keep lines are data on the connector row, written by the system's own component; core holds no system name. A connector with no built-ins carries `[]`. A `SPARK` side fails, before anything is read, when its connector's `keepLinesJson` is not loaded, and when neither the read nor Spark can filter a side that has Keep rules (no key, or records that are not top-level).
 

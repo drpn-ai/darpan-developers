@@ -80,7 +80,7 @@ Config transfer and config versions carry queries (`SCRIPT` kind, natural key `s
 
 ## Migration from scripts
 
-`TENANT_SCRIPTS_TO_QUERIES` (`query.QueryHostServices.migrate#TenantScriptsToQueries`, sequence 150, after `AUTOMATION_FILTER_TABLE`, no dry run) runs from the migration registry:
+`TENANT_SCRIPTS_TO_QUERIES` (`query.QueryHostServices.migrate#TenantScriptsToQueries`, sequence 150, no dry run) runs from the migration registry:
 
 - Each `TenantScript` becomes a `UserScript` with id `MIG_<tenantScriptId>`: same tenant, name and body, profile `QUERY`, owner its last editor. A script that read a run result gets a `runResult` read of its deployment's saved run (`fields` `bucket`, `key`), is switched off, and its description says to check it, because its input is now flat rows in `input.differences`.
 - Each `TenantScriptDeployment` becomes a `UserScriptDeployment` with id `MIG_<tenantScriptDeploymentId>`: same cron, the tenant's zone, owner its last editor, switched off, with one chat delivery to its chat space. A deployment with no user to own it is not migrated and is named in the result.

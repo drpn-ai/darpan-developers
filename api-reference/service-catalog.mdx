@@ -267,7 +267,7 @@ The active tenant's audit config (audits, statements, checks, runs, queries, con
 | --- | --- |
 | `snapshot#TenantConfig` | Keep the current config as a new version when it changed since the latest one, with an optional reason. Needs edit access. |
 | `get#TenantConfigVersions` / `get#TenantConfigVersion` | The tenant's versions, newest first (at most 500), or one version with its pack, the whole-tenant transfer bundle. |
-| `preview#TenantConfigRestore` | What restoring a version would do, writing nothing: what the version holds is put back, statements added since are switched off, check links added since are removed, and runs added since are kept. Returns the plan and its `planHash`. A version made before 3.4.0 is blocked with `AUTOMATION_FILTERS_DIFFER` when an automation's own filters in it differ from its run's; equal ones are dropped. |
+| `preview#TenantConfigRestore` | What restoring a version would do, writing nothing: what the version holds is put back, statements added since are switched off, check links added since are removed, and runs added since are kept. Returns the plan and its `planHash`. A version saved on 3.4.0 carries no automation filters; each automation takes its run's. |
 | `restore#TenantConfigVersion` | Apply exactly the previewed plan, by its `planHash`: the current config is kept as a version first, then the restore is written and kept as a version. One transaction. Refused when the plan has blocking items or no longer matches the config. Needs edit access. |
 
 ## Queries (`facade.TenantScriptFacadeServices`)
@@ -511,7 +511,7 @@ Served by the `darpan-agent` component. The agent's numbers (budgets, timeouts, 
 | --- | --- |
 | `get#TransferCatalog` | What a tenant can send: its audits, saved runs and connections. |
 | `export#ConfigBundle` | The bundle a target instance imports: the picked audits with every statement, check, run, query, conclusion code and connection they reach, plus picked runs and connections. Ids travel as references; secrets never travel in the bundle. When the caller has two-factor on, needs `twoFactorCode` or `twoFactorPasskeyAssertion`. |
-| `import#ConfigBundle` | Plan a bundle into a target tenant (a dry run that writes nothing), or apply the previewed plan by its hash, in one transaction: all of it or none of it. A bundle made before 3.4.0 is blocked with `AUTOMATION_FILTERS_DIFFER` when an automation's own filters in it differ from its run's; equal ones are dropped. |
+| `import#ConfigBundle` | Plan a bundle into a target tenant (a dry run that writes nothing), or apply the previewed plan by its hash, in one transaction: all of it or none of it. A bundle exported from 3.4.0 carries no automation filters; each automation takes its run's. |
 | `begin#SecretHandoff` | Start a credentials handoff on the target instance: a one-time key pair, valid for 30 minutes, that the source seals connection credentials to. Nothing is stored but an audit-log row. When the caller has two-factor on, needs `twoFactorCode` or `twoFactorPasskeyAssertion`. |
 
 ### Shopify apps (`admin.ShopifyAppAdminServices`)
