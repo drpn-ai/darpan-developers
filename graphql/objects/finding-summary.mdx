@@ -15,6 +15,10 @@ description: "A finding as a report lists it; auditFinding(id:) returns the whol
 | `headline` | [`String`](/graphql/scalars/string) | One line naming the record and what is wrong. |
 | `id` | [`String`](/graphql/scalars/string) | The finding's id. |
 | `next` | [`String`](/graphql/scalars/string) | The CLI command that shows the full finding, e.g. `darpan findings show F-20761`. |
+| `priority` | [`String`](/graphql/scalars/string) | The finding's level: its reason's level when one is set, else its statement's (an order takes its most urgent line's). |
+| `priorityLine` | [`String`](/graphql/scalars/string) | For an order, the id of the open line whose level it takes (its most urgent); null for a single finding. |
+| `priorityReason` | [`String`](/graphql/scalars/string) | The reason that put it at this level, by name; null when the level is its statement's. For an order, the winning line's reason. |
+| `prioritySource` | [`String`](/graphql/scalars/string) | Where `priority` came from: `reason` or `statement`. |
 | `records` | [`[FindingRecord!]!`](/graphql/objects/finding-record) | The records it names: one entry per system, record type and id. |
 | `state` | [`String`](/graphql/scalars/string) | `open` or `fixed` (fixed today). |
 

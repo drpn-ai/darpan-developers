@@ -1,7 +1,7 @@
 ---
 title: "List open findings"
-description: "Page through a tenant's findings, filtered by audit, statement, category, state, period or date, with findings."
-keywords: ["findings", "open", "filter", "search", "list", "statement", "category", "paginate"]
+description: "Page through a tenant's findings, filtered by audit, statement, category, state, period, priority or date, with findings."
+keywords: ["findings", "open", "filter", "search", "list", "statement", "category", "priority", "paginate"]
 ---
 
 The `findings` query lists every finding of your tenant across audits, oldest first. Filter it with `query:` terms and read it a page at a time.
@@ -31,6 +31,7 @@ Combine terms with spaces; every term must match. Separate values with commas to
 | `category:returns` | `orders`, `refundsAndCredits`, `returns` or `exchangesAndWarranty` |
 | `state:open` | `open` or `fixed` |
 | `period:2026-10` | Findings from that period's run |
+| `priority:P0,P1` | Findings at that level: `P0`, `P1`, `P2` or `KNOWN`. Each line is matched by its own level |
 | `firstFound:>=2026-10-20` | First found on or after a day. `>`, `<` and `<=` work too |
 
 More on terms: [Search syntax](/graphql/search-syntax).

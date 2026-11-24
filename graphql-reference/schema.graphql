@@ -119,8 +119,10 @@ type AuditReportInfo {
 
 "Counts across the whole tenant, and the oldest open finding."
 type AuditSummary {
-  "The same three counts (`open`, `newToday`, `fixedToday`) for each category; all four categories are present."
+  "The same counts (`open`, `newToday`, `fixedToday`, `byPriority`) for each category; all four categories are present."
   byCategory: [CategoryCounts!]!
+  "Open findings at each level (`P0`, `P1`, `P2`, `KNOWN`); every open finding is counted once, so they add up to `open`."
+  byPriority: PriorityCounts
   "Findings that became `fixed` on `report.date`."
   fixedToday: Int
   "Findings first found on `report.date` and still open."
@@ -151,7 +153,7 @@ type AuditWindow {
 
 "One of the four categories (orders, refundsAndCredits, returns, exchangesAndWarranty), with its statements."
 type Category {
-  "`open`, `newToday` and `fixedToday` for this category."
+  "`open`, `newToday` and `fixedToday` for this category, and `byPriority`: open findings per priority level."
   counts: FindingCounts
   "The category: orders, refundsAndCredits, returns or exchangesAndWarranty."
   id: String
@@ -166,8 +168,10 @@ type Category {
   statements: [Statement!]!
 }
 
-"The three finding counts for one category."
+"The finding counts for one category."
 type CategoryCounts {
+  "Open findings at each level (`P0`, `P1`, `P2`, `KNOWN`); every open finding is counted once, so they add up to `open`."
+  byPriority: PriorityCounts
   "The category: orders, refundsAndCredits, returns or exchangesAndWarranty."
   category: String
   "Findings that became `fixed` on `report.date`."
@@ -278,6 +282,8 @@ type Finding {
   id: String
   "The period whose run found it; it appears in that period's reports only."
   period: String
+  "How urgent it is and where that level came from."
+  priority: FindingPriority
   "The record ids in each system."
   records: [FindingRecord!]!
   "The statement it breaks."
@@ -286,8 +292,10 @@ type Finding {
   status: FindingStatus
 }
 
-"Findings by state for a category or statement: open, new today and fixed today."
+"Findings by state for a category or statement: open, new today and fixed today, and `byPriority`: open findings per priority level."
 type FindingCounts {
+  "Open findings at each level (`P0`, `P1`, `P2`, `KNOWN`); every open finding is counted once, so they add up to `open`."
+  byPriority: PriorityCounts
   "Findings that became `fixed` on `report.date`."
   fixedToday: Int
   "Findings first found on `report.date` and still open."
@@ -328,6 +336,14 @@ type FindingListItem {
   next: String
   "The period whose run found it, e.g. `2026-10`."
   period: String
+  "The finding's level: its reason's level when one is set, else its statement's."
+  priority: String
+  "For an order, the id of the open line whose level it takes (its most urgent); null for a single finding."
+  priorityLine: String
+  "The reason that put it at this level, by name; null when the level is its statement's. For an order, the winning line's reason."
+  priorityReason: String
+  "Where `priority` came from: `reason` or `statement`."
+  prioritySource: String
   "The records it names: one entry per system, record type and id."
   records: [FindingRecord!]!
   "`open` or `fixed`, as of the last check."
@@ -350,6 +366,16 @@ type FindingListItemEdge {
   cursor: String
   "The finding."
   node: FindingListItem
+}
+
+"A finding line's own level and where it came from: its reason's level when one is set, else its statement's. An order's level is its most urgent open line's; see the order unit's priorityLine."
+type FindingPriority {
+  "`P0`, `P1`, `P2` or `KNOWN`."
+  level: String
+  "The reason's name when `source` is `reason`; null otherwise."
+  reason: String
+  "`reason` when the finding's reason sets the level, `statement` when it is the statement's own."
+  source: String
 }
 
 "One record a finding names, in one system."
@@ -400,6 +426,14 @@ type FindingSummary {
   id: String
   "The CLI command that shows the full finding, e.g. `darpan findings show F-20761`."
   next: String
+  "The finding's level: its reason's level when one is set, else its statement's (an order takes its most urgent line's)."
+  priority: String
+  "For an order, the id of the open line whose level it takes (its most urgent); null for a single finding."
+  priorityLine: String
+  "The reason that put it at this level, by name; null when the level is its statement's. For an order, the winning line's reason."
+  priorityReason: String
+  "Where `priority` came from: `reason` or `statement`."
+  prioritySource: String
   "The records it names: one entry per system, record type and id."
   records: [FindingRecord!]!
   "`open` or `fixed` (fixed today)."
@@ -472,6 +506,18 @@ type PageInfo {
   startCursor: String
 }
 
+"Open findings by priority, most urgent first. An order counts once, at its most urgent line; a finding waiting on an earlier step is not counted."
+type PriorityCounts {
+  "Open findings at KNOWN: understood and tracked."
+  KNOWN: Int
+  "Open findings at P0: fix now."
+  P0: Int
+  "Open findings at P1: fix soon."
+  P1: Int
+  "Open findings at P2: fix when convenient. A statement with no level set counts here."
+  P2: Int
+}
+
 type Query {
   "One finding by id, with its records, evidence, fix and history. Another tenant's finding reads as not found."
   auditFinding(
@@ -487,7 +533,7 @@ type Query {
     "Which period's run, e.g. 2026-10 while October is extended; blank is the morning's own period."
     period: String
   ): AuditReportDocument
-  "The tenant's findings, oldest first by default; each node is the report's finding summary plus its audit, statement, category and period. ageDays is as of today in the tenant's time zone. Filter via `query:` search string. Allowed keys: audit, statement, category, state, period, firstFound"
+  "The tenant's findings, oldest first by default; each node is the report's finding summary plus its audit, statement, category and period, filterable by `priority` (P0, P1, P2 or KNOWN), which filters finding LINES by their own level; the board's byPriority counts ORDERS at their most urgent open line, so totals can differ. ageDays is as of today in the tenant's time zone. Filter via `query:` search string. Allowed keys: audit, statement, category, state, period, priority, firstFound"
   findings(
     "Return findings after this cursor (pageInfo.endCursor). A cursor belongs to its sortKey and reverse."
     after: String,
@@ -600,6 +646,8 @@ type Statement {
   findingsOmitted: Int
   "The statement id, e.g. R4."
   id: String
+  "The statement's own level: `P0`, `P1`, `P2` or `KNOWN`; `P2` when none is set. A reason may set its findings' level apart."
+  priority: String
   "Why the statement's checks were partial or did not run."
   reason: String
   "The worst status among this statement's checks; `notRun` when it has none."

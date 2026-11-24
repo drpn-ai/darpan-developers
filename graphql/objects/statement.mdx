@@ -14,6 +14,7 @@ description: "One thing the tenant needs to be true, its checks this morning, an
 | `findings` | [`[FindingSummary!]!`](/graphql/objects/finding-summary) | Open and fixed-today findings, oldest first, at most 50. |
 | `findingsOmitted` | [`Int`](/graphql/scalars/int) | How many findings were left out by the 50 cap; `0` when all are shown. |
 | `id` | [`String`](/graphql/scalars/string) | The statement id, e.g. R4. |
+| `priority` | [`String`](/graphql/scalars/string) | The statement's own level: `P0`, `P1`, `P2` or `KNOWN`; `P2` when none is set. A reason may set its findings' level apart. |
 | `reason` | [`String`](/graphql/scalars/string) | Why the statement's checks were partial or did not run. |
 | `status` | [`String`](/graphql/scalars/string) | The worst status among this statement's checks; `notRun` when it has none. |
 | `text` | [`String`](/graphql/scalars/string) | The statement in the tenant's own words. |

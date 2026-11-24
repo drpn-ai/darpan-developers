@@ -56,7 +56,7 @@ Every mutable static in `src/main` has a `static void resetForTests()` that puts
 | Query component | `moqui-jexl` 0.2.2, on Apache Commons JEXL 3.7.1 (Apache-2.0), which moved from `darpan`'s own dependencies to the component in 3.4.0. `darpan` compiles against it (`compileOnly`) and declares `depends-on`, so the component must be in the runtime with its jar built. |
 | Passkeys | webauthn4j-core 0.30.3 (with jackson-dataformat-cbor), Apache-2.0 |
 | MySQL driver | Connector/J 9.7.0; deployments use the `mysql8` database configuration |
-| PostgreSQL driver | 42.7.7 |
+| PostgreSQL driver | 42.7.15 |
 
 Spark on JDK 21 needs a set of `--add-opens` JVM flags, plus `-Dio.netty.tryReflectionSetAccessible=true`, `-XX:+EnableDynamicAgentLoading` and `--enable-native-access=ALL-UNNAMED`. The component's test tasks pass them, and the production entrypoint exports them through `JAVA_TOOL_OPTIONS`. A local server needs the same flags; without them a compare fails at runtime. Spark 4 and Drools 10 share ANTLR 4.13, so do not pin ANTLR to make them agree.
 
@@ -89,6 +89,8 @@ Retention periods are settings, not JVM properties: `darpan.retention.auditFindi
 The two purge periods are plain settings, edited from the same Schedule page or with `darpan-admin settings`; they need no preview. A `-D` system property with the same name is only a fallback: a setting row wins over it, and it wins over the default.
 
 A job's cron, pause state and parameters are edited on the Schedule page too (or with `darpan-admin job`). Those edits survive deploys; an edit made in Moqui Tools is reverted by the next seed load. A cron runs on the server's clock. Its gap between runs, checked against the job's minimum, counts the wall clock too, so a once-a-day job can be moved to any daily time on a server whose clock keeps daylight saving.
+
+Every job Darpan ships sets `expireLockTime` to 360 minutes. A task killed mid-job leaves the job's `ServiceJobRunLock` behind, and the job waits for it to expire: 6 hours, not Moqui's default 24. See [Stuck-run recovery](/backend/reconciliation-engine#stuck-run-recovery).
 
 ## Other scheduled jobs
 

@@ -165,11 +165,16 @@ What changes on its own after the deploy:
 
 - The first extract purge deletes every interactive extract (`fileN-api` folders) and captured lookup answer (`lookups/`) older than `darpan.purge.extract.days` (7), for every tenant. Before 3.4.0 the purge reached only automation extracts.
 - Stored source filters are no longer sent to the extractors. Spark applies them after the read. A data-defined source still filters at the read.
-- Automations keep no filters of their own. Every scheduled, audit and sync pulse run reads its compare scope's filters, so an edit on the run reaches the next scheduled run without a sync.
+- An automation runs on its own copy of its run's filters (3.4.1; 3.4.0 read the run's filters live). An edit on the run reaches the automation's scheduled and audit runs only after a sync.
 - `run_SyncPulse` is seeded running and does nothing until a tenant gives a sync pair a pulse cadence. Sync pulse samples are kept 30 days, but only while `run_DataRetention_daily` runs; it is seeded paused, so resume it on an instance with sync pairs.
 - `scan_DueDatasets_30m` is seeded paused. No dataset reads a source until it is resumed and a dataset is active.
 - moqui-jexl's scheduler checks for due query schedules every 60 seconds on every node, starting two minutes after boot. It is not a service job: `jexl_deployment_check_seconds` `0` turns it off on a node. A node with `scheduled_job_check_time` `0` holds query schedules too.
 - Migrated query schedules stay off until a tenant admin switches each on. The old `darpan.script` tables stay until a later release drops them.
+
+3.4.4 is backend only; `darpan-ui` stays at `v4.4.3`. Its image moves `darpan`, `moqui-gql` (`v1.1.1`), `darpan-agent` (`v0.5.1`) and `database-darpan` (`v0.4.1`). Its upgrade data (53 records, loaded as above) carries the audit vocabulary restated with the new `AuditPriority` levels and the reason-priority tenant filter, all 11 shipped service jobs with `expireLockTime` 360, and the audit run email's `cause.explain` copy block. The audit priority column and table are created on boot. There is no migration. Two things change on their own:
+
+- A run killed mid-job frees its job's lock after 6 hours instead of 24, so the stuck-run reaper and the automation scan are no longer held for a day.
+- Regular runs look up every missing record whatever its share; only audit checks keep the 5% gate. A tenant whose daily reads leave many records missing makes more lookup calls than on 3.4.3.
 
 To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored. The old scripts' rows are still there, but `TENANT_SCRIPTS_TO_QUERIES` deleted their five-minute job: the 3.3.2 seed load brings it back. Changes made to queries since are not carried back.
 

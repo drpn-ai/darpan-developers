@@ -20,12 +20,12 @@ curl -s "$DARPAN_API/rest/s1/graphql/public" \
 JSON
 ```
 
-Replace `month-close` with your audit's code. Leave out `date` for today in your tenant's time zone, or pass `date: "2026-10-08"` for an earlier morning.
+Replace `month-close` with your audit's code. Leave out `date` for the last morning that was due: yesterday's until the audit's scheduled time, then today's. Pass `date: "2026-10-08"` for another morning.
 
 ## Read the answer
 
 1. **`health.complete`.** `true` means every source read was complete and every configured check ran. When it is `false`, `health.summary` says what was missing in one or two sentences, and each entry in `health.sources` names the system, its `reason`, and the statements it `affects`. Counts for those statements may be short today.
-2. **`summary`.** `open` across the tenant, plus `newToday` (first found this morning and still open) and `fixedToday`. A finding is `open` from the first morning a check reports it.
+2. **`summary`.** `open` across the tenant, plus `newToday` (first found this morning and still open) and `fixedToday`. A finding is `open` from the first morning a check reports it. Add `byPriority { P0 P1 P2 KNOWN }` to see how many open findings are at each level.
 3. **`summary.oldestOpen`.** The finding that has waited longest. Pass its `id` to [Read one finding](/graphql/tasks/read-one-finding).
 
 ## Drill into one category or statement

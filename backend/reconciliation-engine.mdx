@@ -102,6 +102,14 @@ A lifecycle is a flowchart compiled by `save#Lifecycle` from a NetSuite account,
 
 When a scope has conclusion rules, the `CONCLUDE` stage names every verified finding from a per-run Drools tree (`darpan.reconciliation.conclusion.ConclusionTreeEngine`) and stores the evidence the deciding rule tested. A finding no rule explains is `UNEXPLAINED`. Conclusion catalogues and rules are tenant configuration, loaded per tenant, not seed data.
 
+A condition's operators are evaluated by `ConclusionConditionSupport`, the one evaluator both the walk and the Drools tree call: `IN`, `NOT_IN`, `GT`, `LT`, `GT_ZERO`, `WITHIN_HOURS`, `BLANK`, `NOT_BLANK`, and since 3.4.4 `STARTS_WITH_ANY` and `NOT_STARTS_WITH_ANY` (a prefix from the list, case ignored as `IN` is; a blank value starts with nothing, so `NOT_STARTS_WITH_ANY` holds on it). Keep uses the same two names.
+
+## Audit report morning and progress
+
+`get#AuditReport`, `get#AuditCheckExtracts` and the GraphQL `auditReport` resolve a blank date with `AuditReportGraph.morningOnShow`: yesterday while today's `scheduleTime` in the audit's `scheduleTimeZone` is still ahead, else today. It returns today when the audit's schedule is off, a check of the audit already has an `AuditCheckRun` today, or the requested period had not started yesterday. `retry#AuditCheck` keeps today, because a retry runs now.
+
+`get#AuditProgress` (`AuditSettingsSupport.progress`) answers `asOf`, and on each step `movedDate` (the step's heartbeat date; absent for reads that never heartbeat, such as a Shopify bulk read, a database read or a side waiting its turn) and `expectedRecords`. `expectedRecords` is the same stage's `metricsJson.readCount` on the automation's last successful execution: `RunObservability.endStep` keeps a heartbeated read's last page count there before `recordCount` takes the connector's own count, which can be in other units. A running entry carries the peak period's `limits` from `PeakReadPolicy`.
+
 ## Run stages and observability
 
 A run's progress is recorded so an operator can see where it is, and where it stopped. `darpan.facade.reconciliation.RunObservability` is the single instrumentation point for both entry points.
@@ -115,22 +123,25 @@ Each stage writes one `ReconciliationRunStep` row with its own status, timing, a
 | 1 | `RESOLVE` | Load the saved run, its compare scope, and the run window. |
 | 2 | `EXTRACT_FILE1` | Extract or stage the first source. |
 | 3 | `EXTRACT_FILE2` | Extract or stage the second source. Never opened on a single-sided (`EVALUATE`) scope. |
-| 4 | `COMPARE` | Spark base diff and rule evaluation. |
-| 5 | `VERIFY_MISSING` | Missing-diff recheck. |
-| 6 | `VERIFY_EXCHANGE` | Exchange presence. |
-| 7 | `VERIFY_RETURNS` | Return presence. |
-| 8 | `CONCLUDE` | Name every verified finding by the scope's conclusion rules. Opened only when the scope has rules. |
-| 9 | `WRITE_OUTPUT` | Write the verified result artifact and the run-result summary. |
-| 10 | `NOTIFY` | Send run-completion alerts. |
+| 4 | `RECHECK` | Read an audit window's older open findings again by key on each side. Opened only on an audit window that has them. |
+| 5 | `COMPARE` | Spark base diff and rule evaluation. |
+| 6 | `VERIFY_RETURNS` | Return presence. Free grading, so it runs before any paid lookup. |
+| 7 | `VERIFY_MISSING` | Missing-diff recheck. |
+| 8 | `VERIFY_EXCHANGE` | Exchange presence. |
+| 9 | `CONCLUDE` | Name every verified finding by the scope's conclusion rules. Opened only when the scope has rules. |
+| 10 | `WRITE_OUTPUT` | Write the verified result artifact and the run-result summary. |
+| 11 | `NOTIFY` | Send run-completion alerts. |
+
+darpan-ui's `RUN_STAGE_SEQUENCE` holds the same order by position; change both together. Rows written before 3.4.4 number `VERIFY_MISSING` 6, `VERIFY_EXCHANGE` 7 and `VERIFY_RETURNS` 8, and rows written before `RECHECK` existed number `COMPARE` through `NOTIFY` one lower.
 
 Verification runs before `WRITE_OUTPUT`, so the file a user downloads is the corrected one. Lookup and brain answers are captured into the run folder, so a replay answers them without calling any system; a capture never changes a conclusion. Each pass has its own stage code and records the systems it rechecked in its own step metrics. A pass that declines to run records why.
 
-Rows written before 2.0.0 carry a single `VERIFY` code. It keeps sequence 5, so old runs still sort into their original slot; their `WRITE_OUTPUT` and `NOTIFY` rows keep sequences 6 and 7. New runs never enter `VERIFY`. A consumer that reads `stageCode` or `stageSequence` must accept both sets.
+Rows written before 2.0.0 carry a single `VERIFY` code at 5, with `WRITE_OUTPUT` and `NOTIFY` at 6 and 7. New runs never enter `VERIFY`. A consumer that reads `stageCode` or `stageSequence` must accept every set.
 
 | Pass | What it rechecks |
 | --- | --- |
-| Missing-diff recheck | Rows reported missing on a side whose connector supports point lookups are looked up again in that system. Rows the lookup confirms present are removed and the counts adjusted, with an audit note. A failed or skipped lookup changes nothing. A lookup is a last resort: a side is looked up only when its missing rows are at most `lookupMaxShare` percent (default 5) of the records checked against it, and only when it is keyed on the id kind its connector's lookup answers (`lookupIdField`). Above the share, the run says the read or the pairing needs fixing and looks nothing up. |
-| Return presence | For returns runs between Shopify and HotWax OMS, regrades return and refund events reported missing on one side. An event younger than the sync grace period is pending, not missing. An event before the run window, a refund on a cancelled order, or an unrefunded Shopify return draft on an order that already has a booked OMS return is not reported as a gap. |
+| Return presence | Runs first, free. For returns runs between Shopify and HotWax OMS, regrades return and refund events reported missing on one side. An event younger than the sync grace period is pending, not missing. An event before the run window, a refund on a cancelled order, or an unrefunded Shopify return draft on an order that already has a booked OMS return is not reported as a gap. |
+| Missing-diff recheck | Rows reported missing on a side whose connector supports point lookups are looked up again in that system. Rows the lookup confirms present are removed and the counts adjusted, with an audit note. A failed or skipped lookup changes nothing. A side is looked up only when it is keyed on the id kind its connector's lookup answers (`lookupIdField`). When its missing rows are more than `lookupMaxShare` percent (default 5) of the records checked against it, an audit window (`window.auditReportDate` set, passed down as `auditRun`) looks nothing up and warns (`sideOutcomes` `skipped: OVER_SHARE`); any other run looks every row up and adds a note that the read or the pairing needs fixing (`overShare: true`). `RunPathParityGateTest` keeps the gate to audit windows. |
 | Exchange presence | For order runs between Shopify and HotWax OMS, checks that each Shopify exchange in the window was imported into OMS. Only lookup-confirmed absences become rows. |
 
 ## Stuck-run recovery
@@ -142,6 +153,8 @@ reconciliation.ReconciliationAutomationServices.sweep#StuckReconciliationRuns
 ```
 
 It flips `ReconciliationRunResult` and `ReconciliationAutomationExecution` rows still in running or pending state, whose last update is older than the `darpan.reconciliation.runHealth.reaperStaleMinutes` setting (a Darpan operator edits it in the admin app), to failed with an explanatory status message. The service is internal only (`allow-remote="false"`) and is not part of the JSON-RPC surface.
+
+The reaper runs as the `sweep_StuckReconciliationRuns_10m` service job. A job run killed mid-job leaves its `ServiceJobRunLock` row behind, and the job does not run again until the lock expires. Every job Darpan ships sets `expireLockTime` to 360 minutes (Moqui's default is 1440), so a killed task stalls the reaper and the automation scan for at most 6 hours.
 
 ## RuleSet compare flow
 

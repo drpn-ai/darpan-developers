@@ -19,6 +19,7 @@ description: "One record that breaks one statement."
 | `history` | [`[FindingEvent!]!`](/graphql/objects/finding-event) | Every state change and sighting, oldest first. |
 | `id` | [`String`](/graphql/scalars/string) | The finding's id. |
 | `period` | [`String`](/graphql/scalars/string) | The period whose run found it; it appears in that period's reports only. |
+| `priority` | [`FindingPriority`](/graphql/objects/finding-priority) | How urgent it is and where that level came from. |
 | `records` | [`[FindingRecord!]!`](/graphql/objects/finding-record) | The record ids in each system. |
 | `statement` | [`StatementRef`](/graphql/objects/statement-ref) | The statement it breaks. |
 | `status` | [`FindingStatus`](/graphql/objects/finding-status) | Where the finding stands now. |

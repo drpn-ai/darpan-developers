@@ -3,6 +3,18 @@ title: "Changelog"
 description: "Changes to the GraphQL API."
 ---
 
+## Darpan 3.4.4
+
+Additive; existing queries are unchanged.
+
+- Audit priorities. A finding has a level, `P0`, `P1`, `P2` or `KNOWN`: its reason's level when one is set, else its statement's.
+  - `Statement.priority`: the statement's own level, `P2` when none is set.
+  - `FindingSummary` and `FindingListItem` gain `priority`, `prioritySource` (`reason` or `statement`), `priorityReason` and `priorityLine`. An order takes its most urgent open line's level, and `priorityLine` names that line.
+  - `Finding.priority` is a new [`FindingPriority`](/graphql/objects/finding-priority) object: `level`, `source` and `reason`.
+  - `AuditSummary`, `CategoryCounts` and `FindingCounts` (and so `Category.counts`) gain `byPriority`, a new [`PriorityCounts`](/graphql/objects/priority-counts) object: open findings at `P0`, `P1`, `P2` and `KNOWN`. An order counts once, at its most urgent open line, so the levels add up to `open`.
+  - `findings` takes a `priority` key in `query:`, for example `priority:P0,P1`. It filters finding lines by their own level, so its totals can differ from `byPriority`, which counts orders.
+- `auditReport` with no `date` answers the last morning that was due: yesterday's until the audit's scheduled time in its schedule's time zone, then today's. It answers today's when the audit has no daily schedule, a check of it already ran today, or the period asked for had not started yesterday. The `date` argument's description in the schema still says "blank is today"; the behaviour above is what the API does.
+
 ## Darpan 3.2.0
 
 - No schema change. The reference pages stay as generated from the 3.1.0 schema.

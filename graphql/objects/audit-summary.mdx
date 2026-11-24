@@ -9,7 +9,8 @@ description: "Counts across the whole tenant, and the oldest open finding."
 
 | Field | Type | Description |
 |---|---|---|
-| `byCategory` | [`[CategoryCounts!]!`](/graphql/objects/category-counts) | The same three counts (`open`, `newToday`, `fixedToday`) for each category; all four categories are present. |
+| `byCategory` | [`[CategoryCounts!]!`](/graphql/objects/category-counts) | The same counts (`open`, `newToday`, `fixedToday`, `byPriority`) for each category; all four categories are present. |
+| `byPriority` | [`PriorityCounts`](/graphql/objects/priority-counts) | Open findings at each level (`P0`, `P1`, `P2`, `KNOWN`); every open finding is counted once, so they add up to `open`. |
 | `fixedToday` | [`Int`](/graphql/scalars/int) | Findings that became `fixed` on `report.date`. |
 | `newToday` | [`Int`](/graphql/scalars/int) | Findings first found on `report.date` and still open. |
 | `oldestOpen` | [`OldestOpen`](/graphql/objects/oldest-open) | The open finding with the earliest `firstFound`. |
