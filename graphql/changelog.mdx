@@ -3,6 +3,10 @@ title: "Changelog"
 description: "Changes to the GraphQL API."
 ---
 
+## Darpan 3.4.6
+
+No schema change. A Shopify record that carries no status of its own reads its fulfillment status alone in `FindingRecord.status`, such as `Fulfilled`; its financial status was folded in before (`Refunded · Fulfilled`). The payment status the app now shows beside it is not in the schema.
+
 ## Darpan 3.4.4
 
 Additive; existing queries are unchanged.

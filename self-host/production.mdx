@@ -182,6 +182,24 @@ What changes on its own after the deploy:
 - A Shopify order HotWax already has, under 24 hours old when read, concludes as on its way to NetSuite instead of held in HotWax.
 - An audit's daily re-check can read HotWax returns by the return's Shopify order id, so a returns check keyed that way no longer reads `Partial` with "Older findings were not re-checked".
 
+3.4.6 moves `darpan-ui` to `v4.4.7`. Its image moves `darpan`, `darpan-hotwax` (`v1.3.2`) and `shopify-darpan` (`v0.11.1`). Its upgrade data (37 records, loaded as above) carries the `DARPAN_ERROR_NOTICE` and `DARPAN_ERROR_DIGEST` email templates with their copy, the audit run update's new did-not-run and Unexplained copy blocks, and the `send_ErrorDigest_hourly` and `flush_ErrorLog_5m` jobs. The `RUN_ERROR_NOTICE`, `ERROR_LOG_ENTRY` and `ERROR_DIGEST_SEND` tables and four execution columns (`FILE1_READ_COUNT`, `FILE2_READ_COUNT`, `NO_DATA_KIND`, `TRIGGER_TYPE`) are created on boot. There is no migration. Six new settings sit under the admin app's Errors area:
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `errors.chat.webhookUrl` | unset | Darpan's own chat space (a Google Chat or Slack incoming webhook) for run error cards. Secret: shown masked. Unset posts no cards. |
+| `errors.email.to` | unset | Addresses, comma-separated, for the daily error email. Unset sends none. |
+| `errors.digest.hourUtc` | 12 | The UTC hour the daily error email goes. |
+| `errors.watchdog.hours` | 30 | An audit check with no successful scheduled run for this long is named in the email. |
+| `errors.emptyStreak.days` | 7 | Scheduled runs in a row that read nothing before the email names the check. |
+| `audit.unexplained.email.to` | unset | Addresses, comma-separated, for a CSV of every Unexplained finding after each audit run. Unset sends none. |
+
+Set them to your own team's destinations, never a client's. Four things change on their own:
+
+- An automation run that fails, gives up, or reads nothing on one side while the other reads records no longer posts its error to the tenant. The automation's chat space gets one neutral line a day for a scheduled run, notify-me subscribers get it on any run, and audit checks on such a window record not run. See [Run errors](/backend/reconciliation-engine#run-errors).
+- Every `ERROR` log line is counted in memory and stored every 5 minutes, whether or not `errors.email.to` is set.
+- An audit's re-check also reads the HotWax orders whose items changed since its recent read, so a HotWax orders check makes one more read each morning.
+- A finding's records carry `paymentStatus`, and a Shopify completed-returns read asks each order's date, statuses and totals, which costs a little more Shopify query cost per order.
+
 To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored. The old scripts' rows are still there, but `TENANT_SCRIPTS_TO_QUERIES` deleted their five-minute job: the 3.3.2 seed load brings it back. Changes made to queries since are not carried back.
 
 ### Upgrading to 3.2.0

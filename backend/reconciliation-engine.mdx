@@ -70,6 +70,8 @@ An interactive run's source filters are the compare scope's (`RuleSetCompareSour
 
 Built-in Keep lines are data on the connector row, written by the system's own component; core holds no system name. A connector with no built-ins carries `[]`. A built-in line can carry `appliesUnless`, a map of the side's extract options (`extractOptionsJson` on the connector) that switch it off: HotWax orders set exchange orders aside unless the side sets `keepExchangeOrders` (darpan-hotwax 1.3.1), and the orders extract then writes exchange orders it re-reads by key flagged, as the window read does. A `SPARK` side fails, before anything is read, when its connector's `keepLinesJson` is not loaded, and when neither the read nor Spark can filter a side that has Keep rules (no key, or records that are not top-level).
 
+A key field with no path (`orderId`, record root blank) is read as a field of each record of the `records` array when Keep runs in Spark, as the plan gate (`KeepPlanSupport.keyedOnRecords`) reads it (3.4.6); before, the compare failed on it. Uploads, whose records are a top-level array, never keep in Spark.
+
 `darpan.reconciliation.source.KeepStepSupport` splits the side and writes the set-aside artifact beside the extract (`KeepArtifacts`): `<extract>.keep.json` (the summary, one entry per tenant rule with its counts), `<extract>.set-aside.rows` (one row per set-aside record) and, where the connector asks for it (`excludedRecordsSidecar`), the `.excluded.json` side file. The extract keeps every record; every reader of it skips what Keep set aside. The other side is then read by the kept keys only, and the conclude pass reads its set-aside counts from the summary.
 
 A Keep decision saved through moqui-rules (stage `CDS_KEEP_FILE_1` or `CDS_KEEP_FILE_2`) is checked first by `judge.JudgeConfigServices.check#KeepRuleLines`, run as a pre-service ECA on `moqui.rules.RuleServices.store#Rule` (`service/KeepRule.secas.xml`). A line Keep cannot run in Spark (an exists, piece or field-to-field line, an ask, a date or list field, a field of the other side) is refused and nothing is saved.
@@ -123,7 +125,7 @@ Each stage writes one `ReconciliationRunStep` row with its own status, timing, a
 | 1 | `RESOLVE` | Load the saved run, its compare scope, and the run window. |
 | 2 | `EXTRACT_FILE1` | Extract or stage the first source. |
 | 3 | `EXTRACT_FILE2` | Extract or stage the second source. Never opened on a single-sided (`EVALUATE`) scope. |
-| 4 | `RECHECK` | Read an audit window's older open findings again by key on each side. Opened only on an audit window that has them. |
+| 4 | `RECHECK` | Read an audit window's older open findings again by key on each side, and, on a side whose extractor takes `changedSince`, the period's records that changed since the recent read started (3.4.6). Opened only on an audit window that has either. |
 | 5 | `COMPARE` | Spark base diff and rule evaluation. |
 | 6 | `VERIFY_RETURNS` | Return presence. Free grading, so it runs before any paid lookup. |
 | 7 | `VERIFY_MISSING` | Missing-diff recheck. |
@@ -231,7 +233,20 @@ Runs that reach a terminal state alert the owning tenant so sync issues surface 
 
 Delivery is claim-then-deliver: a single claim per run-result means at most one notification pass even when several stages report completion. A failed delivery still consumes the claim; there is no automatic redelivery. Subscription rows are purged once the run is terminal. The payload includes the run name, tenant label, result ID, a link back to the run result, the difference count, and the only-in-source counts. The run-result link base URL comes from the `DARPAN_APP_BASE_URL` environment variable or the `darpan.app.baseUrl` property, falling back to the first allowed origin.
 
-Automation executions have one more end state. An execution that fails with a transient error is retried; one that exhausts its retries ends in `AUT_STAT_DEAD_LETTER` and sends a give-up alert to the same destinations. `facade.ReconciliationFacadeServices.reprocess#AutomationExecution` resets a failed or dead-lettered execution to pending with a fresh retry budget.
+Automation executions have one more end state. An execution that fails with a transient error is retried; one that exhausts its retries ends in `AUT_STAT_DEAD_LETTER`. `facade.ReconciliationFacadeServices.reprocess#AutomationExecution` resets a failed or dead-lettered execution to pending with a fresh retry budget.
+
+### Run errors
+
+From 3.4.6 an automation run's error never reaches a tenant's destination. `darpan.ops.RunErrorKinds` names an execution's error from its terminal row: `FAILED`, `DEAD_LETTER` (after the last retry only), or a `AUT_STAT_NO_DATA` close whose `noDataKind` is `ONE_SIDE_EMPTY` (one side read nothing, the other read records) or `KEPT_NOTHING` (Keep kept none of a side's records). A rule that fails to build or evaluate ends `FAILED` with the rule's error on the row. Both sides empty is a quiet day and no error. The stuck-run reaper's failures take the same path. `AutomationExecutionSupport.notifyRunError` then:
+
+1. Posts one card to Darpan's own chat space (`errors.chat.webhookUrl`; Google Chat or Slack by host) per audit check the automation runs, or one for an automation with no check. `darpan.ops.RunErrorNotice` (tenant, check or automation, run day in the automation's zone, trigger) is the dedupe key, so a second failure that day posts nothing; scheduled failures count a streak, and a `manual` or `play` run has its own slot.
+2. Sends the tenant only the copy block `DARPAN_ERROR_NOTICE` / `client.notrun` ("*name* did not run this morning. Darpan has been alerted and is working on a fix."): to every notify-me subscriber on any trigger, and to the automation's chat space for a scheduled run of an automation that feeds no audit, once per automation per run day. An audit's tenant line is its run update, which says which checks did not run or partly ran.
+
+An audit check on such a window records not run with the side's reason and closes nothing. Each execution keeps `file1ReadCount` and `file2ReadCount` (what the read returned) beside the kept counts, `noDataKind`, and `triggerType` (`scheduled`, `manual` or `play`; blank on older rows, read as scheduled). `run#SavedRunDiff`, a saved run started from the app, still reports its own failure to its subscribers.
+
+`darpan.ops.ErrorLogCapture` (a Moqui tool factory, `ErrorLogToolFactory`) keeps the instance's `ERROR` log lines in memory, grouped by fingerprint (logger plus message with numbers and ids masked, at most 500 a window), and `flush_ErrorLog_5m` stores them in `ErrorLogEntry`, one row per fingerprint per UTC day, purging rows older than 30 days. `send_ErrorDigest_hourly` sends the daily Darpan error email (`DARPAN_ERROR_DIGEST`) to `errors.email.to` at `errors.digest.hourUtc`, once a day even when nothing happened, claimed per UTC day in `ErrorDigestSend`: the run errors since the last email, the watchdog (an audit check with no successful scheduled run for `errors.watchdog.hours`, an active statement's check with no automation, `errors.emptyStreak.days` scheduled runs in a row that read nothing), and the log errors. A one-line summary posts to `errors.chat.webhookUrl`, and says so when no email went. With neither setting there is nothing to send.
+
+After an audit run with Unexplained findings, `AuditRunUpdateSupport` emails `audit.unexplained.email.to` a CSV of them (copy blocks `subject.unexplained`, `unexplained.*` of `DARPAN_AUDIT_RUN`), once per run, even when the audit's run update is off. These three addresses are Darpan settings, never a tenant's.
 
 ### Chat providers
 
