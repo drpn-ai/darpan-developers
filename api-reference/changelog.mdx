@@ -7,13 +7,13 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4 | 226 |
+| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5 | 226 |
 | 4 | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
 
-Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2, 3.4.1, 3.4.2 and 3.4.4 added or removed no methods. There is no 3.0.1 release.
+Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2, 3.4.1, 3.4.2, 3.4.4 and 3.4.5 added or removed no methods. There is no 3.0.1 release.
 
 <Note>
 Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
@@ -22,6 +22,12 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 5
 
 Darpan 3.4.0. Current.
+
+### Darpan 3.4.5
+
+No method added or removed (226), and no parameter or field changed, so the contract stays at 5:
+
+- `facade.AuditFacadeServices.get#AuditSettings` lists, under each statement, only the `reasons` its checks can reach. A check reaches the conclusions of the rows it reports: its link's row kinds map to the conclusion buckets the engine uses, and a blank list reaches them all. Statements whose checks share one saved run no longer each list the run's whole tree. `closes` and `closesOn` count the reached checks only, so `save#AuditSettings` refuses a level only on a reason that closes on every check that reaches it. A level already saved on a reason the statement no longer reaches is still listed, with `checks` 0, so it can be cleared. Two rule checks on one run still share their rule reasons.
 
 ### Darpan 3.4.4
 

@@ -176,6 +176,12 @@ What changes on its own after the deploy:
 - A run killed mid-job frees its job's lock after 6 hours instead of 24, so the stuck-run reaper and the automation scan are no longer held for a day.
 - Regular runs look up every missing record whatever its share; only audit checks keep the 5% gate. A tenant whose daily reads leave many records missing makes more lookup calls than on 3.4.3.
 
+3.4.5 is backend only; `darpan-ui` stays at `v4.4.5`. Its image moves `darpan` and `darpan-hotwax` (`v1.3.1`). Its upgrade data (2,325 records, loaded as above) carries the in-app help content whole, with its new seed mark, and the HotWax orders connector (`OMS_GQL`) with its new `keepExchangeOrders` extract option and the `isExchangeOrder` field. There is no migration and no new column. Three things change on their own:
+
+- The browser CORS preflight allows the `X-Darpan-Tenant` request header beside the framework's own list. The app does not send it yet. A proxy in front of the backend that answers preflights itself must allow it too before an app that sends it is deployed.
+- A Shopify order HotWax already has, under 24 hours old when read, concludes as on its way to NetSuite instead of held in HotWax.
+- An audit's daily re-check can read HotWax returns by the return's Shopify order id, so a returns check keyed that way no longer reads `Partial` with "Older findings were not re-checked".
+
 To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored. The old scripts' rows are still there, but `TENANT_SCRIPTS_TO_QUERIES` deleted their five-minute job: the 3.3.2 seed load brings it back. Changes made to queries since are not carried back.
 
 ### Upgrading to 3.2.0
