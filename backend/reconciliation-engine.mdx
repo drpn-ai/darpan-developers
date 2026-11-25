@@ -201,6 +201,19 @@ The legacy mapping path still routes through:
 reconciliation.ReconciliationCoreServices.reconcile#FilesByMapping
 ```
 
+### Read fields
+
+An extractor that declares `readFields` reads only the fields its run needs. An automation's read sends it the fields the side's rules and Keep read, plus any the source's own `parameters.readFields` asks for: the source's first, then the rules', each once (`AutomationExecutionSupport.withAskedReadFields`, 3.4.7). Before 3.4.7 the rules' list replaced the source's. A service that does not declare `readFields` gets neither.
+
+### Order lines for audit findings
+
+From 3.4.7 an audit finding's order record can carry its lines, so the audit page lists them by SKU with each system's status. Each side turns it on in its source's parameters, and it is off by default:
+
+- HotWax orders (darpan-hotwax 1.3.3): `readFields: ["orderItems"]`. The derived field `orderItems` is read by order id once per page, as `itemQuantity` is, each item with `orderItemSeqId`, `externalId` (the Shopify line id), `productId`, `sku`, `quantity` and `statusId`. A read that asks for it is not covered by the shared orders read (`OmsGqlQueries.sharedOrdersCover`), so the check reads its own window plus one item call per page.
+- Shopify orders (shopify-darpan 0.11.2): `withLineItems: true` on `extract#ShopifyOrders`. The read uses the extract-only source `SHOPIFY_ORDERS_WITH_LINES`, which selects each order's `lineItems` (id, SKU, name, quantity, current and unfulfilled quantity) in the same bulk query; `listSources` never lists it. `ShopifyOrderLinesNesting` puts each line back under its order. The request metadata reports `withLineItems` and `orphanLines`: above 0, that many lines arrived away from their order and were left off, and the read adds a warning.
+
+`AuditReportAssembler.recordFacts` turns either into the record's `lines`, each `{id, sku, name, quantity, status}`. A HotWax item's `id` is its `externalId`, so a Shopify line and its HotWax item share one id and the app shows them as one row. A Shopify line's `status` comes from its quantities: `Removed`, `Fulfilled`, `Unfulfilled`, or "1 of 3 unfulfilled". A HotWax item's is its status in words.
+
 ## Generated outputs
 
 Generated outputs are not only downloaded files. The backend stores descriptor metadata so the UI can list, open, and delete outputs consistently.
@@ -242,7 +255,7 @@ From 3.4.6 an automation run's error never reaches a tenant's destination. `darp
 1. Posts one card to Darpan's own chat space (`errors.chat.webhookUrl`; Google Chat or Slack by host) per audit check the automation runs, or one for an automation with no check. `darpan.ops.RunErrorNotice` (tenant, check or automation, run day in the automation's zone, trigger) is the dedupe key, so a second failure that day posts nothing; scheduled failures count a streak, and a `manual` or `play` run has its own slot.
 2. Sends the tenant only the copy block `DARPAN_ERROR_NOTICE` / `client.notrun` ("*name* did not run this morning. Darpan has been alerted and is working on a fix."): to every notify-me subscriber on any trigger, and to the automation's chat space for a scheduled run of an automation that feeds no audit, once per automation per run day. An audit's tenant line is its run update, which says which checks did not run or partly ran.
 
-An audit check on such a window records not run with the side's reason and closes nothing. Each execution keeps `file1ReadCount` and `file2ReadCount` (what the read returned) beside the kept counts, `noDataKind`, and `triggerType` (`scheduled`, `manual` or `play`; blank on older rows, read as scheduled). `run#SavedRunDiff`, a saved run started from the app, still reports its own failure to its subscribers.
+An audit check on such a window records not run with the side's reason and closes nothing. Each execution keeps `file1ReadCount` and `file2ReadCount` (what the read returned) beside the kept counts, `noDataKind`, and `triggerType` (`scheduled`, `manual` or `play`; blank on older rows, read as scheduled). `run#SavedRunDiff`, a saved run started from the app, takes the same path from 3.4.7 when it throws or its rules do not fully evaluate (`AutomationExecutionSupport.notifySavedRunCompleted`, then `notifySavedRunError`). Darpan's error space gets one `FAILED` card with trigger `manual` and the saved run's name, deduped per day on `savedRun:<savedRunId>` in the tenant's zone. Its notify-me subscribers get only the copy block `DARPAN_ERROR_NOTICE` / `client.runfailed` ("*name* did not finish. Darpan has been alerted and is working on a fix."), never the error or the rule warnings. A run whose cancel was requested while its rules failed ends `CANCELLED`: no card, no line, and its subscriptions are purged.
 
 `darpan.ops.ErrorLogCapture` (a Moqui tool factory, `ErrorLogToolFactory`) keeps the instance's `ERROR` log lines in memory, grouped by fingerprint (logger plus message with numbers and ids masked, at most 500 a window), and `flush_ErrorLog_5m` stores them in `ErrorLogEntry`, one row per fingerprint per UTC day, purging rows older than 30 days. `send_ErrorDigest_hourly` sends the daily Darpan error email (`DARPAN_ERROR_DIGEST`) to `errors.email.to` at `errors.digest.hourUtc`, once a day even when nothing happened, claimed per UTC day in `ErrorDigestSend`: the run errors since the last email, the watchdog (an audit check with no successful scheduled run for `errors.watchdog.hours`, an active statement's check with no automation, `errors.emptyStreak.days` scheduled runs in a row that read nothing), and the log errors. A one-line summary posts to `errors.chat.webhookUrl`, and says so when no email went. With neither setting there is nothing to send.
 

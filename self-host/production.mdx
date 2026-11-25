@@ -200,6 +200,15 @@ Set them to your own team's destinations, never a client's. Four things change o
 - An audit's re-check also reads the HotWax orders whose items changed since its recent read, so a HotWax orders check makes one more read each morning.
 - A finding's records carry `paymentStatus`, and a Shopify completed-returns read asks each order's date, statuses and totals, which costs a little more Shopify query cost per order.
 
+3.4.7 moves `darpan-ui` to `v4.4.10` (`v4.4.9` was tagged but never deployed). Its image moves `darpan`, `darpan-hotwax` (`v1.3.3`) and `shopify-darpan` (`v0.11.2`). Its upgrade data (1 record, loaded as above) is the `client.runfailed` copy block of the `DARPAN_ERROR_NOTICE` template, which 3.4.6 shipped. There is no migration and no new table or setting. Roll back by redeploying 3.4.6; the copy block is ignored there. What changes on its own:
+
+- A saved run started from the app that fails, or whose rules do not fully evaluate, no longer sends its error to notify-me subscribers. It posts one card to `errors.chat.webhookUrl` and sends subscribers the neutral line. See [Run errors](/backend/reconciliation-engine#run-errors).
+- An audit digest shows the run update's neutral line for a check that did not run, never the read's failure text.
+- `audit.unexplained.email.to` is refused on save unless it is a list of email addresses, as `errors.email.to` is.
+- A source's stored `parameters.readFields` now ride beside the rules' read fields; before, the rules' list replaced them.
+
+Order lines on audit findings stay off until a source asks for them: a HotWax orders source with `readFields: ["orderItems"]`, a Shopify orders source with `withLineItems: true`. A HotWax check that asks for `orderItems` reads its own window instead of the shared orders read, plus one item call per page. A Shopify read with `withLineItems` selects the lines in the same bulk query. See [Order lines for audit findings](/backend/reconciliation-engine#order-lines-for-audit-findings).
+
 To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored. The old scripts' rows are still there, but `TENANT_SCRIPTS_TO_QUERIES` deleted their five-minute job: the 3.3.2 seed load brings it back. Changes made to queries since are not carried back.
 
 ### Upgrading to 3.2.0

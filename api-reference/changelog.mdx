@@ -7,13 +7,13 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5, 3.4.6 | 226 |
+| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5, 3.4.6, 3.4.7 | 226 |
 | 4 | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
 | 1 | 1.0.0 to 1.1.0 | 66 |
 
-Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2, 3.4.1, 3.4.2, 3.4.4, 3.4.5 and 3.4.6 added or removed no methods. There is no 3.0.1 release.
+Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2, 3.4.1, 3.4.2, 3.4.4, 3.4.5, 3.4.6 and 3.4.7 added or removed no methods. There is no 3.0.1 release.
 
 <Note>
 Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
@@ -22,6 +22,14 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 5
 
 Darpan 3.4.0. Current.
+
+### Darpan 3.4.7
+
+No method added or removed (226); a field added only, so the contract stays at 5:
+
+- `facade.AuditFacadeServices.get#AuditFinding` and the findings of `get#AuditReport`: an order record carries `lines` when its read gave them, each `{id, sku, name, quantity, status}`. A Shopify orders read gives them with `withLineItems` (shopify-darpan 0.11.2), a HotWax orders read when it asks `orderItems` (darpan-hotwax 1.3.3). `id` is the Shopify line id on both systems, so a line and its HotWax item pair. A Shopify line's `status` is `Removed`, `Fulfilled`, `Unfulfilled` or "1 of 3 unfulfilled"; a HotWax item's is its status in words. Without either option, no record carries `lines`.
+- `facade.ReconciliationFacadeServices.run#SavedRunDiff`: a run that fails, or whose rules do not fully evaluate, no longer sends its error to notify-me subscribers. They get "*name* did not finish. Darpan has been alerted and is working on a fix." No parameter or return field changed.
+- Operator-only: `admin.SettingAdminServices.update#Setting` checks `audit.unexplained.email.to` as a list of email addresses.
 
 ### Darpan 3.4.6
 
