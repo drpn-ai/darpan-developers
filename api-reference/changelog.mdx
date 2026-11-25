@@ -7,7 +7,7 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5, 3.4.6, 3.4.7, 3.4.8 | 226 |
+| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5, 3.4.6, 3.4.7, 3.4.8, 3.4.9 | 233 |
 | 4 | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
@@ -22,6 +22,17 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 5
 
 Darpan 3.4.0. Current.
+
+### Darpan 3.4.9
+
+Seven methods added (226 to 233), and parameters and fields added only, so the contract stays at 5. Nothing was removed.
+
+- `facade.AuditFacadeServices.acknowledge#AuditFinding`, `update#AuditFindingAcknowledgement` and `delete#AuditFindingAcknowledgement` acknowledge, change and reopen the report row holding one open finding: a required note (at most 4,000 characters) and an optional remind day (`audit.acknowledge.remindDays`, default 5). A finding stays open or fixed; an acknowledgement takes its row out of `open` only. They need access to the tenant, not edit access, and are not on the CLI allowlist.
+- `facade.AuditFacadeServices.send#AuditFindingFeedback` saves a note to Darpan about one finding, posts it to Darpan's feedback chat space and emails the sender a thank-you. `get#AuditFindingFeedback` lists the tenant's notes on the finding's statement and cause within `audit.feedback.shownDays` (default 14). Send is not on the CLI allowlist; the list is.
+- `facade.AuditFacadeServices.verify#AuditFindings` re-checks every open finding of an audit's period, or of one statement, with one run per automation (more past 1,000 orders), and writes no check run. `get#AuditRecheckProgress` counts the findings checked since its `checkedSince` and how many closed. `verify#AuditFindings` needs run access. Neither is on the CLI allowlist; `verify#AuditFinding`, for one finding, stays on it.
+- `get#AuditReport`: the counts carry `acknowledged`, and `open` leaves out the rows acknowledged today, on the latest morning only. Each open row carries `acknowledgement` (`{note, by, at, remindOn, reminded}` or null), and `report.acknowledgeRemindDays` is the setting. `get#AuditFindingsByOrder` now reads `state` (`open`, `acknowledged`, or blank for every open row; any other value is an error) and each row carries `acknowledgement`.
+- `get#AuditFinding`: `acknowledgement` and `feedback.recentCount`. History can carry a person's events, `acknowledged`, `acknowledgementChanged` and `acknowledgementReopened`, which never decide a finding's state.
+- Operator-only: `admin.FeedbackAdminServices.get#FeedbackList` and `reply#Feedback` list the feedback across tenants and answer one by email. Both are kept off the `darpan` CLI allowlist; the `darpan-admin feedback` command calls them as a super admin.
 
 ### Darpan 3.4.8
 

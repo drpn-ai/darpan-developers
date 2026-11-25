@@ -213,6 +213,22 @@ On 3.4.7, order lines on audit findings stay off until a source asks for them: a
 
 From 3.4.8, order lines are turned on in the run editor, not in an automation's parameters: tick **Order lines** on a Shopify orders side or **Order items** on a HotWax orders side, then sync the automation so it reads them too. Off is the default and is never stored. A side with either option on reads live rather than from a kept copy. Roll back by redeploying 3.4.7: the connectors' extra option is ignored there, and a side that stored it keeps it while a 3.4.7 run drops it at run time, without failing. See [Order lines for audit findings](/backend/reconciliation-engine#order-lines-for-audit-findings).
 
+3.4.9 moves `darpan-ui` to `v4.4.11`; deploy them together, backend first. Its image moves `darpan` only. Its upgrade data (63 records, loaded as above) restates the whole audit vocabulary, adding the `AUDFE_ACKNOWLEDGED`, `AUDFE_ACK_CHANGED` and `AUDFE_ACK_REOPENED` history events, and carries the tenant filters for the two new entities, the `DARPAN_FEEDBACK_RECEIVED` and `DARPAN_FEEDBACK_ANSWER` email templates with their copy, and the `acknowledged` copy blocks of the audit run update and the digest. Without the load, acknowledging a finding fails on a foreign key to the missing event types. The `AUDIT_FINDING_ACKNOWLEDGEMENT` and `AUDIT_FINDING_FEEDBACK` tables are created on boot. There is no migration. Three new settings:
+
+| Setting | Area | Default | What it does |
+| --- | --- | --- | --- |
+| `feedback.chat.webhookUrl` | Errors | unset | Darpan's own chat space (a Google Chat or Slack incoming webhook) for the feedback people send on audit findings. Secret: shown masked. Unset posts no card; the note is still saved and the sender still thanked. |
+| `audit.acknowledge.remindDays` | Audits | 5 | Days after an acknowledgement that a finding still open comes back to Open, when its reminder is on (1 to 60). |
+| `audit.feedback.shownDays` | Audits | 14 | Days a feedback note stays listed in the app (1 to 90). Notes are kept after that. |
+
+After the deploy, set `feedback.chat.webhookUrl` in the admin app to your own team's space, never a client's. The thank-you and answer emails send from the address Darpan's other mail uses. List and answer feedback with `darpan-admin feedback` and `darpan-admin feedback reply <id> "<answer>"`. What changes on its own:
+
+- An acknowledged finding leaves the report's `open` count for `acknowledged` on the latest morning; the audit run update and the digest name acknowledged findings on their own line.
+- Re-check all (`verify#AuditFindings`) starts one automation run per automation, and one more per 1,000 orders, through run admission like any audit run. It writes no check run, so it changes neither check health nor the next morning's read.
+- The nightly purge deletes a finding's acknowledgement with the finding. Feedback rows are not purged.
+
+Roll back by redeploying 3.4.8 with app `v4.4.10`. The new tables and their rows stay and are not read, so acknowledged findings count as open again.
+
 To roll back to 3.3.2, roll back the whole set, connectors included, so the extractors filter again. New tables, columns and seed rows stay and are ignored. The old scripts' rows are still there, but `TENANT_SCRIPTS_TO_QUERIES` deleted their five-minute job: the 3.3.2 seed load brings it back. Changes made to queries since are not carried back.
 
 ### Upgrading to 3.2.0

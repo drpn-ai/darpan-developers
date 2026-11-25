@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Darpan Facade API",
-    "version": "3.4.8",
+    "version": "3.4.9",
     "x-darpan-contract-version": 5,
-    "description": "Public copy of the darpan v3.4.8 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
+    "description": "Public copy of the darpan v3.4.9 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
   },
   "servers": [
     {
@@ -60,10 +60,16 @@
                     "$ref": "#/components/schemas/GetAppContentRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/AcknowledgeAuditFindingRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/AddAuditStatementRequest"
                   },
                   {
                     "$ref": "#/components/schemas/CreateAuditRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DeleteAuditFindingAcknowledgementRequest"
                   },
                   {
                     "$ref": "#/components/schemas/GetAuditCheckExtractsRequest"
@@ -75,6 +81,9 @@
                     "$ref": "#/components/schemas/GetAuditFindingRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/GetAuditFindingFeedbackRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/GetAuditFindingsByOrderRequest"
                   },
                   {
@@ -82,6 +91,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/GetAuditReadReportRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GetAuditRecheckProgressRequest"
                   },
                   {
                     "$ref": "#/components/schemas/GetAuditReportRequest"
@@ -105,7 +117,16 @@
                     "$ref": "#/components/schemas/SaveAuditSettingsRequest"
                   },
                   {
+                    "$ref": "#/components/schemas/SendAuditFindingFeedbackRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateAuditFindingAcknowledgementRequest"
+                  },
+                  {
                     "$ref": "#/components/schemas/VerifyAuditFindingRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VerifyAuditFindingsRequest"
                   },
                   {
                     "$ref": "#/components/schemas/BeginPasskeyFirstSignInRequest"
@@ -717,14 +738,18 @@
                     "facade.AgentTurnFacadeServices.send#AgentQueryTurn": "#/components/schemas/SendAgentQueryTurnRequest",
                     "facade.AgentTurnFacadeServices.send#AgentTurn": "#/components/schemas/SendAgentTurnRequest",
                     "facade.AppContentFacadeServices.get#AppContent": "#/components/schemas/GetAppContentRequest",
+                    "facade.AuditFacadeServices.acknowledge#AuditFinding": "#/components/schemas/AcknowledgeAuditFindingRequest",
                     "facade.AuditFacadeServices.add#AuditStatement": "#/components/schemas/AddAuditStatementRequest",
                     "facade.AuditFacadeServices.create#Audit": "#/components/schemas/CreateAuditRequest",
+                    "facade.AuditFacadeServices.delete#AuditFindingAcknowledgement": "#/components/schemas/DeleteAuditFindingAcknowledgementRequest",
                     "facade.AuditFacadeServices.get#AuditCheckExtracts": "#/components/schemas/GetAuditCheckExtractsRequest",
                     "facade.AuditFacadeServices.get#AuditCheckOptions": "#/components/schemas/GetAuditCheckOptionsRequest",
                     "facade.AuditFacadeServices.get#AuditFinding": "#/components/schemas/GetAuditFindingRequest",
+                    "facade.AuditFacadeServices.get#AuditFindingFeedback": "#/components/schemas/GetAuditFindingFeedbackRequest",
                     "facade.AuditFacadeServices.get#AuditFindingsByOrder": "#/components/schemas/GetAuditFindingsByOrderRequest",
                     "facade.AuditFacadeServices.get#AuditProgress": "#/components/schemas/GetAuditProgressRequest",
                     "facade.AuditFacadeServices.get#AuditReadReport": "#/components/schemas/GetAuditReadReportRequest",
+                    "facade.AuditFacadeServices.get#AuditRecheckProgress": "#/components/schemas/GetAuditRecheckProgressRequest",
                     "facade.AuditFacadeServices.get#AuditReport": "#/components/schemas/GetAuditReportRequest",
                     "facade.AuditFacadeServices.get#AuditSettings": "#/components/schemas/GetAuditSettingsRequest",
                     "facade.AuditFacadeServices.get#Audits": "#/components/schemas/GetAuditsRequest",
@@ -732,7 +757,10 @@
                     "facade.AuditFacadeServices.run#Audit": "#/components/schemas/RunAuditRequest",
                     "facade.AuditFacadeServices.save#AuditCheck": "#/components/schemas/SaveAuditCheckRequest",
                     "facade.AuditFacadeServices.save#AuditSettings": "#/components/schemas/SaveAuditSettingsRequest",
+                    "facade.AuditFacadeServices.send#AuditFindingFeedback": "#/components/schemas/SendAuditFindingFeedbackRequest",
+                    "facade.AuditFacadeServices.update#AuditFindingAcknowledgement": "#/components/schemas/UpdateAuditFindingAcknowledgementRequest",
                     "facade.AuditFacadeServices.verify#AuditFinding": "#/components/schemas/VerifyAuditFindingRequest",
+                    "facade.AuditFacadeServices.verify#AuditFindings": "#/components/schemas/VerifyAuditFindingsRequest",
                     "facade.AuthFacadeServices.begin#PasskeyFirstSignIn": "#/components/schemas/BeginPasskeyFirstSignInRequest",
                     "facade.AuthFacadeServices.begin#PasskeyProof": "#/components/schemas/BeginPasskeyProofRequest",
                     "facade.AuthFacadeServices.begin#PasskeyRegistration": "#/components/schemas/BeginPasskeyRegistrationRequest",
@@ -984,10 +1012,16 @@
                       "$ref": "#/components/schemas/GetAppContentResponse"
                     },
                     {
+                      "$ref": "#/components/schemas/AcknowledgeAuditFindingResponse"
+                    },
+                    {
                       "$ref": "#/components/schemas/AddAuditStatementResponse"
                     },
                     {
                       "$ref": "#/components/schemas/CreateAuditResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeleteAuditFindingAcknowledgementResponse"
                     },
                     {
                       "$ref": "#/components/schemas/GetAuditCheckExtractsResponse"
@@ -999,6 +1033,9 @@
                       "$ref": "#/components/schemas/GetAuditFindingResponse"
                     },
                     {
+                      "$ref": "#/components/schemas/GetAuditFindingFeedbackResponse"
+                    },
+                    {
                       "$ref": "#/components/schemas/GetAuditFindingsByOrderResponse"
                     },
                     {
@@ -1006,6 +1043,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/GetAuditReadReportResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/GetAuditRecheckProgressResponse"
                     },
                     {
                       "$ref": "#/components/schemas/GetAuditReportResponse"
@@ -1029,7 +1069,16 @@
                       "$ref": "#/components/schemas/SaveAuditSettingsResponse"
                     },
                     {
+                      "$ref": "#/components/schemas/SendAuditFindingFeedbackResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UpdateAuditFindingAcknowledgementResponse"
+                    },
+                    {
                       "$ref": "#/components/schemas/VerifyAuditFindingResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/VerifyAuditFindingsResponse"
                     },
                     {
                       "$ref": "#/components/schemas/BeginPasskeyFirstSignInResponse"
@@ -2932,6 +2981,111 @@
           "result"
         ]
       },
+      "AcknowledgeAuditFindingParams": {
+        "type": "object",
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "description": "Any finding of the row, e.g. F-20761."
+          },
+          "note": {
+            "type": "string",
+            "description": "Why the problem is known; required, at most 4,000 characters."
+          },
+          "remind": {
+            "type": "boolean",
+            "description": "Bring the row back to Open after the remind\n                days if it is still open."
+          }
+        },
+        "required": [
+          "findingId"
+        ],
+        "description": "Acknowledges the report row holding one open finding: every open line of its order under its statement\n            and the later-step lines waiting under it get the note and one remind day (today in the tenant's zone plus the\n            audit.acknowledge.remindDays setting; none when remind is off). Replaces an earlier acknowledgement of those\n            findings. A fixed finding cannot be acknowledged."
+      },
+      "AcknowledgeAuditFindingResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "acknowledgement": {
+            "type": "object",
+            "description": "{note, by: {id, label}, at, remindOn, reminded}"
+          }
+        }
+      },
+      "AcknowledgeAuditFindingRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.acknowledge#AuditFinding",
+        "x-darpan-method": "facade.AuditFacadeServices.acknowledge#AuditFinding",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.acknowledge#AuditFinding"
+          },
+          "params": {
+            "$ref": "#/components/schemas/AcknowledgeAuditFindingParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "AcknowledgeAuditFindingResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.acknowledge#AuditFinding. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/AcknowledgeAuditFindingResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "AddAuditStatementParams": {
         "type": "object",
         "properties": {
@@ -3137,6 +3291,99 @@
           },
           "result": {
             "$ref": "#/components/schemas/CreateAuditResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "DeleteAuditFindingAcknowledgementParams": {
+        "type": "object",
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "description": "Any finding of the row, e.g. F-20761."
+          }
+        },
+        "required": [
+          "findingId"
+        ],
+        "description": "Reopens the report row holding one finding: removes the acknowledgement of every covered finding, each\n            with a history event. Nothing to remove is not an error."
+      },
+      "DeleteAuditFindingAcknowledgementResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeleteAuditFindingAcknowledgementRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.delete#AuditFindingAcknowledgement",
+        "x-darpan-method": "facade.AuditFacadeServices.delete#AuditFindingAcknowledgement",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.delete#AuditFindingAcknowledgement"
+          },
+          "params": {
+            "$ref": "#/components/schemas/DeleteAuditFindingAcknowledgementParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "DeleteAuditFindingAcknowledgementResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.delete#AuditFindingAcknowledgement. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/DeleteAuditFindingAcknowledgementResult"
           }
         },
         "required": [
@@ -3449,6 +3696,108 @@
           "result"
         ]
       },
+      "GetAuditFindingFeedbackParams": {
+        "type": "object",
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "description": "The finding's id, e.g. F-20761."
+          }
+        },
+        "required": [
+          "findingId"
+        ],
+        "description": "The notes this tenant sent Darpan on the finding's statement and cause (an Unexplained finding: its\n            statement) within the shown days, newest first. Older notes are kept, just not listed."
+      },
+      "GetAuditFindingFeedbackResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {},
+            "description": "[{feedbackId, note, sentAt, by: {id, label}, record}]"
+          },
+          "shownDays": {
+            "type": "integer",
+            "description": "The audit.feedback.shownDays setting."
+          }
+        }
+      },
+      "GetAuditFindingFeedbackRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.get#AuditFindingFeedback",
+        "x-darpan-method": "facade.AuditFacadeServices.get#AuditFindingFeedback",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.get#AuditFindingFeedback"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GetAuditFindingFeedbackParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "GetAuditFindingFeedbackResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.get#AuditFindingFeedback. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/GetAuditFindingFeedbackResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "GetAuditFindingsByOrderParams": {
         "type": "object",
         "properties": {
@@ -3466,7 +3815,7 @@
           },
           "state": {
             "type": "string",
-            "description": "Kept for callers that send it: a finding is only ever open or fixed, and this\n                lists the open ones whatever the value (DAR-BE-206)."
+            "description": "DAR-BE-361. open: the rows not acknowledged today (a reminded row is open);\n                acknowledged: the rows acknowledged today; blank: every open row. Any other value is an error. A finding\n                itself is only ever open or fixed (DAR-BE-206)."
           },
           "priority": {
             "type": "string",
@@ -3476,7 +3825,7 @@
         "required": [
           "audit"
         ],
-        "description": "Every open finding of one audit and period, one per order (an order's lines under it, the\n            line holding it up named), each with its statement and category. State is as of today."
+        "description": "Every open finding of one audit and period, one per order (an order's lines under it, the\n            line holding it up named), each with its statement and category and its row's acknowledgement. State and\n            acknowledgements are as of today."
       },
       "GetAuditFindingsByOrderResult": {
         "type": "object",
@@ -3760,6 +4109,128 @@
           },
           "result": {
             "$ref": "#/components/schemas/GetAuditReadReportResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "GetAuditRecheckProgressParams": {
+        "type": "object",
+        "properties": {
+          "audit": {
+            "type": "string",
+            "description": "The audit's code."
+          },
+          "period": {
+            "type": "string",
+            "description": "The report's period, e.g. 2026-11."
+          },
+          "statement": {
+            "type": "string",
+            "description": "The statement's code; blank is every statement."
+          },
+          "since": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds. verify#AuditFindings' checkedSince."
+          }
+        },
+        "required": [
+          "audit",
+          "period",
+          "since"
+        ],
+        "description": "How far a verify#AuditFindings has come: of the audit's findings in the period (one statement or all),\n            how many were checked since `since`, and how many of those are now closed. A finding whose read did not finish\n            is never counted, so the caller stops waiting after its own limit."
+      },
+      "GetAuditRecheckProgressResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "checked": {
+            "type": "integer",
+            "description": "Findings checked since `since`."
+          },
+          "closed": {
+            "type": "integer",
+            "description": "Of those, the ones now closed."
+          }
+        }
+      },
+      "GetAuditRecheckProgressRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.get#AuditRecheckProgress",
+        "x-darpan-method": "facade.AuditFacadeServices.get#AuditRecheckProgress",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.get#AuditRecheckProgress"
+          },
+          "params": {
+            "$ref": "#/components/schemas/GetAuditRecheckProgressParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "GetAuditRecheckProgressResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.get#AuditRecheckProgress. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/GetAuditRecheckProgressResult"
           }
         },
         "required": [
@@ -4534,6 +5005,211 @@
           "result"
         ]
       },
+      "SendAuditFindingFeedbackParams": {
+        "type": "object",
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "description": "The finding's id, e.g. F-20761."
+          },
+          "note": {
+            "type": "string",
+            "description": "The note to Darpan; required, at most 4,000 characters."
+          }
+        },
+        "required": [
+          "findingId"
+        ],
+        "description": "Sends Darpan a note about one finding: saves it with a snapshot of the finding's statement, cause, record\n            and headline, posts it to Darpan's feedback chat space when one is set, and emails the sender a thank-you. Darpan\n            replies by email."
+      },
+      "SendAuditFindingFeedbackResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "feedback": {
+            "type": "object",
+            "description": "{feedbackId, note, sentAt, by: {id, label}}"
+          }
+        }
+      },
+      "SendAuditFindingFeedbackRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.send#AuditFindingFeedback",
+        "x-darpan-method": "facade.AuditFacadeServices.send#AuditFindingFeedback",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.send#AuditFindingFeedback"
+          },
+          "params": {
+            "$ref": "#/components/schemas/SendAuditFindingFeedbackParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "SendAuditFindingFeedbackResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.send#AuditFindingFeedback. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/SendAuditFindingFeedbackResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "UpdateAuditFindingAcknowledgementParams": {
+        "type": "object",
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "description": "Any finding of the row, e.g. F-20761."
+          },
+          "note": {
+            "type": "string",
+            "description": "The new note; required, at most 4,000 characters."
+          },
+          "remind": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "findingId"
+        ],
+        "description": "Changes the acknowledgement of the report row holding one finding: the note on every covered finding,\n            and the remind day. Remind off clears it; remind on keeps a remind day not yet reached and starts a fresh one\n            (today plus the remind days) when it was off or has passed."
+      },
+      "UpdateAuditFindingAcknowledgementResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "acknowledgement": {
+            "type": "object",
+            "description": "{note, by: {id, label}, at, remindOn, reminded}"
+          }
+        }
+      },
+      "UpdateAuditFindingAcknowledgementRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.update#AuditFindingAcknowledgement",
+        "x-darpan-method": "facade.AuditFacadeServices.update#AuditFindingAcknowledgement",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.update#AuditFindingAcknowledgement"
+          },
+          "params": {
+            "$ref": "#/components/schemas/UpdateAuditFindingAcknowledgementParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "UpdateAuditFindingAcknowledgementResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.update#AuditFindingAcknowledgement. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/UpdateAuditFindingAcknowledgementResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
       "VerifyAuditFindingParams": {
         "type": "object",
         "properties": {
@@ -4623,6 +5299,131 @@
           },
           "result": {
             "$ref": "#/components/schemas/VerifyAuditFindingResult"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "result"
+        ]
+      },
+      "VerifyAuditFindingsParams": {
+        "type": "object",
+        "properties": {
+          "audit": {
+            "type": "string",
+            "description": "The audit's code."
+          },
+          "period": {
+            "type": "string",
+            "description": "The report's period, e.g. 2026-11."
+          },
+          "statement": {
+            "type": "string",
+            "description": "The statement's code, e.g. R10; blank re-checks every statement."
+          }
+        },
+        "required": [
+          "audit",
+          "period"
+        ],
+        "description": "Re-checks every open finding of one statement, or of the whole audit, in one period now: one run per\n            automation reads all their records by key in each system, and the ledger closes each finding whose problem is\n            gone or refreshes it with today's cause. Submitted to the background; get#AuditRecheckProgress counts the\n            findings checked since checkedSince. Writes no check run, so the checks' health and next read are unchanged.\n            Findings whose check has no automation yet are skipped (counted in skipped)."
+      },
+      "VerifyAuditFindingsResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "findings": {
+            "type": "integer",
+            "description": "Open findings being re-checked."
+          },
+          "runs": {
+            "type": "integer",
+            "description": "Runs started (one per automation, more past 1000 orders)."
+          },
+          "skipped": {
+            "type": "integer",
+            "description": "Open findings whose check has no automation yet."
+          },
+          "checkedSince": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Timestamp \u2014 ISO-8601 string or epoch milliseconds. Pass to get#AuditRecheckProgress as since."
+          }
+        }
+      },
+      "VerifyAuditFindingsRequest": {
+        "type": "object",
+        "description": "JSON-RPC request envelope for facade.AuditFacadeServices.verify#AuditFindings",
+        "x-darpan-method": "facade.AuditFacadeServices.verify#AuditFindings",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "const": "facade.AuditFacadeServices.verify#AuditFindings"
+          },
+          "params": {
+            "$ref": "#/components/schemas/VerifyAuditFindingsParams"
+          }
+        },
+        "required": [
+          "jsonrpc",
+          "id",
+          "method"
+        ]
+      },
+      "VerifyAuditFindingsResponse": {
+        "type": "object",
+        "description": "JSON-RPC success envelope for facade.AuditFacadeServices.verify#AuditFindings. Check result.ok / result.errors for business failures.",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "const": "2.0"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "result": {
+            "$ref": "#/components/schemas/VerifyAuditFindingsResult"
           }
         },
         "required": [
@@ -31535,14 +32336,18 @@
     "facade.AgentTurnFacadeServices.send#AgentQueryTurn": "SendAgentQueryTurn",
     "facade.AgentTurnFacadeServices.send#AgentTurn": "SendAgentTurn",
     "facade.AppContentFacadeServices.get#AppContent": "GetAppContent",
+    "facade.AuditFacadeServices.acknowledge#AuditFinding": "AcknowledgeAuditFinding",
     "facade.AuditFacadeServices.add#AuditStatement": "AddAuditStatement",
     "facade.AuditFacadeServices.create#Audit": "CreateAudit",
+    "facade.AuditFacadeServices.delete#AuditFindingAcknowledgement": "DeleteAuditFindingAcknowledgement",
     "facade.AuditFacadeServices.get#AuditCheckExtracts": "GetAuditCheckExtracts",
     "facade.AuditFacadeServices.get#AuditCheckOptions": "GetAuditCheckOptions",
     "facade.AuditFacadeServices.get#AuditFinding": "GetAuditFinding",
+    "facade.AuditFacadeServices.get#AuditFindingFeedback": "GetAuditFindingFeedback",
     "facade.AuditFacadeServices.get#AuditFindingsByOrder": "GetAuditFindingsByOrder",
     "facade.AuditFacadeServices.get#AuditProgress": "GetAuditProgress",
     "facade.AuditFacadeServices.get#AuditReadReport": "GetAuditReadReport",
+    "facade.AuditFacadeServices.get#AuditRecheckProgress": "GetAuditRecheckProgress",
     "facade.AuditFacadeServices.get#AuditReport": "GetAuditReport",
     "facade.AuditFacadeServices.get#AuditSettings": "GetAuditSettings",
     "facade.AuditFacadeServices.get#Audits": "GetAudits",
@@ -31550,7 +32355,10 @@
     "facade.AuditFacadeServices.run#Audit": "RunAudit",
     "facade.AuditFacadeServices.save#AuditCheck": "SaveAuditCheck",
     "facade.AuditFacadeServices.save#AuditSettings": "SaveAuditSettings",
+    "facade.AuditFacadeServices.send#AuditFindingFeedback": "SendAuditFindingFeedback",
+    "facade.AuditFacadeServices.update#AuditFindingAcknowledgement": "UpdateAuditFindingAcknowledgement",
     "facade.AuditFacadeServices.verify#AuditFinding": "VerifyAuditFinding",
+    "facade.AuditFacadeServices.verify#AuditFindings": "VerifyAuditFindings",
     "facade.AuthFacadeServices.begin#PasskeyFirstSignIn": "BeginPasskeyFirstSignIn",
     "facade.AuthFacadeServices.begin#PasskeyProof": "BeginPasskeyProof",
     "facade.AuthFacadeServices.begin#PasskeyRegistration": "BeginPasskeyRegistration",
