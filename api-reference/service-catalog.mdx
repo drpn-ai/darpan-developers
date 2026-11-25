@@ -116,7 +116,7 @@ A Darpan admin turns the CLI on per user and tenant (see CLI access under [Admin
 
 | Method | Purpose |
 | --- | --- |
-| `create#RuleSetRun` / `save#RuleSetRun` | Create and update RuleSet-backed saved runs. |
+| `create#RuleSetRun` / `save#RuleSetRun` | Create and update RuleSet-backed saved runs. Both take `file1ExtractOptions` and `file2ExtractOptions`, a side's read options limited to the names its connector declares (`extractOptionsJson`), such as `{"withLineItems": true}`. On `save#RuleSetRun` (3.4.10), omitted keeps the side's stored options, sent replaces them, and an empty map clears them; an undeclared name is refused before anything is written. |
 | `create#CsvRun` | Create a CSV-based saved run. |
 | `list#SavedRuns` / `save#SavedRunName` / `delete#SavedRun` | Manage saved runs. |
 | `run#SavedRunDiff` | Execute a saved run. |

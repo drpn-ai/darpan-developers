@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Darpan Facade API",
-    "version": "3.4.9",
+    "version": "3.4.10",
     "x-darpan-contract-version": 5,
-    "description": "Public copy of the darpan v3.4.9 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
+    "description": "Public copy of the darpan v3.4.10 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
   },
   "servers": [
     {
@@ -24311,6 +24311,14 @@
           "file2PrimaryIdExpressions": {
             "type": "array",
             "items": {}
+          },
+          "file1ExtractOptions": {
+            "type": "object",
+            "description": "DAR-UI-148. This side's extract options, only the names\n                its connector declares (SourceSystemConnector.extractOptionsJson), e.g. {\"withLineItems\": true}. Omit to leave the\n                stored options unchanged; send an empty map to clear them."
+          },
+          "file2ExtractOptions": {
+            "type": "object",
+            "description": "DAR-UI-148. As file1ExtractOptions, for the second\n                side."
           },
           "rules": {
             "type": "array",
