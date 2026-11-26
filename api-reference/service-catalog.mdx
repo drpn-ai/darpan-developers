@@ -270,6 +270,19 @@ The agent only drafts changes. A person with edit access on the active tenant pl
 | `get#AgentAuditScope` | What an open finding's audit tells the agent: the audit's name and schedule, the finding's own statement and check, and the run that check reads. No other statement of the audit is returned. Another tenant's finding reads as not found. |
 | `find#AuditFindingLookalikes` | Findings of the same check as one finding (callable remotely from 3.4.12): `sameCause` (same conclusion, any state) and `controls` (a different one), each with its record key, state, codes and the condition values that differ, plus counts of the check's other findings by conclusion and by state. `limit` caps each list (10 most). |
 
+## Order lookup (`facade.LookupFacadeServices`)
+
+Follow one order id through every system the active tenant has connected (3.4.13). Every read is a read-only fresh query on the tenant's own connection; the reads and the links between them are data, product rows that a tenant can override, add to or hide. Limits are the settings `darpan.lookup.maxReads` (30) and `darpan.lookup.timeoutSeconds` (60, at most 240).
+
+| Method | Purpose |
+| --- | --- |
+| `lookup#Order` | Find `value` (a Shopify id or name, a HotWax order or external id, a NetSuite number or id, or any id a tenant read takes) in every connected system, follow the order through Shopify, HotWax and NetSuite, and return its records with its open findings. Order facts by default; customer name, email, phone and address only with `all`. Needs view access. |
+| `get#LookupCatalog` | The reads (without their templates) and links the active tenant's lookups use, its own rows merged in. Needs view access. |
+| `save#TenantLookupRead` | Add a tenant read, or override a product read with the same `readId` (blank fields keep the product's). The template must be read-only for its system: a SuiteQL `SELECT` taking `{value}`, or a GraphQL query taking `$value`. Needs edit access. |
+| `delete#TenantLookupRead` | Remove the tenant's own read or its override; the product read, if any, applies again. Needs edit access. |
+| `save#TenantLookupLink` | Add a tenant link (a join key from one read's field to another read), or override a product link with the same `linkId`. Needs edit access. |
+| `delete#TenantLookupLink` | Remove the tenant's own link or its override. Needs edit access. |
+
 ## Config versions (`facade.TenantConfigFacadeServices`)
 
 The active tenant's audit config (audits, statements, checks, runs, queries, conclusion codes and connections) kept as numbered versions. Another tenant's version reads as not found.
