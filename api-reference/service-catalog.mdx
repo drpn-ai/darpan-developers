@@ -324,7 +324,7 @@ Which endpoints of a connected system a given source configuration may read.
 | Method | Purpose |
 | --- | --- |
 | `list#SourceConfigEndpoints` | Endpoints registered for a config type with their current enablement. The catalog comes from the connector registry; access rows supply only whether each is enabled. |
-| `store#SourceConfigEndpointAccess` | Replace a config's endpoint enablement. Endpoints omitted from the list are explicitly disabled. |
+| `store#SourceConfigEndpointAccess` | Replace a config's endpoint enablement. Endpoints omitted from the list are explicitly disabled. Needs edit access (3.4.11). |
 
 ## Data source definitions (`facade.DataSourceDefinitionFacadeServices`)
 
