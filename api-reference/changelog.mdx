@@ -7,7 +7,8 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5, 3.4.6, 3.4.7, 3.4.8, 3.4.9, 3.4.10, 3.4.11, 3.4.12, 3.4.13, 3.4.14, 3.4.15, 3.4.16, 3.4.17 | 243 |
+| 6 (current) | 3.5.0 | 242 |
+| 5 | 3.4.0 to 3.4.17 (3.4.17 cut, never deployed) | 243 |
 | 4 | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
@@ -19,9 +20,21 @@ Releases 1.3.0, 1.4.0, 1.5.1, 2.1.3 to 2.1.12, 3.0.2, 3.0.3, 3.2.1, 3.3.1, 3.3.2
 Operator-only methods (`admin.*`) are listed in the [service catalog](/api-reference/service-catalog#administration) but are not part of the public API. They serve the operator admin application and require a super-admin caller, so integrations should not depend on them. The counts below mention them only so the totals add up.
 </Note>
 
+## Contract version 6
+
+Darpan 3.5.0. Current.
+
+### Darpan 3.5.0
+
+Four methods added and five removed (242), and one parameter removed, so the contract moves to 6:
+
+- Added: `facade.IdIndexFacadeServices.search#RecordIds` (an id, any spelling, found in the tenant's ID index and followed through the values its records share, up to 4 hops and 200 records; identifiers only), `get#IdIndexStatus` (how current the index is per kept copy), `save#TenantIdIndexField` and `delete#TenantIdIndexField` (a tenant's own ID fields; a path that looks like a customer detail is refused).
+- Removed: `facade.LookupFacadeServices.get#LookupCatalog`, `save#TenantLookupRead`, `delete#TenantLookupRead`, `save#TenantLookupLink`, `delete#TenantLookupLink`. The order lookup no longer reads connected systems, so it has no reads or links to manage.
+- Changed: `lookup#Order` loses `all` and answers from the ID index: `{value, records, findings, notSeen, capped, cappedReason}`. It calls no connected system.
+
 ## Contract version 5
 
-Darpan 3.4.0. Current.
+Darpan 3.4.0 to 3.4.17.
 
 ### Darpan 3.4.17
 

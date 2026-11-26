@@ -148,6 +148,15 @@ An upgrade runs in this order: load the reference data with the new image, start
 
 Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists anything else that release needs before you deploy.
 
+### Upgrading to 3.5
+
+3.5.0 moves `darpan`, `darpan-hotwax` `v1.4.0`, `shopify-darpan` `v0.12.0` and `netsuite-darpan` `v0.8.0` together; the three system components carry the ID index's sources, and core without them indexes nothing. The ID index tables are created on boot.
+
+1. **Load the upgrade data** (4 records, loaded on boot by default): the tenant filters of the three ID index tables and the job `maintain_IdIndex_nightly`, which arrives paused. Resume it when the index should be maintained nightly.
+2. **Run the pending migrations** (`run#PendingMigrations`, a dry run first): `ACK_NOTE_NULLABLE` makes `AUDIT_FINDING_ACKNOWLEDGEMENT.NOTE` nullable, the schema only. 3.4.16 registered it; 3.5.0 fixes its MySQL statement.
+3. **Deploy `darpan-ui` `v4.4.15`** after the migration.
+4. The API contract moves to 6: the order lookup's catalog methods are removed (see the [API changelog](/api-reference/changelog)). Move to `darpan` CLI `0.6.0`.
+
 ### Upgrading to 3.4
 
 3.4.0 runs Keep, the step that sets records aside, in Spark after every read instead of in each connector's extractor, and adds peak periods, the sync pulse, kept copies of a source, the moqui-rules component, and tenant queries on the moqui-jexl component. The upgrade data is a delta on 3.3.2. New tables (`RULES_*`, the `jexl.script` tables (`USER_SCRIPT`, `USER_SCRIPT_DEPLOYMENT`, `USER_SCRIPT_DEPLOYMENT_DELIVERY`, `USER_SCRIPT_RUN`, `SCRIPT_SOURCE`), `DATASET`, `DATASET_READ`, `PEAK_PERIOD`, `PEAK_PERIOD_RUN_TIME`, `SYNC_PAIR`, `PEAK_PERIOD_SYNC`, `SYNC_PULSE_SAMPLE`, `SYNC_PULSE_ORDER`, the judge tables) and new columns on existing tables are created on boot.
@@ -233,7 +242,7 @@ Roll back by redeploying 3.4.8 with app `v4.4.10`. The new tables and their rows
 
 3.4.14 is backend only: it moves `darpan` alone and has no upgrade data and no migration. An order lookup (`lookup#Order`) also lists findings a check keyed by another system's ids, through the records they name. Roll back by redeploying 3.4.13.
 
-3.4.17 moves `darpan` alone and has no upgrade data. It fixes 3.4.16's `ACK_NOTE_NULLABLE` on MySQL (3.4.16 would have sent `MODIFY NOTE VARCHAR NULL`, with no size, which MySQL refuses): run the pending migrations after the deploy, then deploy app `v4.4.15`.
+3.4.17 was cut and never deployed; 3.5.0 carries it.
 
 3.4.16 is cut with app `v4.4.15` and moves `darpan` alone. Its upgrade data (1 record, loaded on boot) registers the migration `ACK_NOTE_NULLABLE`. **Run the pending migrations after the boot** (`run#PendingMigrations`, a dry run first): it makes `AUDIT_FINDING_ACKNOWLEDGEMENT.NOTE` nullable, the schema only, no row changed. Moqui never relaxes an existing column, so until it runs an acknowledgement with no note fails. Deploy app `v4.4.15` after it.
 
