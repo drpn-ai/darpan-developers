@@ -96,7 +96,7 @@ Every job Darpan ships sets `expireLockTime` to 360 minutes. A task killed mid-j
 
 | Job | Schedule | What it does |
 | --- | --- | --- |
-| `run_SyncPulse` | Every 5 minutes, at 2:30 past | Samples every due sync pair (`pulse.SyncPulseServices.run#DuePulses`). Seeded running; it does nothing until a pair has a pulse cadence. Each pulse takes a run slot, so a pulse refused a slot is recorded as skipped, not queued. |
+| `run_SyncPulse` | Every 5 minutes, at 2:30 past | Samples every due sync pair (`pulse.SyncPulseServices.run#DuePulses`). Seeded running; it does nothing until a pair has a pulse cadence. From 3.5.3 a pulse takes a light slot of its own (`darpan.reconciliation.automation.maxConcurrentLightRuns`, default 4), outside the run caps; a pulse refused one (all in use, or memory holding new starts) is recorded as skipped, not queued, not queued. |
 | `send_ErrorDigest_hourly` | Hourly, at 5 past | Sends the daily Darpan error email in the hour `errors.digest.hourUtc` (12 UTC by default), once a day (`ops.ErrorDigestServices.send#DueErrorDigest`). With `errors.email.to` unset no email goes, and the summary posted to `errors.chat.webhookUrl` says so. |
 | `flush_ErrorLog_5m` | Every 5 minutes | Stores the `ERROR` log lines captured in memory and deletes stored lines older than 30 days (`ops.ErrorDigestServices.flush#ErrorLog`). A restart loses at most 5 minutes of them. |
 | `scan_DueDatasets_30m` | Every 30 minutes, seeded paused | Starts the due refreshes of the kept copies (`dataset.DatasetServices.scan#DueDatasets`), each as its dataset's tenant. Only active datasets are read. |

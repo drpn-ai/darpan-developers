@@ -157,6 +157,8 @@ Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists any
 3. **Deploy `darpan-ui` `v4.4.15`** after the migration.
 4. The API contract moves to 6: the order lookup's catalog methods are removed (see the [API changelog](/api-reference/changelog)). Move to `darpan` CLI `0.6.0`.
 
+3.5.3 moves `darpan`, `darpan-hotwax` `v1.4.1` and `netsuite-darpan` `v0.8.1` together (load `darpan-hotwax` before `netsuite-darpan`: the NetSuite read by change asks HotWax first). Its upgrade data (5 records, loaded on boot) adds the `AuditSharedRead` statuses and the tenant filter `DARPAN_SCOPE_AUD_SHARED_READ`; the table `AuditSharedRead` and the `NsSuiteQlSourceQuery` fields `omsChangedStatusIds` and `liveLineStates` are created on boot. One new setting, `darpan.reconciliation.automation.maxConcurrentLightRuns` (default 4). Run the pending migrations after the deploy, then deploy app `v4.4.15`.
+
 3.5.2 moves `darpan` alone and has no upgrade data. It fixes `ACK_NOTE_NULLABLE`, which 3.5.1 could not run: MySQL refuses DDL on a connection enlisted in an active XA transaction (`XAER_RMFAIL`), and `run#Migration` runs in one. The migration now suspends that transaction around its statement. Run the pending migrations after the deploy, then deploy app `v4.4.15`.
 
 3.5.1 moves `darpan` alone, on 3.5.0's other pins; deploy it in place of 3.5.0. Its upgrade data (4 records, loaded on boot) sets `pulseCreatedField` and `pulseNameField` on the `OMS_GQL` and `SHOPIFY` connectors, the systems a sync pulse can read upstream, and rewords two mascot lines. It also keeps run errors and warnings out of client chat rooms (DAR-BE-378), which needs no data. The two connector columns are created on boot; there is no migration of its own.
