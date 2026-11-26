@@ -233,6 +233,8 @@ Roll back by redeploying 3.4.8 with app `v4.4.10`. The new tables and their rows
 
 3.4.14 is backend only: it moves `darpan` alone and has no upgrade data and no migration. An order lookup (`lookup#Order`) also lists findings a check keyed by another system's ids, through the records they name. Roll back by redeploying 3.4.13.
 
+3.4.15 is backend only: it moves `darpan` alone and has no upgrade data and no migration. `get#AuditChangeProposal` and `list#AuditChangeProposals` refuse a view-only user. Roll back by redeploying 3.4.14.
+
 3.4.13 moves `darpan`, `darpan-hotwax` `v1.3.5`, `shopify-darpan` `v0.11.3` and `netsuite-darpan` `v0.7.2` together: the three system components carry the order lookup's product reads and links, loaded on boot, and core without them finds nothing. Its upgrade data (loaded on boot) adds the tenant filters for the two lookup override tables, which are created on boot. There is no migration. Deploy it before app `v4.4.14`. The `darpan` CLI `0.5.0` follows the deploy.
 
 3.4.12 is cut with app `v4.4.14`; deploy the backend first, then the app. Its image moves `darpan` only. It has no upgrade data and no migration. It adds three facade methods and makes a fourth remote (contract stays 5), which the `darpan` CLI `0.4.0` uses once 3.4.12 is deployed.
