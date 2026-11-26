@@ -7,7 +7,7 @@ The generated contract carries `info.x-darpan-contract-version`, decoupled from 
 
 | Contract version | Darpan releases | Public `facade.*` methods |
 | --- | --- | --- |
-| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5, 3.4.6, 3.4.7, 3.4.8, 3.4.9, 3.4.10, 3.4.11, 3.4.12, 3.4.13, 3.4.14, 3.4.15, 3.4.16 | 243 |
+| 5 (current) | 3.4.0, 3.4.1, 3.4.2, 3.4.3, 3.4.4, 3.4.5, 3.4.6, 3.4.7, 3.4.8, 3.4.9, 3.4.10, 3.4.11, 3.4.12, 3.4.13, 3.4.14, 3.4.15, 3.4.16, 3.4.17 | 243 |
 | 4 | 3.0.0, 3.0.2, 3.0.3, 3.1.0, 3.2.0, 3.2.1, 3.3.0, 3.3.1, 3.3.2 | 208 |
 | 3 | 1.5.0, 1.5.1, 2.0.0, 2.1.0 to 2.1.12 | 147 |
 | 2 | 1.2.0, 1.3.0, 1.4.0 | 73 |
@@ -22,6 +22,12 @@ Operator-only methods (`admin.*`) are listed in the [service catalog](/api-refer
 ## Contract version 5
 
 Darpan 3.4.0. Current.
+
+### Darpan 3.4.17
+
+No method added or removed (243); one optional parameter added, so the contract stays at 5:
+
+- `facade.AuditFacadeServices.run#Audit` takes `checks`: check codes to play; only their automations run. None plays every check.
 
 ### Darpan 3.4.16
 

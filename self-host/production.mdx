@@ -233,6 +233,8 @@ Roll back by redeploying 3.4.8 with app `v4.4.10`. The new tables and their rows
 
 3.4.14 is backend only: it moves `darpan` alone and has no upgrade data and no migration. An order lookup (`lookup#Order`) also lists findings a check keyed by another system's ids, through the records they name. Roll back by redeploying 3.4.13.
 
+3.4.17 moves `darpan` alone and has no upgrade data. It fixes 3.4.16's `ACK_NOTE_NULLABLE` on MySQL (3.4.16 would have sent `MODIFY NOTE VARCHAR NULL`, with no size, which MySQL refuses): run the pending migrations after the deploy, then deploy app `v4.4.15`.
+
 3.4.16 is cut with app `v4.4.15` and moves `darpan` alone. Its upgrade data (1 record, loaded on boot) registers the migration `ACK_NOTE_NULLABLE`. **Run the pending migrations after the boot** (`run#PendingMigrations`, a dry run first): it makes `AUDIT_FINDING_ACKNOWLEDGEMENT.NOTE` nullable, the schema only, no row changed. Moqui never relaxes an existing column, so until it runs an acknowledgement with no note fails. Deploy app `v4.4.15` after it.
 
 3.4.15 is backend only: it moves `darpan` alone and has no upgrade data and no migration. `get#AuditChangeProposal` and `list#AuditChangeProposals` refuse a view-only user. Roll back by redeploying 3.4.14.

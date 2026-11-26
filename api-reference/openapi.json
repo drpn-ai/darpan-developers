@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Darpan Facade API",
-    "version": "3.4.16",
+    "version": "3.4.17",
     "x-darpan-contract-version": 5,
-    "description": "Public copy of the darpan v3.4.16 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
+    "description": "Public copy of the darpan v3.4.17 contract (operator-only admin.* methods removed). Generated from the facade service XML; see the Errors page for the authoritative error model.\n\nTransport: JSON-RPC 2.0 over POST /rpc/json. Auth channels: browser SPA uses the HttpOnly darpan_login_key cookie + CSRF token (canonical); integration callers and no-credentialed-CORS fallbacks use the login_key header (in-memory only, never query params). A call that ends with service errors returns HTTP 500 with a JSON-RPC error object; read the body on every status. JSON-RPC error object: protocol failures (-32700 parse, -32600 invalid request, -32601 method not found, -32602 invalid params), unhandled service errors (code 500), authorization denial (code 403). A result with ok=false is possible but uncommon; most validation failures arrive as error code 500 with the message in error.message."
   },
   "servers": [
     {
@@ -5135,6 +5135,13 @@
           "fullRead": {
             "type": "boolean",
             "description": "DAR-BE-122. Read every system for the\n                whole of the days picked. Off: each check reads the days since its last complete read and re-checks its\n                older open findings by key."
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "DAR-BE-373. Check codes to play; none plays every check. Only the\n                automations of these checks run (each records every check it feeds). A code the audit does not have refuses\n                the play."
           }
         },
         "required": [
@@ -5142,7 +5149,7 @@
           "fromDate",
           "thruDate"
         ],
-        "description": "Play: runs every check of the audit now over the days picked, first to last inclusive (the tenant's zone),\n            recording findings as the morning run does. Submitted to the background, one automation per run; the audit page\n            shows the results as each finishes. Days in the period just ended record under that period (DAR-BE-178).\n            Refused up front for days in the future or in a period ended before that."
+        "description": "Play: runs every check of the audit (or only the checks named) now over the days picked, first to last inclusive (the tenant's zone),\n            recording findings as the morning run does. Submitted to the background, one automation per run; the audit page\n            shows the results as each finishes. Days in the period just ended record under that period (DAR-BE-178).\n            Refused up front for days in the future or in a period ended before that."
       },
       "RunAuditResult": {
         "type": "object",
