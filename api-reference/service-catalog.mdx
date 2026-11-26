@@ -192,7 +192,7 @@ A sync pair attaches a light watch to an existing daily check: every few minutes
 | --- | --- |
 | `list#SyncPairs` | The active tenant's sync pairs, with the waiting and past-allowance counts from the latest sample and the open orders. |
 | `get#SyncPair` | One sync pair: its allowance and pulse in force today and its own values, today's samples, and the open past-allowance orders, oldest first. Always returns the daily checks and chat spaces the pair form picks from; with no `syncPairId` that is all it returns. |
-| `save#SyncPair` | Create or update a sync pair: the automation (one pair per automation), the upstream side, the allowance, the pulse cadence, a chat space and an hourly summary. A blank cadence is pulse off and a blank chat space is none; `isActive` and `hourlySummary` keep their stored values when omitted. |
+| `save#SyncPair` | Create or update a sync pair: the automation (one pair per automation), the upstream side, the allowance, the pulse cadence, a chat space and an hourly summary. A blank cadence is pulse off and a blank chat space is none; `isActive` and `hourlySummary` keep their stored values when omitted. A pulse needs an upstream side of HotWax orders or Shopify orders. |
 | `delete#SyncPair` | Delete a sync pair with its peak period overrides, samples and tracked orders. |
 | `get#RunPulseFlags` | For one daily-check run, the records the pulse had already flagged past allowance before the run started and that were still open then, each with the time the pulse first flagged it. Empty, with no `syncPairId`, when the run's check has no pair. |
 

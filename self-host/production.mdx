@@ -157,6 +157,8 @@ Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists any
 3. **Deploy `darpan-ui` `v4.4.15`** after the migration.
 4. The API contract moves to 6: the order lookup's catalog methods are removed (see the [API changelog](/api-reference/changelog)). Move to `darpan` CLI `0.6.0`.
 
+3.5.1 moves `darpan` alone, on 3.5.0's other pins; deploy it in place of 3.5.0. Its upgrade data (4 records, loaded on boot) sets `pulseCreatedField` and `pulseNameField` on the `OMS_GQL` and `SHOPIFY` connectors, the systems a sync pulse can read upstream, and rewords two mascot lines. It also keeps run errors and warnings out of client chat rooms (DAR-BE-378), which needs no data. The two connector columns are created on boot; there is no migration of its own.
+
 ### Upgrading to 3.4
 
 3.4.0 runs Keep, the step that sets records aside, in Spark after every read instead of in each connector's extractor, and adds peak periods, the sync pulse, kept copies of a source, the moqui-rules component, and tenant queries on the moqui-jexl component. The upgrade data is a delta on 3.3.2. New tables (`RULES_*`, the `jexl.script` tables (`USER_SCRIPT`, `USER_SCRIPT_DEPLOYMENT`, `USER_SCRIPT_DEPLOYMENT_DELIVERY`, `USER_SCRIPT_RUN`, `SCRIPT_SOURCE`), `DATASET`, `DATASET_READ`, `PEAK_PERIOD`, `PEAK_PERIOD_RUN_TIME`, `SYNC_PAIR`, `PEAK_PERIOD_SYNC`, `SYNC_PULSE_SAMPLE`, `SYNC_PULSE_ORDER`, the judge tables) and new columns on existing tables are created on boot.
