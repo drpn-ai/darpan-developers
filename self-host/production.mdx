@@ -233,6 +233,8 @@ Roll back by redeploying 3.4.8 with app `v4.4.10`. The new tables and their rows
 
 3.4.14 is backend only: it moves `darpan` alone and has no upgrade data and no migration. An order lookup (`lookup#Order`) also lists findings a check keyed by another system's ids, through the records they name. Roll back by redeploying 3.4.13.
 
+3.4.16 is cut with app `v4.4.15` and moves `darpan` alone. Its upgrade data (1 record, loaded on boot) registers the migration `ACK_NOTE_NULLABLE`. **Run the pending migrations after the boot** (`run#PendingMigrations`, a dry run first): it makes `AUDIT_FINDING_ACKNOWLEDGEMENT.NOTE` nullable, the schema only, no row changed. Moqui never relaxes an existing column, so until it runs an acknowledgement with no note fails. Deploy app `v4.4.15` after it.
+
 3.4.15 is backend only: it moves `darpan` alone and has no upgrade data and no migration. `get#AuditChangeProposal` and `list#AuditChangeProposals` refuse a view-only user. Roll back by redeploying 3.4.14.
 
 3.4.13 moves `darpan`, `darpan-hotwax` `v1.3.5`, `shopify-darpan` `v0.11.3` and `netsuite-darpan` `v0.7.2` together: the three system components carry the order lookup's product reads and links, loaded on boot, and core without them finds nothing. Its upgrade data (loaded on boot) adds the tenant filters for the two lookup override tables, which are created on boot. There is no migration. Deploy it before app `v4.4.14`. The `darpan` CLI `0.5.0` follows the deploy.
