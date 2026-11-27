@@ -157,6 +157,8 @@ Each entry in [Release updates](https://docs.drpn.ai/releases/updates) lists any
 3. **Deploy `darpan-ui` `v4.4.15`** after the migration.
 4. The API contract moves to 6: the order lookup's catalog methods are removed (see the [API changelog](/api-reference/changelog)). Move to `darpan` CLI `0.6.0`.
 
+3.5.9 moves only `darpan`: an audit's run update is sent even while another of its checks is still running (a read with no progress metrics no longer breaks the audit's progress), and the daily error email leaves out deliberate refusals (setting `errors.email.ignorePatterns`). Its upgrade data is two email copy blocks; no migration.
+
 3.5.8 moves only `darpan` and is deployed in place of 3.5.7 (cut, never deployed): everything in 3.5.7, plus a store's closed day reads as a quiet day, chat card headers carry no logo, and `remove#AuditCheck`. Its upgrade data is diffed from 3.5.6, so 3.5.7's mascot seed and copy block load with it; no migration.
 
 3.5.7 moves only `darpan`: chat posts become cards (peak period starts, sync pulse past/caught-up, audit updates) and a quiet day says "nothing to compare"; its upgrade data (the mascot seed and one email copy block, loaded on boot) changes only default wording, never an admin's edit; no migration.
